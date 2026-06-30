@@ -1,477 +1,564 @@
-"""
-Self-contained Kaggle agent — PTCG AI Battle Challenge (v5).
+import sys, glob, random, math
 
-Mega Lucario ex deck + determinized forward-search agent with a board evaluator
-anchored on PRIZE TRADE. At each MAIN decision it simulates finishing the turn for
-every candidate action via the engine's forward model and keeps the action whose
-resulting board scores best. Any search error falls back to the heuristic, so it
-can never crash on the ladder.
-"""
-import random
-import dataclasses
-from collections import Counter
+for _pat in ['/kaggle/input/**/cg-lib', '/kaggle/input/cg-lib']:
+    _paths = glob.glob(_pat, recursive=True)
+    if _paths: sys.path.insert(0, _paths[0]); break
 
-DECK = [
-    333, 333, 333, 333,           # Riolu
-    678, 678, 678, 678,           # Mega Lucario ex
-    135, 135, 135,                # Bloodmoon Ursaluna ex
-    1224, 1224, 1224, 1224,       # Trainer
-    1192, 1192, 1192, 1192,       # Trainer
-    1213, 1213, 1213, 1213,       # Trainer
-    1182, 1182, 1182,             # Trainer
-    1121, 1121, 1121, 1121,       # Trainer
-    1125,                          # Master Ball (ACE SPEC)
-    1119, 1119, 1119, 1119,       # Trainer
-    1116, 1116, 1116, 1116,       # Trainer
-    1123, 1123, 1123,             # Trainer
-    1252, 1252, 1252,             # Trainer
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6  # Fighting Energy
-]
-assert len(DECK) == 60
+try:
+    from cg.api import all_card_data, all_attack
+except ImportError:
+    all_card_data = lambda: []
+    all_attack    = lambda: []
 
-NUMBER, YES, NO, CARD, TOOL_CARD, ENERGY_CARD, ENERGY, PLAY, ATTACH, EVOLVE, \
-    ABILITY, DISCARD, RETREAT, ATTACK, END, SKILL, SPECIAL_CONDITION = range(17)
+NUMBER,YES,NO,CARD,TOOL_CARD,ENERGY_CARD,ENERGY,PLAY,ATTACH,EVOLVE,\
+    ABILITY,DISCARD,RETREAT,ATTACK,END,SKILL,SPECIAL_CONDITION = range(17)
 
-STRONG_ATTACK = 110
-ACTIONS_PER_TURN_CAP = 80
-CHARGE_TO_BEST = True
+CTX_SETUP_ACTIVE = 1
+CTX_SETUP_BENCH  = 2
+LOG_PLAY         = 10
+LOG_HP_CHANGE    = 16
+CARDTYPE_SUPPORTER = 3
 
-W_PRIZE = 1000.0
-W_KO_THEM = 350.0
-W_KO_ME = 480.0
-W_SURVIVE = 240.0
-W_ACTIVE_READY = 120.0
-W_BACKUP = 170.0
-W_CONDITIONS_SELF = 220.0
-W_CONDITIONS_OPP = 170.0
-W_BENCH_EXPOSURE = 110.0
-W_DRAW_ACCESS = 45.0
-W_HAND = 15.0
-W_DECKOUT = 20.0
-BIG = 1e9
+ABRA,KADABRA,ALAKAZAM             = 741,742,743
+DUNSPARCE,DUNSPARCE2,DUDUNSPARCE  = 305,65,66
+GENESECT,SHAYMIN,PSYDUCK,FEZ      = 142,343,858,140
+POFFIN,POKE_PAD,HANDHELD_FAN      = 1086,1152,1161
+BOSS,LANA,BATTLE_CAGE,DAWN        = 1182,1184,1264,1231
+WONDROUS_PATCH,SACRED_ASH,HILDA   = 1146,1129,1225
+ENHANCED_HAMMER,RARE_CANDY        = 1081,1079
+BASIC_P,ENRICHING,TELEPATH_P      = 5,13,19
 
-_CARDS = None
-_ATTACKS = None
+MIST_ENERGY = 11
+ROCK_ENERGY = 20
+PSYCHIC_TYPE = 5
 
+ALAKAZAM_LINE_IDS      = {ABRA,KADABRA,ALAKAZAM}
+DRAW_ABILITY_CARD_IDS  = {KADABRA,ALAKAZAM,DUDUNSPARCE}
+SUPPRESS_ABILITY_IDS   = {109}
+PSYCHIC_ENERGY_IDS     = {BASIC_P,TELEPATH_P}
+BENCHABLE_BASIC_IDS    = {ABRA,DUNSPARCE,DUNSPARCE2,PSYDUCK,SHAYMIN,GENESECT,FEZ}
+LINE_SEARCH_HAND_IDS   = {DAWN,HILDA}
+DRAW_ENGINE_IDS        = {DUNSPARCE,DUNSPARCE2,DUDUNSPARCE}
+NON_ATTACKER_IDS       = {DUNSPARCE,DUNSPARCE2,DUDUNSPARCE,GENESECT,SHAYMIN,PSYDUCK,FEZ,ABRA}
+PIVOT_FREE_RETREAT_IDS = {SHAYMIN}
+TOOL_IDS               = {HANDHELD_FAN}
+PH_DMG_PER_CARD = 20
+
+DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*3+[DUNSPARCE]*3+[DUDUNSPARCE]*3+
+        [GENESECT]+[SHAYMIN]+[PSYDUCK]+[FEZ]+
+        [POFFIN]*4+[POKE_PAD]*4+[HANDHELD_FAN]*2+[BOSS]*3+[LANA]+
+        [BATTLE_CAGE]*4+[DAWN]*4+[WONDROUS_PATCH]+[SACRED_ASH]+[HILDA]*3+
+        [ENHANCED_HAMMER]*2+[RARE_CANDY]*3+[BASIC_P]*2+[ENRICHING]+[TELEPATH_P]*4)
+
+_CARDS = None; _ATKMAP = None
 def _meta():
-    """Load card metadata from the engine."""
-    global _CARDS, _ATTACKS
+    global _CARDS,_ATKMAP
     if _CARDS is None:
-        _CARDS = {}
-        _ATTACKS = {}
+        _CARDS={}; _ATKMAP={}
         try:
-            from cg.api import all_card_data, all_attack
-            for c in all_card_data():
-                _CARDS[c.cardId] = c
             for a in all_attack():
-                if a.attackId not in _ATTACKS:
-                    _ATTACKS[a.attackId] = []
-                _ATTACKS[a.attackId].append((a.damage or 0, tuple(a.energies or [])))
-        except Exception:
-            pass
-    return _CARDS, _ATTACKS
+                _ATKMAP[a.attackId]=(getattr(a,'damage',0) or 0,
+                                     tuple(getattr(a,'energies',()) or ()))
+            for c in all_card_data(): _CARDS[c.cardId]=c
+        except: pass
+    return _CARDS,_ATKMAP
 
-def _prize_value(cid):
-    """Return prize value: 3 if megaEx, 2 if ex, else 1."""
-    C, _ = _meta()
-    c = C.get(cid)
-    if c:
-        if getattr(c, 'megaEx', False):
-            return 3
-        if getattr(c, 'ex', False):
-            return 2
+def _prize_value_pk(pk):
+    if not pk: return 1
+    if pk.get('megaEx',False): return 3
+    if pk.get('ex',False):     return 2
     return 1
 
-def _is_ex(cid):
-    """Return True if card is ex or megaEx."""
+def _analyze_logs(obs_dict, me_idx):
+    logs = obs_dict.get('logs') or []
+    opp_idx = 1 - me_idx
+    opp_played = set()
+    bench_damage_received = False
+    we_were_kod_last_turn = False
     C, _ = _meta()
-    c = C.get(cid)
-    return bool(c and (getattr(c, 'ex', False) or getattr(c, 'megaEx', False)))
+    for log in logs[-30:]:
+        ltype = log.get('type')
+        lplayer = log.get('playerIndex')
+        if ltype == LOG_PLAY and lplayer == opp_idx:
+            cid = log.get('cardId', 0)
+            if cid: opp_played.add(cid)
+        if ltype == LOG_HP_CHANGE and lplayer == me_idx:
+            if log.get('putDamageCounter', False):
+                bench_damage_received = True
+        if log.get('type') == 6 and lplayer == me_idx:
+            from_area = log.get('fromArea'); to_area = log.get('toArea')
+            if from_area in (4, 5) and to_area == 3:
+                we_were_kod_last_turn = True
+    opp_has_ace_spec = any(
+        C.get(cid) and getattr(C.get(cid), 'aceSpec', False)
+        for cid in opp_played)
+    opp_likely_ace_spec = True
+    return opp_played, bench_damage_received, we_were_kod_last_turn, opp_likely_ace_spec
 
-def _can_pay(cost, have):
-    """Check if energy list `have` can pay `cost`."""
-    need = Counter(e for e in cost if e != 0)
-    colorless = sum(1 for e in cost if e == 0)
-    pool = Counter(have)
-    for col, k in need.items():
-        if pool[col] < k:
-            return False
-        pool[col] -= k
-    return sum(pool.values()) >= colorless
+def _pk_id(pk): return (pk or {}).get('id',-1)
+def _energies(pk): return (pk or {}).get('energies') or []
+def _has_psychic(pk): return PSYCHIC_TYPE in _energies(pk)
+def _can_ph(pk): return _pk_id(pk)==ALAKAZAM and _has_psychic(pk)
+def _hand_list(p): return p.get('hand') or []
+def _hand_size(state,me):
+    try:
+        p=state['players'][me]; h=p.get('handCount')
+        return h if h is not None else len(_hand_list(p))
+    except: return 0
+def _active(p):
+    a=p.get('active'); return a[0] if a and len(a)>0 and a[0] else None
+def _is_non_attacker(pk): return not pk or _pk_id(pk) in NON_ATTACKER_IDS
 
-def _affordable_dmg(pk):
-    """Return best damage this Pokémon can deal with current energy."""
-    if not pk:
-        return 0
-    C, A = _meta()
-    have = pk.get("energies") or []
-    c = C.get(pk.get("id"))
-    best = 0
-    if c:
-        for aid in getattr(c, 'attacks', []):
-            if aid in A:
-                for dmg, cost in A[aid]:
-                    if _can_pay(cost, have):
-                        best = max(best, dmg)
-    return best
+def _opp_has_blocking_energy(opp_active):
+    if not opp_active: return False
+    for ec in (opp_active.get('energyCards') or []):
+        if ec.get('id') in (MIST_ENERGY, ROCK_ENERGY): return True
+    return False
 
-def _damage_to(att, dfn):
-    """Compute damage from attacker to defender, including Weakness."""
-    if not att or not dfn:
-        return 0
-    C, _ = _meta()
-    d = _affordable_dmg(att)
-    if d == 0:
-        return 0
-    ca = C.get(att.get("id"))
-    cd = C.get(dfn.get("id"))
-    if ca and cd:
-        att_type = getattr(ca, 'energyType', None)
-        weakness = getattr(cd, 'weakness', None)
-        if weakness and att_type == weakness:
-            d *= 2
-    return d
-
-def _attack_ceiling(pk):
-    """Return highest-damage attack this Pokémon has."""
-    C, A = _meta()
-    if not pk:
-        return 0
-    c = C.get(pk.get("id"))
-    if not c:
-        return 0
-    dmgs = []
-    for aid in getattr(c, 'attacks', []):
-        if aid in A:
-            for dmg, _ in A[aid]:
-                dmgs.append(dmg)
-    return max(dmgs) if dmgs else 0
-
-_state = {"turn": None, "actions": 0}
-
-def _clamp(indices, sel):
-    """Clamp indices to selection bounds."""
-    mn, mx, n = sel["minCount"], sel["maxCount"], len(sel["option"])
-    out = []
+def _opt_card_id(o,hand,my_active,bench):
+    ot=o.get('type')
+    if ot in(PLAY,ATTACH,EVOLVE,TOOL_CARD,ENERGY_CARD):
+        idx=o.get('index')
+        if idx is not None and 0<=idx<len(hand): return _pk_id(hand[idx])
+        return -1
+    if ot==ABILITY:
+        area=o.get('area'); idx=o.get('index',0)
+        if area==4: return _pk_id(my_active)
+        if area==5 and 0<=idx<len(bench): return _pk_id(bench[idx])
+        return -1
+    return -1
+def _attach_target(o,my_active,bench):
+    ta=o.get('inPlayArea',-1); ti=o.get('inPlayIndex',0)
+    if ta==4: return my_active
+    if ta==5 and bench and 0<=ti<len(bench): return bench[ti]
+    return None
+def _clamp(indices,sel):
+    mn=sel.get('minCount',0) or 0; mx=sel.get('maxCount',1) or 1
+    n=len(sel.get('option',[])); out=[]
     for i in indices:
-        if 0 <= i < n and i not in out:
-            out.append(i)
-        if len(out) >= mx:
-            break
-    i = 0
-    while len(out) < mn and i < n:
-        if i not in out:
-            out.append(i)
-        i += 1
+        if 0<=i<n and i not in out: out.append(i)
+        if len(out)>=mx: break
+    i=0
+    while len(out)<mn and i<n:
+        if i not in out: out.append(i)
+        i+=1
     return out
 
-def _quick_policy(obs_dict, deck):
-    """Fast fallback rule policy."""
-    sel = obs_dict.get("select")
-    if sel is None:
-        return deck
-    opts = sel["option"]
-    n = len(opts)
-    if n == 0:
-        return []
-    
-    mn, mx = sel["minCount"], sel["maxCount"]
-    stype = sel["type"]
-    cur = obs_dict.get("current") or {}
-    t = cur.get("turn")
-    
-    if t != _state["turn"]:
-        _state["turn"] = t
-        _state["actions"] = 0
-    _state["actions"] += 1
-    panic = _state["actions"] > ACTIONS_PER_TURN_CAP
-    
-    if stype == 0:
-        me = cur.get("yourIndex", 0)
-        players = cur.get("players", [])
-        active = (players[me]["active"][0] if players and players[me].get("active") else None)
-        opp = players[1 - me] if players and len(players) == 2 else None
-        oa = opp["active"][0] if opp and opp.get("active") else None
-        opp_hp = oa.get("hp", 9999) if oa else 9999
-        ba = _affordable_dmg(active)
-        bm = _attack_ceiling(active)
-        has_attach = any(o.get("type") == ATTACH for o in opts)
-        can_ko = ba > 0 and ba >= opp_hp
-        
-        if CHARGE_TO_BEST:
-            ready = can_ko or (ba >= STRONG_ATTACK and (ba >= bm or not has_attach))
-        else:
-            ready = ba >= STRONG_ATTACK or can_ko
-        
-        PRI = {ABILITY: 6, EVOLVE: 5, PLAY: 4, ATTACH: 3, SKILL: 4, END: 1, RETREAT: 0, DISCARD: 0}
-        bi, bs = 0, -1e9
-        for i, o in enumerate(opts):
-            ot = o.get("type")
-            if ot == ATTACK:
-                s = 7 if ready else 1.5
-            else:
-                s = PRI.get(ot, 2)
-                if ot == ATTACH and o.get("inPlayArea") == 4:
-                    s += 0.5
-            if s > bs:
-                bs, bi = s, i
-        
-        if panic:
-            for i, o in enumerate(opts):
-                if o.get("type") == ATTACK:
-                    return [i]
-            for i, o in enumerate(opts):
-                if o.get("type") == END:
-                    return [i]
-        
-        return [bi]
-    
-    if stype == 6:
-        _, A = _meta()
-        return [max(range(n), key=lambda i: max((x[0] for x in A.get(opts[i].get("attackId"), [(0, ())])), default=0))]
-    if stype == 8:
-        return [max(range(n), key=lambda i: opts[i].get("number", 0) or 0)]
-    if stype == 9:
-        for i, o in enumerate(opts):
-            if o.get("type") == YES:
-                return [i]
-        return [0]
-    if stype == 4:
-        return _clamp(list(range(n)), sel)
-    
-    k = mn if mn > 0 else (1 if mx >= 1 else 0)
-    return _clamp(list(range(n))[:k] if k else [], sel)
+def _census(my_active, bench):
+    all_mine=[my_active]+list(bench)
+    abra_count=sum(1 for p in all_mine if _pk_id(p)==ABRA)
+    genesect_with_tool = any(
+        _pk_id(b)==GENESECT and (b or {}).get('tools')
+        for b in bench if b)
+    return {
+        'abra_count':     abra_count,
+        'backup_abra':    abra_count>=2,
+        'line_count':     sum(1 for p in all_mine if _pk_id(p) in ALAKAZAM_LINE_IDS),
+        'draw_count':     sum(1 for p in all_mine if _pk_id(p) in DRAW_ENGINE_IDS),
+        'dudun_bench':    sum(1 for p in bench if _pk_id(p)==DUDUNSPARCE),
+        'need_line':      sum(1 for p in all_mine if _pk_id(p) in ALAKAZAM_LINE_IDS)<2,
+        'need_draw':      sum(1 for p in all_mine if _pk_id(p) in DRAW_ENGINE_IDS)<2,
+        'has_alakazam':   any(_pk_id(p)==ALAKAZAM for p in all_mine),
+        'kadabra_can_evolve': any(
+            _pk_id(p)==KADABRA and not (p or {}).get('appearThisTurn',False)
+            for p in all_mine if p),
+        'dudun_no_energy': any(
+            _pk_id(p)==DUDUNSPARCE and not _energies(p)
+            for p in bench if p),
+        'has_energy_plan': any(_has_psychic(p) for p in all_mine if p),
+        'bench_count':    len([b for b in bench if b]),
+        'has_psyduck':    any(_pk_id(b)==PSYDUCK for b in bench if b),
+        'has_shaymin':    any(_pk_id(b)==SHAYMIN for b in bench if b),
+        'has_genesect':   any(_pk_id(b)==GENESECT for b in bench if b),
+        'has_fez':        any(_pk_id(b)==FEZ for b in bench if b),
+        'genesect_active': genesect_with_tool,
+        'active_is_kadabra': _pk_id(my_active)==KADABRA,
+    }
 
-def _active(p):
-    """Get active Pokémon from PlayerState."""
-    a = p.get("active")
-    return a[0] if a and len(a) > 0 and a[0] else None
+PHASE_ESTABLISH=1; PHASE_CONVERT=2; PHASE_PRESSURE=3; PHASE_CLOSING=4
 
-def _hp_tot(p):
-    """Sum total current HP."""
-    return sum(
-        (x.get("hp", 0) or 0)
-        for x in (p.get("active") or []) + (p.get("bench") or [])
-        if x
-    )
+def _detect_phase(cen,can_ko,at_threshold,opp_prizes_left,hand_n):
+    if opp_prizes_left<=2: return PHASE_CLOSING
+    not_established=(
+        not cen['has_alakazam'] or not cen['backup_abra'] or
+        cen['draw_count']==0 or not cen['has_energy_plan'])
+    if not_established: return PHASE_ESTABLISH
+    if can_ko or at_threshold: return PHASE_PRESSURE
+    return PHASE_CONVERT
 
-def evaluate(state, me):
-    """Evaluate board state. Higher = better FOR YOU."""
-    if state is None:
-        return 0.0
-    
-    P = state.get("players", [])
-    if len(P) < 2:
-        return 0.0
-    
-    mp = P[me]
-    op = P[1 - me]
-    res = state.get("result", -1)
-    
-    if res == me:
-        return BIG
-    if res != -1:
-        return -BIG
-    
-    mypz = len(mp.get("prize") or [])
-    oppz = len(op.get("prize") or [])
-    
-    if mypz == 0:
-        return BIG
-    if oppz == 0:
-        return -BIG
-    
-    ma = _active(mp)
-    oa = _active(op)
-    mb = [x for x in (mp.get("bench") or []) if x]
-    ob = [x for x in (op.get("bench") or []) if x]
-    
-    if oa is None and not ob:
-        return BIG
-    if ma is None and not mb:
-        return -BIG
-    
-    s = W_PRIZE * (oppz - mypz)
-    s -= 0.20 * _hp_tot(op)
-    s += 0.10 * _hp_tot(mp)
-    
-    if ma and oa:
-        oah = oa.get("hp", 0) or 0
-        mah = ma.get("hp", 0) or 0
-        my_dmg = _damage_to(ma, oa)
-        opp_dmg = _damage_to(oa, ma)
-        
-        if oah > 0 and my_dmg >= oah:
-            s += W_KO_THEM * _prize_value(oa.get("id"))
-        
-        if mah > 0 and opp_dmg >= mah:
-            ex_mult = 1.4 if _is_ex(ma.get("id")) else 1.0
-            s -= W_KO_ME * ex_mult * _prize_value(ma.get("id"))
-        
-        if mah > 0 and opp_dmg < mah:
-            buffer = mah - opp_dmg
-            surv_score = W_SURVIVE * min(1.0, (buffer ** 0.5) / 16.0)
-            s += surv_score
-    
-    if ma and _affordable_dmg(ma) > 0:
-        s += W_ACTIVE_READY
-    
-    backup_count = 0
-    for pk in mb:
-        if pk.get("id") in [333, 678, 135]:
-            if _affordable_dmg(pk) > 0:
-                backup_count += 1
-    s += W_BACKUP * min(2, backup_count)
-    
-    unneeded_ex = max(0, sum(1 for x in mb if _is_ex(x.get("id"))) - 1)
-    s -= W_BENCH_EXPOSURE * unneeded_ex
-    
-    ma_locked = ma and (
-        ma.get("asleep") or ma.get("paralyzed") or ma.get("confused")
-    )
-    oa_locked = oa and (
-        oa.get("asleep") or oa.get("paralyzed") or oa.get("confused")
-    )
-    
-    if ma_locked:
-        s -= W_CONDITIONS_SELF
-    if oa_locked:
-        s += W_CONDITIONS_OPP
-    
-    hc = mp.get("handCount", 0) or 0
-    s += W_HAND * (min(hc, 8) - 3)
-    
-    my_deck = mp.get("deckCount", 0) or 0
-    opp_deck = op.get("deckCount", 0) or 0
-    if min(my_deck, opp_deck) <= 6:
-        s += W_DECKOUT * (my_deck - opp_deck)
-    
-    return s
+def _pick_setup_active(opts):
+    PREF={ABRA:90,DUNSPARCE:100,DUNSPARCE2:100,PSYDUCK:40,SHAYMIN:30,GENESECT:25,FEZ:5}
+    best_i,best_s=0,-1
+    for i,o in enumerate(opts):
+        cid=o.get('cardId') or o.get('id',-1)
+        s=PREF.get(cid,20)
+        if s>best_s: best_s,best_i=s,i
+    return[best_i]
 
-def _vis(state, me):
-    """Return visible card ids for player `me`."""
-    seen = []
-    p = state.get("players", [{}])[me]
-    for c in (p.get("hand") or []):
-        seen.append(c.get("id"))
-    for c in (p.get("discard") or []):
-        seen.append(c.get("id"))
-    
-    def add(pk):
-        if not pk:
-            return
-        seen.append(pk.get("id"))
-        for e in (pk.get("energyCards") or []):
-            seen.append(e.get("id"))
-        for tl in (pk.get("tools") or []):
-            seen.append(tl.get("id"))
-        for pe in (pk.get("preEvolution") or []):
-            seen.append(pe.get("id"))
-    
-    for pk in (p.get("active") or []):
-        add(pk)
-    for pk in (p.get("bench") or []):
-        add(pk)
-    
-    return seen
+def _pick_setup_bench(opts): return list(range(len(opts)))
 
-def _determinize(obs, my_deck):
-    """Determinize hidden information for search."""
-    state = obs.get("current", {})
-    me = state.get("yourIndex", 0)
-    opp = 1 - me
-    mp = state.get("players", [{}])[me]
-    op = state.get("players", [{}])[opp]
-    
-    rem = list((Counter(my_deck) - Counter(_vis(state, me))).elements())
-    random.shuffle(rem)
-    nd = mp.get("deckCount", 0)
-    npz = len(mp.get("prize", []))
-    while len(rem) < nd + npz:
-        rem.append(my_deck[0])
-    yd = rem[:nd]
-    yp = rem[nd:nd + npz]
-    
-    pool = list(my_deck) * 3
-    random.shuffle(pool)
-    od = pool[:op.get("deckCount", 0)]
-    opz = pool[:len(op.get("prize", []))]
-    oh = pool[:op.get("handCount", 0)]
-    oa = [678] if (op.get("active") and op["active"] and op["active"][0] is None) else []
-    
-    return yd, yp, od, opz, oh, oa
+def _pick_bench_target(obs,opts):
+    cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
+    players=cur.get('players',[]); me=players[me_idx] if players and len(players)>me_idx else{}
+    bench=me.get('bench') or[]
+    area5=[(i,o) for i,o in enumerate(opts) if o.get('area')==5]
+    best_i,best_score=(area5[0][0] if area5 else 0),-1
+    for order,(i,o) in enumerate(area5):
+        idx=o.get('index',order)
+        pk=bench[idx] if 0<=idx<len(bench) else(bench[order] if order<len(bench) else None)
+        pid=_pk_id(pk)
+        if pid==ALAKAZAM and _has_psychic(pk): s=100
+        elif pid==ALAKAZAM: s=80
+        elif pid==KADABRA:  s=60
+        elif pid in PIVOT_FREE_RETREAT_IDS: s=40
+        elif pid in NON_ATTACKER_IDS: s=5
+        else: s=20
+        if s>best_score: best_score,best_i=s,i
+    return[best_i]
 
-def _d(x):
-    """Convert dataclass to dict."""
-    return dataclasses.asdict(x) if (x is not None and dataclasses.is_dataclass(x)) else x
+def _pick_boss_target(obs,sel):
+    cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
+    players=cur.get('players',[]); opp_idx=1-me
+    opp=players[opp_idx] if len(players)>opp_idx else{}
+    opp_bench=opp.get('bench') or[]
+    hand_n=_hand_size(cur,me); dmg=hand_n*PH_DMG_PER_CARD
+    opts=sel.get('option',[]); ko_targets=[]; non_ko_targets=[]
+    for i,o in enumerate(opts):
+        bi=o.get('index',0)
+        pk=opp_bench[bi] if 0<=bi<len(opp_bench) else None
+        if not pk: continue
+        pk_hp=(pk.get('hp',99999) or 99999); pv=_prize_value_pk(pk)
+        if dmg>=pk_hp: ko_targets.append((i,pv,pk_hp))
+        else:          non_ko_targets.append((i,pk_hp,pk))
+    if ko_targets:
+        best=max(ko_targets,key=lambda x:(x[1],-x[2])); return[best[0]]
+    if non_ko_targets:
+        def threat(t):
+            _,hp,pk=t; pid=_pk_id(pk)
+            pv=_prize_value_pk(pk)
+            if pid==ALAKAZAM: threat_score=100
+            elif pid==KADABRA: threat_score=60
+            elif pid in PIVOT_FREE_RETREAT_IDS: threat_score=40
+            elif pid in NON_ATTACKER_IDS: threat_score=5
+            else: threat_score=20
+            return pv*200 + threat_score
+        best=max(non_ko_targets,key=threat); return[best[0]]
+    return[0]
 
-def _rollout(child, me, deck, max_steps=64):
-    """Rollout from child state: finish YOUR turn, evaluate leaf."""
+def _main_phase(obs,sel):
+    opts=sel['option']; n=len(opts)
+    if n==0: return[]
+    cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
+    players=cur.get('players',[])
+    my=players[me_idx]   if players and len(players)>me_idx else{}
+    opp=players[1-me_idx] if players and len(players)==2     else{}
+    supporter_played=cur.get('supporterPlayed',False)
+    energy_attached =cur.get('energyAttached',False)
+    retreated       =cur.get('retreated',False)
+    my_active=_active(my); opp_active=_active(opp)
+    hand_n=_hand_size(cur,me_idx); hand=_hand_list(my); bench=my.get('bench') or[]
+    lone=len([x for x in([my_active]+bench) if x])<=1
+    cen=_census(my_active,bench)
+    deck_count=my.get('deckCount',0) or 0
+    discard=my.get('discard') or[]
+    deck_critical=deck_count<10
+    deck_danger  =deck_count<5
+    prizes=len(my.get('prize') or[]); opp_prizes=len(opp.get('prize') or[])
+    opp_played, bench_dmg_received, we_were_kod, opp_likely_ace = _analyze_logs(obs, me_idx)
+    opp_mist=_opp_has_blocking_energy(opp_active)
+    opp_hp=(opp_active or{}).get('hp',99999) or 99999
+    attack_available=any(o.get('type')==ATTACK for o in opts)
+    active_is_alak=_pk_id(my_active)==ALAKAZAM
+    active_can_attack=active_is_alak and attack_available
+    active_non_atk=_is_non_attacker(my_active)
+    alak_stuck=active_is_alak and not attack_available
+    bench_has_alak=any(_pk_id(b)==ALAKAZAM for b in bench if b)
+    bench_has_alak_ready=any(_can_ph(b) for b in bench if b)
+    bench_has_attacker=any(_pk_id(b) in{ALAKAZAM,KADABRA} for b in bench if b)
+    my_dmg=(PH_DMG_PER_CARD*hand_n) if active_can_attack and not opp_mist else 0
+    can_ko=active_can_attack and opp_active is not None and my_dmg>=opp_hp and not opp_mist
+    opp_bench=opp.get('bench') or[]
+    opp_active_pv=_prize_value_pk(opp_active)
+    boss_in_hand=any(_pk_id(c)==BOSS for c in hand)
+    tool_in_hand=any(_pk_id(c) in TOOL_IDS for c in hand)
+    boss_target_exists=(
+        active_can_attack and not opp_mist and opp_hp>my_dmg and
+        any(0<(b or{}).get('hp',99999)<=my_dmg and
+            _prize_value_pk(b)>=opp_active_pv
+            for b in opp_bench if b))
+    ready_alak_exists=active_can_attack or bench_has_alak_ready
+    snipe_dmg=PH_DMG_PER_CARD*hand_n
+    opp_bench_ko_gte=any(
+        0<(b or{}).get('hp',99999)<=snipe_dmg and _prize_value_pk(b)>=opp_active_pv
+        for b in opp_bench if b)
+    boss_snipe_plan=(boss_in_hand and ready_alak_exists and opp_bench_ko_gte and opp_hp>snipe_dmg)
+    cards_needed=math.ceil(opp_hp/PH_DMG_PER_CARD) if opp_hp<99999 else 999
+    at_threshold=active_can_attack and hand_n>=cards_needed and not opp_mist
+    hand_too_small=hand_n<max(3,math.ceil(opp_hp/PH_DMG_PER_CARD/3))
+    emergency_draw=hand_n<=4
+    phase=_detect_phase(cen,can_ko,at_threshold,opp_prizes,hand_n)
+    in_late_phase=phase in(PHASE_CONVERT,PHASE_PRESSURE,PHASE_CLOSING)
+    active_hp=(my_active or{}).get('hp',99999) or 99999
+    active_max_hp=(my_active or{}).get('maxHp',999) or 999
+    active_below_half=(active_max_hp-active_hp)>active_max_hp//2
+    active_vulnerable=active_hp<60 or (active_below_half and opp_prizes<=3)
+    boss_ex_snipe=False
+    if can_ko and boss_in_hand and not opp_mist:
+        boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
+        for pk in opp_bench:
+            if not pk: continue
+            if boss_dmg>=(pk.get('hp',99999) or 99999) and _prize_value_pk(pk)>opp_active_pv:
+                boss_ex_snipe=True; break
+    opp_bench_low_hp=any(0<(b or{}).get('hp',999)<=100 for b in opp_bench if b)
+    enriching_on_dudun=any(_pk_id(b)==DUDUNSPARCE and _energies(b) for b in bench if b)
+    active_kadabra_can_evolve=(
+        _pk_id(my_active)==KADABRA and
+        not (my_active or{}).get('appearThisTurn',False))
+
+    def score(o):
+        ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
+        if ot==ATTACK:
+            if not active_can_attack: return-5
+            if opp_mist: return-5
+            if can_ko: return 200
+            if at_threshold: return 150
+            if hand_too_small: return 0.5
+            return 7.0
+        if ot==RETREAT:
+            if retreated: return-50
+            if alak_stuck:
+                if bench_has_alak_ready: return 22.0
+                if bench_has_attacker:   return 17.0
+                return 10.0
+            if active_non_atk and bench_has_alak_ready:
+                return 30.0 if active_below_half else 22.0
+            if active_non_atk and bench_has_alak:
+                return 20.0 if active_below_half else 16.0
+            if active_non_atk:                     return 11.0
+            if opp_mist and active_is_alak:        return 9.0
+            if active_can_attack:                  return-2.0
+            return 0.5
+        if ot==ABILITY:
+            if lone: return-10
+            if cid in SUPPRESS_ABILITY_IDS: return-10
+            if cid in DRAW_ABILITY_CARD_IDS:
+                if can_ko: return 2.0
+                if cid==DUDUNSPARCE:
+                    if deck_critical and not emergency_draw: return-2.0
+                    if hand_n>=14 and not emergency_draw:    return 1.0
+                    if cen['dudun_bench']>1 and not emergency_draw: return 6.0
+                    return 11.0
+                if emergency_draw: return 15.0
+                return 10.0
+            return 5.0
+        if ot==EVOLVE:
+            if cid==ALAKAZAM:
+                post_evo_dmg=(hand_n+3)*PH_DMG_PER_CARD
+                if not can_ko and post_evo_dmg>=opp_hp and active_kadabra_can_evolve:
+                    return 270
+                if active_kadabra_can_evolve:
+                    return 250
+                if can_ko: return 5.0
+                if not cen['has_alakazam']: return 16.0
+                return 10.0
+            if cid==KADABRA:
+                if can_ko: return 3.0
+                return 13.0
+            if can_ko: return 2.0
+            if active_non_atk: return 12.0
+            return 8.5
+        if ot==PLAY:
+            if cid==ENHANCED_HAMMER:
+                opp_has_any_special = any(
+                    ec.get('id') in (MIST_ENERGY, ROCK_ENERGY)
+                    for ec in ((opp_active or{}).get('energyCards') or[]))
+                if opp_has_any_special: return 28.0
+                return 3.0
+            if cid==BATTLE_CAGE:
+                if in_late_phase and hand_n>=8: return 1.0
+                return 6.0
+            if cid==BOSS:
+                if phase==PHASE_CLOSING: return 200.0
+                if boss_ex_snipe:        return 250.0
+                if boss_target_exists:   return 16.0
+                if opp_mist and ready_alak_exists: return 12.0
+                return 4.0
+            if can_ko: return 1.0
+            if cid in BENCHABLE_BASIC_IDS:
+                bc=cen['bench_count']
+                if cid==FEZ:
+                    if bc>=5: return-5.0
+                    if active_vulnerable and not cen['has_fez']: return 14.0
+                    if opp_bench_low_hp and not cen['has_fez'] and cen['has_alakazam']: return 10.0
+                    if we_were_kod and not cen['has_fez']: return 16.0
+                    if bc==0: return 3.0
+                    return -1.0
+                if cid==ABRA:
+                    if not cen['backup_abra']:  return 20.0
+                    if bc<3:                    return 10.0
+                    return 4.0
+                if cid in(DUNSPARCE,DUNSPARCE2):
+                    if cen['draw_count']==0:    return 18.0
+                    if bc<3:                    return 9.0
+                    return 3.0
+                if cid==PSYDUCK:
+                    opp_ability_threat = bool(opp_played & {109, 110, 111})
+                    if opp_ability_threat and not cen['has_psyduck']: return 18.0
+                    if phase==PHASE_ESTABLISH and bc<3 and not cen['has_psyduck']: return 7.0
+                    return 1.5
+                if cid==SHAYMIN:
+                    if bench_dmg_received and not cen['has_shaymin']: return 16.0
+                    if phase==PHASE_ESTABLISH and bc<3 and not cen['has_shaymin']: return 5.0
+                    return 1.0
+                if cid==GENESECT:
+                    if cen['has_genesect']: return 1.0
+                    if tool_in_hand and opp_likely_ace: return 11.0
+                    if bc<2: return 6.0
+                    return 2.0
+                if bc==0: return 10.0
+                if bc==1: return 7.0
+                return 3.0
+            if cid==RARE_CANDY:
+                if cen['kadabra_can_evolve']:
+                    if at_threshold or phase in(PHASE_PRESSURE,PHASE_CLOSING): return 15.0
+                    return 5.0
+                if not cen['has_alakazam']: return 17.0
+                if cen['need_line']:        return 9.0
+                return 4.0
+            if cid==POFFIN:
+                if not cen['backup_abra'] or cen['draw_count']==0:
+                    if cen['bench_count']<4: return 19.0
+                if cen['bench_count']<2: return 14.0
+                if phase==PHASE_ESTABLISH: return 10.0
+                if in_late_phase: return 2.0
+                return 6.0
+            if cid==SACRED_ASH:
+                if deck_danger:   return 35.0
+                if deck_critical: return 25.0
+                if phase==PHASE_CLOSING: return 5.0
+                return 2.0
+            if cid==LANA:
+                if phase==PHASE_CLOSING: return 5.0
+                return 2.0
+            if cid==DAWN:
+                if supporter_played: return-5.0
+                if boss_snipe_plan and not emergency_draw: return 1.0
+                if deck_critical: return 2.0
+                if hand_n>=12: return 2.0
+                if emergency_draw: return 14.0
+                if cen['need_line'] or not cen['has_alakazam']: return 11.0
+                if phase==PHASE_CONVERT: return 8.0
+                return 6.0
+            if cid==HILDA:
+                if supporter_played: return-5.0
+                if boss_snipe_plan and not emergency_draw: return 1.0
+                if deck_critical: return 2.0
+                if not enriching_on_dudun and cen['draw_count']>0: return 11.0
+                if not cen['has_alakazam']: return 13.0
+                if emergency_draw: return 12.0
+                if cen['need_line']: return 10.0
+                if phase==PHASE_CONVERT: return 7.0
+                return 5.0
+            if cid==POKE_PAD:
+                if not cen['backup_abra']: return 13.0
+                if cen['need_line']:       return 9.0
+                if in_late_phase:          return 2.0
+                return 5.0
+            if cid==WONDROUS_PATCH:
+                if not cen['has_energy_plan']: return 8.0
+                if in_late_phase: return 2.0
+                return 5.0
+            if in_late_phase: return 1.5
+            return 4.0
+        if ot==SKILL: return 5.0
+        if ot==ATTACH:
+            if can_ko: return 0.5
+            tgt=_attach_target(o,my_active,bench); tid=_pk_id(tgt)
+            if cid==HANDHELD_FAN:
+                if tid==GENESECT and not (tgt or{}).get('tools'): return 15.0
+                return 1.5
+            if cid==ENRICHING:
+                if tid==DUDUNSPARCE and cen['dudun_no_energy']: return 20.0
+                if tid==DUDUNSPARCE:                             return 13.0
+                if tid==ALAKAZAM and not _has_psychic(tgt):     return 1.0
+                return 6.0
+            if cid in PSYCHIC_ENERGY_IDS:
+                if tid==ALAKAZAM and not _has_psychic(tgt): return 16.0
+                if tid==ALAKAZAM:                            return 8.0
+                if tid==KADABRA:                             return 7.0
+                return 3.0
+            if active_non_atk:
+                if tid==ALAKAZAM: return 11.0
+                return 2.0
+            if tid==ALAKAZAM: return 6.0
+            return 3.0
+        if ot==DISCARD: return 0.0
+        if ot==END:
+            if phase==PHASE_CONVERT and hand_n>=8: return 4.0
+            if phase==PHASE_PRESSURE and at_threshold: return 3.0
+            return 1.0
+        return 2.0
+
+    best_i,best_s=0,-1e18
+    for i,o in enumerate(opts):
+        s=score(o)
+        if s>best_s: best_s,best_i=s,i
+    return[best_i]
+
+def _choose(obs):
+    sel=obs.get('select')
+    if sel is None: return DECK
+    opts=sel.get('option',[]); n=len(opts)
+    if n==0: return[]
+    stype=sel.get('type'); ctx=sel.get('context',0)
+    mn=sel.get('minCount',0) or 0; mx=sel.get('maxCount',1) or 1
+    if stype==0: return _main_phase(obs,sel)
+    if stype==1:
+        if ctx==CTX_SETUP_ACTIVE: return _pick_setup_active(opts)
+        if ctx==CTX_SETUP_BENCH:  return _pick_setup_bench(opts)
+        cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
+        is_boss_target=(len(opts)>0
+            and all(o.get('playerIndex')==(1-me) and o.get('area')==5 for o in opts))
+        if is_boss_target: return _pick_boss_target(obs,sel)
+        if any(o.get('area')==5 for o in opts):
+            return _clamp(_pick_bench_target(obs,opts),sel)
+        yes_i=[i for i,o in enumerate(opts) if o.get('type')==YES]
+        return _clamp(yes_i if yes_i else list(range(n)),sel)
+    if stype in(2,3,4,7): return _clamp(list(range(n)),sel)
+    if stype==5:           return _clamp(list(range(n))[:max(mn,1)],sel)
+    if stype==6:
+        _,A=_meta()
+        return[max(range(n),key=lambda i:(A.get(opts[i].get('attackId'),(0,))[0] or 1))]
+    if stype==8:
+        return[max(range(n),key=lambda i:opts[i].get('number',0) or 0)]
+    if stype==9:
+        for i,o in enumerate(opts):
+            if o.get('type')==YES: return[i]
+        return[0]
+    if stype==10: return _clamp(list(range(n))[:max(mn,1)],sel)
+    k=mn if mn>0 else(1 if mx>=1 else 0)
+    return _clamp(list(range(n))[:k] if k else[],sel)
+
+def _safe_return(result,sel):
+    if not sel: return result
+    n=len(sel.get('option',[])); mn=sel.get('minCount',0) or 0; mx=sel.get('maxCount',1) or 1
+    if not isinstance(result,list): result=[0]
+    result=[i for i in result if 0<=i<n][:mx]; i=0
+    while len(result)<mn and i<n:
+        if i not in result: result.append(i)
+        i+=1
+    return result if result else([0] if n>0 else[])
+
+def agent(obs_dict: dict) -> list[int]:
     try:
-        from cg.api import search_step
-    except Exception:
-        return evaluate(_d(child.observation.current) if hasattr(child, 'observation') else None, me)
-    
-    so = child.observation
-    steps = 0
-    
-    while steps < max_steps:
-        cur = _d(so.current)
-        sel = so.select
-        
-        if cur is not None and cur.get("result", -1) != -1:
-            return BIG if cur["result"] == me else -BIG
-        
-        if sel is None:
-            break
-        
-        if cur is not None and cur.get("yourIndex", me) != me:
-            break
-        
-        try:
-            child = search_step(child.searchId, _quick_policy(_d(so), deck))
-        except Exception:
-            break
-        
-        so = child.observation
-        steps += 1
-    
-    return evaluate(_d(so.current), me)
-
-def _search_choose(obs_dict, deck):
-    """Determinized forward search on MAIN decisions."""
-    sel = obs_dict.get("select")
-    if sel is None:
-        return deck
-    
-    if sel.get("type") != 0 or len(sel.get("option", [])) < 2:
-        return _quick_policy(obs_dict, deck)
-    
+        sel=obs_dict.get('select'); out=_choose(obs_dict)
+        if isinstance(out,list): return _safe_return(out,sel) if sel else out
+    except: pass
     try:
-        from cg.api import to_observation_class, search_begin, search_step, search_end
-        
-        o = to_observation_class(obs_dict)
-        yd, yp, od, op, oh, oa = _determinize(obs_dict, deck)
-        root = search_begin(o, yd, yp, od, op, oh, oa, manual_coin=False)
-        me = obs_dict["current"]["yourIndex"]
-        best_i, best_v = 0, -1e18
-        
-        for i in range(len(sel["option"])):
-            try:
-                child = search_step(root.searchId, [i])
-            except Exception:
-                continue
-            
-            v = _rollout(child, me, deck)
-            if v > best_v:
-                best_v, best_i = v, i
-        
-        search_end()
-        return [best_i]
-    
-    except Exception:
-        return _quick_policy(obs_dict, deck)
-
-def agent(obs_dict):
-    """Main agent entry point."""
-    return _search_choose(obs_dict, DECK)
+        sel=obs_dict.get('select')
+        if not sel: return[]
+        n=len(sel.get('option',[]))
+        if n==0: return[]
+        mn=sel.get('minCount',1) or 0
+        return _safe_return(list(range(min(max(mn,1),n))),sel)
+    except: return[0]

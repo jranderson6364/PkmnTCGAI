@@ -41,7 +41,7 @@ deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
-  piloting-guide.md  ← expert Alakazam piloting logic (BC target spec)
+  piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
   version-history.md ← v1–v15 change log
   training-setup.md  ← self-play + curriculum training plan
@@ -227,7 +227,7 @@ def prize_value(pokemon):
 2. **v15 A/B harness validation pending** — run `ab_test(v15, random, n=200)` and `ab_test(v15, v11, n=400)` on Kaggle to confirm improvements over v14.
 3. **Psyduck threat detection uses guessed placeholder IDs `{109, 110, 111}`** — grep `all_card_data()` for self-damage ability text to find real Dusknoir card ID.
 4. **`opp_likely_ace_spec` hardcoded to True** — infer from early-game logs (opponent archetype detection).
-5. **NN track decision** — v15 diverges from v11 (the BC teacher). If NN resumes: (a) recollect BC data with v15 as teacher, OR (b) keep v11 as BC teacher (independent tracks).
+5. **NN track decision** — v15 diverges from v11 (the self-play warmup teacher). If NN resumes, decide: (a) recollect warmup data with v15 as teacher, OR (b) keep v11 teacher (independent tracks).
 6. **Verify `battle_finish()` early-exit behavior** — curriculum data generation exits bad-hand games early; confirm this does not count as a ladder loss before running at scale.
 
 ---
@@ -247,16 +247,18 @@ def prize_value(pokemon):
 
 See `docs/nn-training.md` for full details.
 
-**Status (as of 2026-06-30):** BC warm-start complete. Self-play paused pending Vivobook access.
-- BC data: 113k samples from v11 teacher, at `/kaggle/working/bc_data.pkl`
-- Best checkpoint: `sp2_iter2.pth` at ~55% vs v11 teacher
+**Status (as of 2026-06-30):** Imitation warmup complete (self-play on v11 games, NOT opponent BC — opponent decks differ). Self-play paused pending Vivobook access.
+- Warmup data: 113k samples from v11 self-play, at `/kaggle/working/bc_data.pkl`
+- Best checkpoint: `sp2_iter2.pth` at ~55% vs v11
 - Architecture: EmbeddingBag(22000) + Transformer(128d, 2-head) + actor-critic heads
-- Exit criterion for Phase 1: net beats teacher 55-60%+ over 100 games
+- Exit criterion for Phase 1: net beats v11 teacher 55-60%+ over 100 games
+
+**Note: Behavior cloning from opponent replays is NOT viable** — top bots run different decks/strategies; their action sequences don't transfer to Alakazam.
 
 **Phase plan:**
-1. BC warm-start → done
-2. Expert iteration self-play → active (attempt 2)
-3. League/PFSP hardening → next (needs meta opponent decks)
+1. Imitation warmup (self-play on v11 games) → done
+2. Expert iteration self-play vs diverse pool → active (attempt 2)
+3. League/PFSP hardening → next (needs meta opponent decks + Vivobook)
 4. Report writeup → Aug–Sep
 
 ---

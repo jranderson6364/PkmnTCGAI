@@ -20,7 +20,7 @@
 
 **Fix:** Resolve options through visible hand/board: `PLAY/ATTACH/EVOLVE → hand[o['index']].id`; `ABILITY → (area,index) → active/bench pokemon`.
 
-**83% vs random** as BC teacher. Served as teacher for NN Phase 0 BC warm-start (113k samples).
+**83% vs random.** Served as teacher for NN Phase 0 imitation warmup (113k samples of v7 self-play).
 
 ---
 
@@ -53,7 +53,7 @@ Hold Supporter for a Boss snipe (partial implementation). Hit ~700 Elo (~1600/32
 
 **Ceiling identified:** greedy can't SEQUENCE a full turn. The Boss/Supporter conflict is the canonical example — greedy plays the draw Supporter first, then can't Boss the target.
 
-v11 became the **BC teacher for NN track** (113k samples).
+v11 became the **imitation warmup teacher for NN track** (113k self-play samples). Note: opponent BC (imitating other decks' action sequences) is not viable — decks differ too much.
 
 ---
 
@@ -133,9 +133,9 @@ Built directly from 4 real replay JSONs (vs Shachify, 3fk, Nicholas Low, Evan Li
 
 See `docs/nn-training.md` for full details.
 
-- Phase 0 (BC): complete. 52% net vs v11 teacher.
-- Phase 1 (self-play): attempt 2 running. Best: sp2_iter2.pth at ~55% vs teacher.
-- Paused while v14 heuristic detour runs.
+- Phase 0 (imitation warmup on v11 self-play): complete. 52% net vs v11.
+- Phase 1 (self-play vs diverse pool): attempt 2 running. Best: sp2_iter2.pth at ~55% vs v11.
+- Paused while v15 heuristic runs. Opponent BC (imitating other decks) is not viable — action sequences don't transfer.
 
 ---
 

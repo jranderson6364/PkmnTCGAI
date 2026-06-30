@@ -209,7 +209,8 @@ def _pick_bench_target(obs,opts):
         pid=_pk_id(pk)
         if pid==ALAKAZAM and _has_psychic(pk): s=100
         elif pid==ALAKAZAM: s=80
-        elif pid==KADABRA:  s=60
+        elif pid==KADABRA:  s=3
+        elif pid==ABRA:     s=1
         elif pid in PIVOT_FREE_RETREAT_IDS: s=40
         elif pid in NON_ATTACKER_IDS: s=5
         else: s=20
@@ -221,17 +222,18 @@ def _pick_boss_target(obs,sel):
     players=cur.get('players',[]); opp_idx=1-me
     opp=players[opp_idx] if len(players)>opp_idx else{}
     opp_bench=opp.get('bench') or[]
-    hand_n=_hand_size(cur,me); dmg=hand_n*PH_DMG_PER_CARD
+    hand_n=_hand_size(cur,me); boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
     opts=sel.get('option',[]); ko_targets=[]; non_ko_targets=[]
     for i,o in enumerate(opts):
         bi=o.get('index',0)
         pk=opp_bench[bi] if 0<=bi<len(opp_bench) else None
         if not pk: continue
         pk_hp=(pk.get('hp',99999) or 99999); pv=_prize_value_pk(pk)
-        if dmg>=pk_hp: ko_targets.append((i,pv,pk_hp))
-        else:          non_ko_targets.append((i,pk_hp,pk))
+        ec=len((pk or{}).get('energies') or [])
+        if boss_dmg>=pk_hp: ko_targets.append((i,pv,pk_hp,ec))
+        else:               non_ko_targets.append((i,pk_hp,pk))
     if ko_targets:
-        best=max(ko_targets,key=lambda x:(x[1],-x[2])); return[best[0]]
+        best=max(ko_targets,key=lambda x:(x[1],x[2],x[3])); return[best[0]]
     if non_ko_targets:
         def threat(t):
             _,hp,pk=t; pid=_pk_id(pk)
@@ -281,17 +283,17 @@ def _main_phase(obs,sel):
     opp_active_pv=_prize_value_pk(opp_active)
     boss_in_hand=any(_pk_id(c)==BOSS for c in hand)
     tool_in_hand=any(_pk_id(c) in TOOL_IDS for c in hand)
+    boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
     boss_target_exists=(
         active_can_attack and not opp_mist and opp_hp>my_dmg and
-        any(0<(b or{}).get('hp',99999)<=my_dmg and
+        any(0<(b or{}).get('hp',99999)<=boss_dmg and
             _prize_value_pk(b)>=opp_active_pv
             for b in opp_bench if b))
     ready_alak_exists=active_can_attack or bench_has_alak_ready
-    snipe_dmg=PH_DMG_PER_CARD*hand_n
     opp_bench_ko_gte=any(
-        0<(b or{}).get('hp',99999)<=snipe_dmg and _prize_value_pk(b)>=opp_active_pv
+        0<(b or{}).get('hp',99999)<=boss_dmg and _prize_value_pk(b)>=opp_active_pv
         for b in opp_bench if b)
-    boss_snipe_plan=(boss_in_hand and ready_alak_exists and opp_bench_ko_gte and opp_hp>snipe_dmg)
+    boss_snipe_plan=(boss_in_hand and ready_alak_exists and opp_bench_ko_gte and opp_hp>boss_dmg)
     cards_needed=math.ceil(opp_hp/PH_DMG_PER_CARD) if opp_hp<99999 else 999
     at_threshold=active_can_attack and hand_n>=cards_needed and not opp_mist
     hand_too_small=hand_n<max(3,math.ceil(opp_hp/PH_DMG_PER_CARD/3))
@@ -302,13 +304,11 @@ def _main_phase(obs,sel):
     active_max_hp=(my_active or{}).get('maxHp',999) or 999
     active_below_half=(active_max_hp-active_hp)>active_max_hp//2
     active_vulnerable=active_hp<60 or (active_below_half and opp_prizes<=3)
-    boss_ex_snipe=False
-    if can_ko and boss_in_hand and not opp_mist:
-        boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
-        for pk in opp_bench:
-            if not pk: continue
-            if boss_dmg>=(pk.get('hp',99999) or 99999) and _prize_value_pk(pk)>opp_active_pv:
-                boss_ex_snipe=True; break
+    boss_ex_snipe=(
+        can_ko and boss_in_hand and not opp_mist and
+        any(boss_dmg>=(pk.get('hp',99999) or 99999) and _prize_value_pk(pk)>opp_active_pv
+            for pk in opp_bench if pk))
+    alak_in_discard=any(_pk_id(c) in ALAKAZAM_LINE_IDS for c in discard)
     opp_bench_low_hp=any(0<(b or{}).get('hp',999)<=100 for b in opp_bench if b)
     enriching_on_dudun=any(_pk_id(b)==DUDUNSPARCE and _energies(b) for b in bench if b)
     active_kadabra_can_evolve=(
@@ -328,13 +328,12 @@ def _main_phase(obs,sel):
             if retreated: return-50
             if alak_stuck:
                 if bench_has_alak_ready: return 22.0
-                if bench_has_attacker:   return 17.0
-                return 10.0
+                return -5.0
             if active_non_atk and bench_has_alak_ready:
                 return 30.0 if active_below_half else 22.0
             if active_non_atk and bench_has_alak:
                 return 20.0 if active_below_half else 16.0
-            if active_non_atk:                     return 11.0
+            if active_non_atk:                     return -3.0
             if opp_mist and active_is_alak:        return 9.0
             if active_can_attack:                  return-2.0
             return 0.5
@@ -440,9 +439,12 @@ def _main_phase(obs,sel):
             if cid==SACRED_ASH:
                 if deck_danger:   return 35.0
                 if deck_critical: return 25.0
+                if alak_in_discard and not cen['has_alakazam']: return 12.0
                 if phase==PHASE_CLOSING: return 5.0
                 return 2.0
             if cid==LANA:
+                if alak_in_discard and not cen['has_alakazam']: return 15.0
+                if alak_in_discard: return 8.0
                 if phase==PHASE_CLOSING: return 5.0
                 return 2.0
             if cid==DAWN:
@@ -467,6 +469,7 @@ def _main_phase(obs,sel):
             if cid==POKE_PAD:
                 if not cen['backup_abra']: return 13.0
                 if cen['need_line']:       return 9.0
+                if cen['need_draw']:       return 10.0
                 if in_late_phase:          return 2.0
                 return 5.0
             if cid==WONDROUS_PATCH:

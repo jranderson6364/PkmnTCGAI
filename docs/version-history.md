@@ -91,7 +91,60 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v15: Heuristic Fixes + Training Infrastructure — CURRENT ACTIVE SUBMISSION
+## v17: Competitive-Research Alignment + Threshold Discipline — CURRENT ACTIVE SUBMISSION
+
+Did a full research pass on how the Alakazam/Dudunsparce deck is actually piloted at
+the top level (Cerys Jones' 1st-place Indianapolis Regional list, CL Osaka 2026, the
+Limitless meta lists, and the TCGplayer/Cardsrealm/Deltia guides) and rewrote
+`docs/piloting-guide.md` into a comprehensive v3 strategy doc — every card's role, the
+card-economy table, turn-by-turn sequencing, Boss target priority, energy routing,
+Iono play-around, deck-out avoidance, all matchups, an explicit our-list-vs-meta-list
+comparison, and a strategy→heuristic map with the remaining gaps.
+
+**Key finding:** our 60-card backbone is *identical* to the meta list (4 Abra / 4
+Kadabra / 3 Alakazam / 3 Dunsparce / 3 Dudunsparce / 4 Poffin / 4 Poké Pad / 4 Dawn /
+3 Hilda / 3 Rare Candy / 2 Enhanced Hammer / 2 Handheld Fan / 1 Sacred Ash / 1 Lana /
+4 Telepath / 1 Enriching), so the win has to come from piloting, not the decklist. The
+single most-cited skill in every guide — "draw to the KO threshold, then **stop** and
+bank surplus on the bench" — was exactly the principle our deck-out losses violated.
+
+**Heuristic changes:**
+1. **`hand_surplus` threshold discipline.** When a ready attacker exists (Active or
+   bench Alakazam) and `hand_n >= cards_needed`, with no Boss-snipe plan and not an
+   emergency, all non-essential draw is suppressed: Dudunsparce ability → 0.5, Fez
+   ability → -3, Dawn/Hilda/Poké Pad → 2.0. Re-running the deck-out replay through the
+   patched agent shows it now ENDs/attacks instead of firing Dawn/Poké Pad on five
+   separate overdraw turns, conserving the deck cards it previously milled itself out on.
+2. **Dudunsparce Run Away Draw** now hits a hard -8 floor at `deck_danger` (<5), not
+   just the -2 at `deck_critical` (<10).
+3. **`active_immobile` rescue attach prefers Psychic** (65 vs 55 for colorless) so a
+   stranded Alakazam gets energy that enables both retreat and attack, and the lone
+   Enriching isn't wasted on the rescue.
+
+**Verification:** agent runs clean on all 1,672 real selections across the 6 replays
+(0 exceptions, 0 illegal empty returns); guaranteed-lethal lines still taken. Deck
+unchanged (deck is 20% of scoring; the validated 60 is meta-identical).
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v16: Replay-Driven Bug Hunt
+
+Six real ladder losses (5 freshly uploaded + 1 from the v15 session) were decoded turn-by-turn with a one-off replay analyzer that reverse-engineered the kaggle-env log format: `steps[i]['action']` resolves `steps[i-1]`'s `select.option` list, not its own. This let every PLAY/ATTACH/EVOLVE/RETREAT/BOSS decision be reconstructed with card names (cross-referenced against `docs/EN_Card_Data.csv`), instead of guessing from raw IDs.
+
+**Two systemic, game-losing bugs found, both confirmed across multiple independent games:**
+
+1. **ATTACK/Boss score tie in PHASE_CLOSING.** `ATTACK` when `can_ko` and `BOSS` when `phase==PHASE_CLOSING` both scored exactly `200.0`. On ties, Boss sometimes won (order-dependent), so the agent played Boss's Orders *instead of* taking a guaranteed lethal attack — caught directly in 2 of 4 full games (e.g. `dmg=420 vs opp_hp=320`, chose PLAY Boss anyway), both times also taking a smaller-prize KO afterward instead of the lethal one. **Fix:** `can_ko` attack now scores 500; `boss_ex_snipe` (Boss repositions into a *bigger*-prize KO than the current target, still strictly better than a plain attack) scores 600 to preserve that one legitimate case where Boss-then-attack beats attacking now; generic closing-phase Boss dropped to 199 and gated behind `not can_ko`.
+2. **Energy-starved stuck Active → deck-out.** A non-attacker (Fezandipiti ex in two separate games, Dudunsparce in a third) ended up Active with 0 energy attached, unable to attack *or retreat* — both options were simply absent from that turn's `select.option` list. With no way to fix its own position, the agent spent 30-40 consecutive turns spamming Dawn/Poké Pad searches and Fez's "Flip the Script" draw ability, ballooning its hand to 17-19 cards while burning the deck from 7-12 cards down to 0, then lost to deck-out at 1-2 prizes remaining — once with a tied 1-1 prize count, the closest possible loss. **Fix:** new `active_immobile` flag (no attack, no retreat, 0 energy on active) makes attaching any energy card to Active score 60 — overriding the normal "route Psychic to Alakazam" rule — since freeing the stuck Active is more urgent than optimal routing. Dawn/Poké Pad (can't fetch energy) drop to -3 while immobile; Hilda (can fetch energy) jumps to 18. A hard `deck_danger` (<5 cards) floor of -8 was also added to all three search cards so none of them fire that close to decking out, and Fez's ability — previously a flat, deck-size-blind 5.0 — now respects `deck_critical`/`deck_danger`.
+
+A 5th game (the short one) was an unfixable bad-luck loss: opening hand had only one Basic Pokémon (the starting Abra), the blind Poké Pad search whiffed onto an unplayable Stage-1 Dudunsparce (no Dunsparce in play to evolve from), and a turn-2 Mega Lucario ex one-shot the lone Active before any recovery was possible. No heuristic bug — pure variance, the kind curriculum training on bad-hand starts is meant to target.
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v15: Heuristic Fixes + Training Infrastructure
 
 Three targeted fixes to the greedy scorer, plus opponent pool and training plan staged for Vivobook.
 

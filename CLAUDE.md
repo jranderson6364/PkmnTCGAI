@@ -12,7 +12,7 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v15 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v17 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
@@ -36,15 +36,16 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v15 Alakazam heuristic agent (active ladder submission)
+main.py          ← v17 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v15 change log
+  version-history.md ← v1–v17 change log
   training-setup.md  ← self-play + curriculum training plan
+  EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
 opponents/
   starmie_agent.py   ← Mega Starmie ex training opponent (DECK IDs TODO)
   lucario_agent.py   ← Mega Lucario ex + Rocky Energy training opponent (DECK IDs TODO)
@@ -150,9 +151,30 @@ from cg.env import env
 
 ---
 
-## v15 Agent Architecture
+## v17 Agent Architecture
 
 **File:** `main.py`
+
+### v17 Key Changes — competitive-research alignment (`docs/piloting-guide.md` v3)
+Full research of how the deck is actually piloted (Cerys Jones' Indianapolis Regional
+win, CL Osaka 2026, Limitless meta lists) confirmed our 60-card backbone matches the
+meta exactly, and identified the **#1 documented leak: threshold management / overdraw**
+— which is precisely what caused every long-game deck-out loss in the replays.
+
+1. **Threshold discipline (`hand_surplus`).** Once a ready attacker exists (active or
+   bench Alakazam) and `hand_n >= cards_needed` (and no Boss-snipe plan / not an
+   emergency), all non-essential draw is suppressed: Dudunsparce ability → 0.5, Fez
+   ability → -3, Dawn/Hilda/Poké Pad → 2.0. "Hit the threshold, then stop." Replaying
+   the deck-out game confirms the agent now ENDs/attacks instead of burning Dawn/Poké
+   Pad five separate times, preserving ~4-5 deck cards — the margin between decking out
+   and surviving.
+2. **Dudunsparce ability hard floor at `deck_danger`** (was only `deck_critical`).
+3. **`active_immobile` attach prefers Psychic** (65 vs 55) so a stranded Alakazam gets
+   the energy that lets it both retreat *and* attack, and a colorless Enriching isn't
+   wasted on the rescue.
+
+Verified: agent runs clean on all 1672 real selections across the 6 replays (0 errors,
+0 illegal empties); still takes guaranteed lethal where available.
 
 ### Constants
 ```python
@@ -194,6 +216,14 @@ def _detect_phase(cen, can_ko, at_threshold, opp_prizes_left, hand_n):
 - `_main_phase(obs, sel)` — main action loop with nested `score()` function
 - `_safe_return(sel)` — always returns a valid legal action (fallback)
 - `agent(obs_dict)` — entry point
+
+### v16 Key Changes — found via real ladder replay analysis (6 losses replayed turn-by-turn)
+A custom replay analyzer (`scratchpad/analyze_replay.py` pattern, not committed) decoded the kaggle-env log format (each step's `action` resolves the *previous* step's option list) and traced 5 losing games. Found two systemic, game-losing bugs that hand-reading the code missed:
+
+1. **ATTACK/Boss score tie at PHASE_CLOSING (the big one).** `ATTACK can_ko` and `BOSS phase==CLOSING` both scored exactly 200.0, so on ties the agent sometimes played Boss instead of taking a guaranteed lethal attack — confirmed in 2 of 4 full games, both times wasting the winning turn and KOing a *smaller*-prize bench target instead of the lethal one. Fixed: `can_ko` attack now scores 500; `boss_ex_snipe` (Boss into a strictly bigger prize KO) scores 600 so it still correctly outranks a same-turn plain KO; generic Boss-in-closing dropped to 199 and is now gated by `not can_ko`.
+2. **Energy-starved stuck active → deck-out.** In 2 games, a non-attacker (Fezandipiti ex, Dudunsparce) got promoted to Active with 0 energy attached, leaving it unable to attack *or retreat* (both options absent from `select.option`). The agent then spent 30-40 turns spamming Dawn/Poké Pad searches and Fez's "Flip the Script" draw, burning its own deck to 0 with an 18-card hand it never used, and lost via deck-out at 1-2 prizes remaining. Fixed: new `active_immobile` flag (no attack, no retreat, 0 energy on active) makes attaching energy to Active score 60 (overrides normal Psychic-to-Alakazam routing); Dawn/Poké Pad score -3 while immobile (they can't fix it); Hilda scores 18 while immobile (it *can* fetch energy). Also added a hard `deck_danger` (<5 cards) floor of -8 to Dawn/Hilda/Poké Pad so no search ever fires that close to decking out, and Fez's ability now respects `deck_critical`/`deck_danger` instead of scoring a flat 5.0 regardless of deck size.
+
+One of the 6 replayed games was an unfixable bad-luck loss (lone Abra opening hand, blind Poké Pad search whiffed onto an unplayable Stage-1 card, turn-2 Mega Lucario ex OHKO) — no heuristic bug there, just variance.
 
 ### v15 Key Changes (on top of v14)
 1. **Bench Alakazam evolution scoring** — bench Kadabra→Alakazam now scores 50 (no Alakazam), 40 (ESTABLISH), 25 (CONVERT), 12 (late). Was 16/10. Second Alakazam on bench is critical for continuity after active KO.

@@ -209,11 +209,9 @@ def _pick_bench_target(obs,opts):
         pid=_pk_id(pk)
         if pid==ALAKAZAM and _has_psychic(pk): s=100
         elif pid==ALAKAZAM: s=80
-        elif pid==KADABRA:  s=3
-        elif pid==ABRA:     s=1
+        elif pid==DUDUNSPARCE: s=50
         elif pid in PIVOT_FREE_RETREAT_IDS: s=40
-        elif pid in NON_ATTACKER_IDS: s=5
-        else: s=20
+        else: s=-10
         if s>best_score: best_score,best_i=s,i
     return[best_i]
 
@@ -223,28 +221,33 @@ def _pick_boss_target(obs,sel):
     opp=players[opp_idx] if len(players)>opp_idx else{}
     opp_bench=opp.get('bench') or[]
     hand_n=_hand_size(cur,me); boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
-    opts=sel.get('option',[]); ko_targets=[]; non_ko_targets=[]
+    opts=sel.get('option',[]); ko_targets=[]; dmg_targets=[]
     for i,o in enumerate(opts):
         bi=o.get('index',0)
         pk=opp_bench[bi] if 0<=bi<len(opp_bench) else None
         if not pk: continue
         pk_hp=(pk.get('hp',99999) or 99999); pv=_prize_value_pk(pk)
         ec=len((pk or{}).get('energies') or [])
-        if boss_dmg>=pk_hp: ko_targets.append((i,pv,pk_hp,ec))
-        else:               non_ko_targets.append((i,pk_hp,pk))
+        pid=_pk_id(pk)
+        if boss_dmg>=pk_hp:
+            ko_targets.append((i,pv,pk_hp,ec))
+        else:
+            dmg_pct=min(boss_dmg/pk_hp, 1.0) if pk_hp>0 else 0
+            dmg_targets.append((i,pv,pid,dmg_pct,pk_hp))
     if ko_targets:
-        best=max(ko_targets,key=lambda x:(x[1],x[2],x[3])); return[best[0]]
-    if non_ko_targets:
-        def threat(t):
-            _,hp,pk=t; pid=_pk_id(pk)
-            pv=_prize_value_pk(pk)
+        best=max(ko_targets,key=lambda x:(x[1],x[2],x[3]))
+        return[best[0]]
+    if dmg_targets:
+        def dmg_value(t):
+            i,pv,pid,dmg_pct,hp=t
+            threat_score=0
             if pid==ALAKAZAM: threat_score=100
-            elif pid==KADABRA: threat_score=60
-            elif pid in PIVOT_FREE_RETREAT_IDS: threat_score=40
-            elif pid in NON_ATTACKER_IDS: threat_score=5
-            else: threat_score=20
-            return pv*200 + threat_score
-        best=max(non_ko_targets,key=threat); return[best[0]]
+            elif pid==KADABRA: threat_score=40
+            elif pid in PIVOT_FREE_RETREAT_IDS: threat_score=30
+            else: threat_score=10
+            return pv*300 + dmg_pct*100 + threat_score
+        best=max(dmg_targets,key=dmg_value)
+        return[best[0]]
     return[0]
 
 def _main_phase(obs,sel):
@@ -308,19 +311,33 @@ def _main_phase(obs,sel):
         can_ko and boss_in_hand and not opp_mist and
         any(boss_dmg>=(pk.get('hp',99999) or 99999) and _prize_value_pk(pk)>opp_active_pv
             for pk in opp_bench if pk))
+    boss_can_damage_mega=(
+        boss_in_hand and not opp_mist and ready_alak_exists and
+        any(boss_dmg>=50 and _prize_value_pk(pk)==3
+            for pk in opp_bench if pk))
     alak_in_discard=any(_pk_id(c) in ALAKAZAM_LINE_IDS for c in discard)
     opp_bench_low_hp=any(0<(b or{}).get('hp',999)<=100 for b in opp_bench if b)
     enriching_on_dudun=any(_pk_id(b)==DUDUNSPARCE and _energies(b) for b in bench if b)
     active_kadabra_can_evolve=(
         _pk_id(my_active)==KADABRA and
         not (my_active or{}).get('appearThisTurn',False))
+    retreat_available=any(o.get('type')==RETREAT for o in opts)
+    active_immobile=(
+        my_active is not None and not attack_available and not retreat_available and
+        len(_energies(my_active))==0)
+    # Threshold discipline (§4/§10 piloting-guide): once a ready attacker exists and the
+    # hand is already at the KO threshold, more draw is pure deck-out risk -> stop drawing.
+    ready_attacker_exists=active_can_attack or bench_has_alak_ready
+    hand_surplus=(
+        ready_attacker_exists and opp_hp<99999 and hand_n>=cards_needed and
+        not boss_snipe_plan and not emergency_draw)
 
     def score(o):
         ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
         if ot==ATTACK:
             if not active_can_attack: return-5
             if opp_mist: return-5
-            if can_ko: return 200
+            if can_ko: return 500
             if at_threshold: return 150
             if hand_too_small: return 0.5
             return 7.0
@@ -343,12 +360,19 @@ def _main_phase(obs,sel):
             if cid in DRAW_ABILITY_CARD_IDS:
                 if can_ko: return 2.0
                 if cid==DUDUNSPARCE:
+                    if hand_surplus: return 0.5
+                    if deck_danger and not emergency_draw:   return-8.0
                     if deck_critical and not emergency_draw: return-2.0
                     if hand_n>=14 and not emergency_draw:    return 1.0
                     if cen['dudun_bench']>1 and not emergency_draw: return 6.0
                     return 11.0
                 if emergency_draw: return 15.0
                 return 10.0
+            if cid==FEZ:
+                if deck_danger: return-5.0
+                if hand_surplus: return-3.0
+                if deck_critical and not emergency_draw: return-2.0
+                return 8.0
             return 5.0
         if ot==EVOLVE:
             evo_area=o.get('inPlayArea',4)
@@ -360,10 +384,12 @@ def _main_phase(obs,sel):
                     if phase==PHASE_CONVERT: return 25.0
                     return 12.0
                 post_evo_dmg=(hand_n+3)*PH_DMG_PER_CARD
+                if phase==PHASE_ESTABLISH and active_kadabra_can_evolve:
+                    return 300
                 if not can_ko and post_evo_dmg>=opp_hp and active_kadabra_can_evolve:
-                    return 270
+                    return 280
                 if active_kadabra_can_evolve:
-                    return 250
+                    return 260
                 if can_ko: return 5.0
                 if not cen['has_alakazam']: return 16.0
                 return 10.0
@@ -382,9 +408,11 @@ def _main_phase(obs,sel):
                 if in_late_phase and hand_n>=8: return 1.0
                 return 6.0
             if cid==BOSS:
-                if phase==PHASE_CLOSING: return 200.0
-                if boss_ex_snipe:        return 250.0
+                if boss_ex_snipe:        return 600.0
+                if can_ko: return 1.0
+                if phase==PHASE_CLOSING: return 199.0
                 if boss_target_exists:   return 16.0
+                if boss_can_damage_mega: return 18.0
                 if opp_mist and ready_alak_exists: return 12.0
                 return 4.0
             if can_ko: return 1.0
@@ -424,16 +452,19 @@ def _main_phase(obs,sel):
                 return 3.0
             if cid==RARE_CANDY:
                 if cen['kadabra_can_evolve']:
-                    if at_threshold or phase in(PHASE_PRESSURE,PHASE_CLOSING): return 15.0
-                    return 5.0
-                if not cen['has_alakazam']: return 17.0
-                if cen['need_line']:        return 9.0
+                    if at_threshold or phase in(PHASE_PRESSURE,PHASE_CLOSING): return 30.0
+                    if phase==PHASE_ESTABLISH: return 25.0
+                    return 8.0
+                if not cen['has_alakazam']: return 28.0
+                if cen['need_line']:        return 14.0
                 return 4.0
             if cid==POFFIN:
+                if phase==PHASE_ESTABLISH and (not cen['backup_abra'] or cen['draw_count']==0):
+                    if cen['bench_count']<5: return 25.0
                 if not cen['backup_abra'] or cen['draw_count']==0:
                     if cen['bench_count']<4: return 19.0
                 if cen['bench_count']<2: return 14.0
-                if phase==PHASE_ESTABLISH: return 10.0
+                if phase==PHASE_ESTABLISH: return 12.0
                 if in_late_phase: return 2.0
                 return 6.0
             if cid==SACRED_ASH:
@@ -449,8 +480,12 @@ def _main_phase(obs,sel):
                 return 2.0
             if cid==DAWN:
                 if supporter_played: return-5.0
+                if deck_danger: return-8.0
+                if active_immobile: return-3.0
+                if hand_surplus: return 2.0
+                if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 22.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
-                if deck_critical: return 2.0
+                if deck_critical: return 1.0
                 if hand_n>=12: return 2.0
                 if emergency_draw: return 14.0
                 if cen['need_line'] or not cen['has_alakazam']: return 11.0
@@ -458,8 +493,12 @@ def _main_phase(obs,sel):
                 return 6.0
             if cid==HILDA:
                 if supporter_played: return-5.0
+                if deck_danger: return-8.0
+                if active_immobile: return 18.0
+                if hand_surplus: return 2.0
+                if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 24.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
-                if deck_critical: return 2.0
+                if deck_critical: return 1.0
                 if not enriching_on_dudun and cen['draw_count']>0: return 11.0
                 if not cen['has_alakazam']: return 13.0
                 if emergency_draw: return 12.0
@@ -467,6 +506,9 @@ def _main_phase(obs,sel):
                 if phase==PHASE_CONVERT: return 7.0
                 return 5.0
             if cid==POKE_PAD:
+                if deck_danger: return-8.0
+                if active_immobile: return-3.0
+                if hand_surplus: return 2.0
                 if not cen['backup_abra']: return 13.0
                 if cen['need_line']:       return 9.0
                 if cen['need_draw']:       return 10.0
@@ -482,6 +524,11 @@ def _main_phase(obs,sel):
         if ot==ATTACH:
             if can_ko: return 0.5
             tgt=_attach_target(o,my_active,bench); tid=_pk_id(tgt)
+            if active_immobile and tgt is my_active:
+                # Free the stranded Active. Prefer real Psychic so a stuck Alakazam can
+                # both retreat AND attack; any energy still beats leaving it locked.
+                if cid in PSYCHIC_ENERGY_IDS: return 65.0
+                return 55.0
             if cid==HANDHELD_FAN:
                 if tid==GENESECT and not (tgt or{}).get('tools'): return 15.0
                 return 1.5

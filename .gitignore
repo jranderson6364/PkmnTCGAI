@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pth
+*.pkl
+*.tar.gz
+.DS_Store

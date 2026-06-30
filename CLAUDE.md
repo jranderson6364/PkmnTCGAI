@@ -12,8 +12,9 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v14 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v15 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
+**Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
 ---
 
@@ -35,14 +36,19 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v14 Alakazam heuristic agent (active ladder submission)
+main.py          ← v15 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (BC target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v14 change log
+  version-history.md ← v1–v15 change log
+  training-setup.md  ← self-play + curriculum training plan
+opponents/
+  starmie_agent.py   ← Mega Starmie ex training opponent (DECK IDs TODO)
+  lucario_agent.py   ← Mega Lucario ex + Rocky Energy training opponent (DECK IDs TODO)
+  dragapult_agent.py ← Dragapult ex Stage 2 spread training opponent (DECK IDs TODO)
 ```
 
 ---
@@ -144,9 +150,9 @@ from cg.env import env
 
 ---
 
-## v14 Agent Architecture
+## v15 Agent Architecture
 
-**File:** `main.py` (564 lines)
+**File:** `main.py`
 
 ### Constants
 ```python
@@ -189,15 +195,20 @@ def _detect_phase(cen, can_ko, at_threshold, opp_prizes_left, hand_n):
 - `_safe_return(sel)` — always returns a valid legal action (fallback)
 - `agent(obs_dict)` — entry point
 
-### v14 Key Fixes (all replay-driven)
+### v15 Key Changes (on top of v14)
+1. **Bench Alakazam evolution scoring** — bench Kadabra→Alakazam now scores 50 (no Alakazam), 40 (ESTABLISH), 25 (CONVERT), 12 (late). Was 16/10. Second Alakazam on bench is critical for continuity after active KO.
+2. **Enhanced Hammer escalation** — scores 45 when opp has blocking energy (was 28). Mist/Rocky Energy means Powerful Hand deals 0; removing it is near-mandatory.
+3. **Battle Cage reactive** — scores 22 when bench damage detected in logs (was flat 6). Responds to Dragapult/Starmie spread with appropriate urgency.
+
+### v14 Key Fixes (all carried forward)
 1. **Fez suppressed by default** (-1.0 score) — only activates when reactive triggers fire
 2. **Sacred Ash deck-out prevention** — scores 35 at deck<5, 25 at deck<10 (was 2-5)
 3. **Dudunsparce overdraw guard** — suppressed when deck<10 or hand≥14
-4. **Evolution scoring fix** — Kadabra→Alakazam evolve scores 250-270 (was 13), near-mandatory
+4. **Evolution scoring fix** — active Kadabra→Alakazam evolve scores 250-270 (was 13)
 5. **Boss prize-value guard** — Boss target must have `prize_value >= prize_value(opp_active)`
-6. **Rock Energy detection** — Enhanced Hammer scores 28 when Mist (#11) OR Rock (#20) detected
-7. **Genesect role implemented** — Bench Genesect + Handheld Fan scores 11 (ACE Nullifier blocks Rocky Energy)
-8. **Shaymin reactive** — scores 16 when bench damage detected in logs (was 1)
+6. **Rock Energy detection** — Enhanced Hammer detects Mist (#11) OR Rock (#20)
+7. **Genesect role implemented** — Bench Genesect + Handheld Fan scores 11 (ACE Nullifier)
+8. **Shaymin reactive** — scores 16 when bench damage detected in logs
 9. **Psyduck reactive** — scores 18 when opponent self-damage cards detected (placeholder IDs — see Outstanding Items)
 
 ### Prize Value Logic
@@ -212,12 +223,12 @@ def prize_value(pokemon):
 
 ## Outstanding Items (Priority Order)
 
-1. **Psyduck threat detection uses guessed placeholder IDs `{109, 110, 111}`** — need to run `all_card_data()` and grep for self-damage ability text to find real Dusknoir/Magneton card IDs.
-2. **v14 has NOT been validated with A/B harness** — submitted directly to ladder. Run: `ab_test(v14, random, n=200)`, `ab_test(v14, v11, n=400)`.
-3. **`opp_likely_ace_spec` hardcoded to True** — should be inferred from early-game logs (opponent archetype detection).
-4. **v13 A/B results unknown** — v13 was never validated; v14 supersedes it without a clean before/after.
-5. **NN track decision** — v14 diverges from v11 (the BC teacher). If NN resumes: (a) recollect BC data with v14 as teacher, OR (b) keep v11 as BC teacher and treat heuristic/NN as independent tracks.
-6. **Local self-play farm** (ASUS Vivobook, 16 workers) — was planned for July 1, never started.
+1. **Opponent DECK IDs are all placeholder (0)** — fill in `opponents/*.py` using `all_card_data()` on Kaggle before self-play can start. See `docs/training-setup.md`.
+2. **v15 A/B harness validation pending** — run `ab_test(v15, random, n=200)` and `ab_test(v15, v11, n=400)` on Kaggle to confirm improvements over v14.
+3. **Psyduck threat detection uses guessed placeholder IDs `{109, 110, 111}`** — grep `all_card_data()` for self-damage ability text to find real Dusknoir card ID.
+4. **`opp_likely_ace_spec` hardcoded to True** — infer from early-game logs (opponent archetype detection).
+5. **NN track decision** — v15 diverges from v11 (the BC teacher). If NN resumes: (a) recollect BC data with v15 as teacher, OR (b) keep v11 as BC teacher (independent tracks).
+6. **Verify `battle_finish()` early-exit behavior** — curriculum data generation exits bad-hand games early; confirm this does not count as a ladder loss before running at scale.
 
 ---
 
@@ -236,7 +247,7 @@ def prize_value(pokemon):
 
 See `docs/nn-training.md` for full details.
 
-**Status (as of 2026-06-28):** BC warm-start complete. Self-play attempt 2 running.
+**Status (as of 2026-06-30):** BC warm-start complete. Self-play paused pending Vivobook access.
 - BC data: 113k samples from v11 teacher, at `/kaggle/working/bc_data.pkl`
 - Best checkpoint: `sp2_iter2.pth` at ~55% vs v11 teacher
 - Architecture: EmbeddingBag(22000) + Transformer(128d, 2-head) + actor-critic heads
@@ -253,7 +264,7 @@ See `docs/nn-training.md` for full details.
 ## Kaggle File Locations
 
 ```
-/kaggle/working/main.py              ← v14 source (submitted)
+/kaggle/working/main.py              ← v15 source (submitted)
 /kaggle/working/deck.csv             ← 60-card deck
 /kaggle/working/submission.tar.gz    ← packaged submission
 /kaggle/working/bc_data.pkl          ← 113k BC samples (v11 teacher)

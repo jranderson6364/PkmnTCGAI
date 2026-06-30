@@ -352,7 +352,14 @@ def _main_phase(obs,sel):
                 return 10.0
             return 5.0
         if ot==EVOLVE:
+            evo_area=o.get('inPlayArea',4)
             if cid==ALAKAZAM:
+                if evo_area==5:
+                    if can_ko: return 3.0
+                    if not cen['has_alakazam']: return 50.0
+                    if phase==PHASE_ESTABLISH: return 40.0
+                    if phase==PHASE_CONVERT: return 25.0
+                    return 12.0
                 post_evo_dmg=(hand_n+3)*PH_DMG_PER_CARD
                 if not can_ko and post_evo_dmg>=opp_hp and active_kadabra_can_evolve:
                     return 270
@@ -369,12 +376,10 @@ def _main_phase(obs,sel):
             return 8.5
         if ot==PLAY:
             if cid==ENHANCED_HAMMER:
-                opp_has_any_special = any(
-                    ec.get('id') in (MIST_ENERGY, ROCK_ENERGY)
-                    for ec in ((opp_active or{}).get('energyCards') or[]))
-                if opp_has_any_special: return 28.0
+                if opp_mist: return 45.0
                 return 3.0
             if cid==BATTLE_CAGE:
+                if bench_dmg_received: return 22.0
                 if in_late_phase and hand_n>=8: return 1.0
                 return 6.0
             if cid==BOSS:

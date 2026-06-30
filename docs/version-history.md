@@ -91,7 +91,26 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v14: Replay-Driven Fixes — CURRENT ACTIVE SUBMISSION
+## v15: Heuristic Fixes + Training Infrastructure — CURRENT ACTIVE SUBMISSION
+
+Three targeted fixes to the greedy scorer, plus opponent pool and training plan staged for Vivobook.
+
+**Heuristic changes:**
+1. **Bench Alakazam evolution scoring** — `inPlayArea==5` (bench) Kadabra→Alakazam now scores 50/40/25/12 by phase (was 16/10). Getting a second Alakazam on bench is critical for continuity when the active gets KO'd.
+2. **Enhanced Hammer escalation** — scores 45 when opponent has Mist/Rocky Energy (was 28). Blocking energy makes Powerful Hand deal 0; removing it is near-mandatory, so the old score was dangerously low.
+3. **Battle Cage reactive** — scores 22 when bench damage detected in logs (was flat 6). Now reacts to Dragapult/Starmie spread with same urgency as Shaymin.
+
+**Training infrastructure (code complete, Vivobook needed to run):**
+- `opponents/starmie_agent.py` — Mega Starmie ex spread (330 HP megaEx)
+- `opponents/lucario_agent.py` — Mega Lucario ex + Rocky Energy lock (340 HP megaEx)
+- `opponents/dragapult_agent.py` — Dragapult ex Stage 2 spread (Phantom Dive)
+- `docs/training-setup.md` — full training plan: opponent pool, curriculum, reward shaping, checkpoint pool
+
+**Status:** Committed. A/B harness validation pending.
+
+---
+
+## v14: Replay-Driven Fixes — SUPERSEDED BY v15
 
 Built directly from 4 real replay JSONs (vs Shachify, 3fk, Nicholas Low, Evan Liu — 2 losses, both to deck-out).
 

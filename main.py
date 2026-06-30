@@ -321,13 +321,17 @@ def _main_phase(obs,sel):
     active_kadabra_can_evolve=(
         _pk_id(my_active)==KADABRA and
         not (my_active or{}).get('appearThisTurn',False))
+    retreat_available=any(o.get('type')==RETREAT for o in opts)
+    active_immobile=(
+        my_active is not None and not attack_available and not retreat_available and
+        len(_energies(my_active))==0)
 
     def score(o):
         ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
         if ot==ATTACK:
             if not active_can_attack: return-5
             if opp_mist: return-5
-            if can_ko: return 200
+            if can_ko: return 500
             if at_threshold: return 150
             if hand_too_small: return 0.5
             return 7.0
@@ -356,6 +360,10 @@ def _main_phase(obs,sel):
                     return 11.0
                 if emergency_draw: return 15.0
                 return 10.0
+            if cid==FEZ:
+                if deck_danger: return-5.0
+                if deck_critical and not emergency_draw: return-2.0
+                return 8.0
             return 5.0
         if ot==EVOLVE:
             evo_area=o.get('inPlayArea',4)
@@ -391,8 +399,9 @@ def _main_phase(obs,sel):
                 if in_late_phase and hand_n>=8: return 1.0
                 return 6.0
             if cid==BOSS:
-                if phase==PHASE_CLOSING: return 200.0
-                if boss_ex_snipe:        return 250.0
+                if boss_ex_snipe:        return 600.0
+                if can_ko: return 1.0
+                if phase==PHASE_CLOSING: return 199.0
                 if boss_target_exists:   return 16.0
                 if boss_can_damage_mega: return 18.0
                 if opp_mist and ready_alak_exists: return 12.0
@@ -462,9 +471,11 @@ def _main_phase(obs,sel):
                 return 2.0
             if cid==DAWN:
                 if supporter_played: return-5.0
+                if deck_danger: return-8.0
+                if active_immobile: return-3.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 22.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
-                if deck_critical: return 2.0
+                if deck_critical: return 1.0
                 if hand_n>=12: return 2.0
                 if emergency_draw: return 14.0
                 if cen['need_line'] or not cen['has_alakazam']: return 11.0
@@ -472,9 +483,11 @@ def _main_phase(obs,sel):
                 return 6.0
             if cid==HILDA:
                 if supporter_played: return-5.0
+                if deck_danger: return-8.0
+                if active_immobile: return 18.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 24.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
-                if deck_critical: return 2.0
+                if deck_critical: return 1.0
                 if not enriching_on_dudun and cen['draw_count']>0: return 11.0
                 if not cen['has_alakazam']: return 13.0
                 if emergency_draw: return 12.0
@@ -482,6 +495,8 @@ def _main_phase(obs,sel):
                 if phase==PHASE_CONVERT: return 7.0
                 return 5.0
             if cid==POKE_PAD:
+                if deck_danger: return-8.0
+                if active_immobile: return-3.0
                 if not cen['backup_abra']: return 13.0
                 if cen['need_line']:       return 9.0
                 if cen['need_draw']:       return 10.0
@@ -497,6 +512,8 @@ def _main_phase(obs,sel):
         if ot==ATTACH:
             if can_ko: return 0.5
             tgt=_attach_target(o,my_active,bench); tid=_pk_id(tgt)
+            if active_immobile and tgt is my_active:
+                return 60.0
             if cid==HANDHELD_FAN:
                 if tid==GENESECT and not (tgt or{}).get('tools'): return 15.0
                 return 1.5

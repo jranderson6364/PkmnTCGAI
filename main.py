@@ -325,6 +325,12 @@ def _main_phase(obs,sel):
     active_immobile=(
         my_active is not None and not attack_available and not retreat_available and
         len(_energies(my_active))==0)
+    # Threshold discipline (§4/§10 piloting-guide): once a ready attacker exists and the
+    # hand is already at the KO threshold, more draw is pure deck-out risk -> stop drawing.
+    ready_attacker_exists=active_can_attack or bench_has_alak_ready
+    hand_surplus=(
+        ready_attacker_exists and opp_hp<99999 and hand_n>=cards_needed and
+        not boss_snipe_plan and not emergency_draw)
 
     def score(o):
         ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
@@ -354,6 +360,8 @@ def _main_phase(obs,sel):
             if cid in DRAW_ABILITY_CARD_IDS:
                 if can_ko: return 2.0
                 if cid==DUDUNSPARCE:
+                    if hand_surplus: return 0.5
+                    if deck_danger and not emergency_draw:   return-8.0
                     if deck_critical and not emergency_draw: return-2.0
                     if hand_n>=14 and not emergency_draw:    return 1.0
                     if cen['dudun_bench']>1 and not emergency_draw: return 6.0
@@ -362,6 +370,7 @@ def _main_phase(obs,sel):
                 return 10.0
             if cid==FEZ:
                 if deck_danger: return-5.0
+                if hand_surplus: return-3.0
                 if deck_critical and not emergency_draw: return-2.0
                 return 8.0
             return 5.0
@@ -473,6 +482,7 @@ def _main_phase(obs,sel):
                 if supporter_played: return-5.0
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
+                if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 22.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
                 if deck_critical: return 1.0
@@ -485,6 +495,7 @@ def _main_phase(obs,sel):
                 if supporter_played: return-5.0
                 if deck_danger: return-8.0
                 if active_immobile: return 18.0
+                if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 24.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
                 if deck_critical: return 1.0
@@ -497,6 +508,7 @@ def _main_phase(obs,sel):
             if cid==POKE_PAD:
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
+                if hand_surplus: return 2.0
                 if not cen['backup_abra']: return 13.0
                 if cen['need_line']:       return 9.0
                 if cen['need_draw']:       return 10.0
@@ -513,7 +525,10 @@ def _main_phase(obs,sel):
             if can_ko: return 0.5
             tgt=_attach_target(o,my_active,bench); tid=_pk_id(tgt)
             if active_immobile and tgt is my_active:
-                return 60.0
+                # Free the stranded Active. Prefer real Psychic so a stuck Alakazam can
+                # both retreat AND attack; any energy still beats leaving it locked.
+                if cid in PSYCHIC_ENERGY_IDS: return 65.0
+                return 55.0
             if cid==HANDHELD_FAN:
                 if tid==GENESECT and not (tgt or{}).get('tools'): return 15.0
                 return 1.5

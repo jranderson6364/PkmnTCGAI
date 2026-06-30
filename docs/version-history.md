@@ -91,7 +91,45 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v16: Replay-Driven Bug Hunt — CURRENT ACTIVE SUBMISSION
+## v17: Competitive-Research Alignment + Threshold Discipline — CURRENT ACTIVE SUBMISSION
+
+Did a full research pass on how the Alakazam/Dudunsparce deck is actually piloted at
+the top level (Cerys Jones' 1st-place Indianapolis Regional list, CL Osaka 2026, the
+Limitless meta lists, and the TCGplayer/Cardsrealm/Deltia guides) and rewrote
+`docs/piloting-guide.md` into a comprehensive v3 strategy doc — every card's role, the
+card-economy table, turn-by-turn sequencing, Boss target priority, energy routing,
+Iono play-around, deck-out avoidance, all matchups, an explicit our-list-vs-meta-list
+comparison, and a strategy→heuristic map with the remaining gaps.
+
+**Key finding:** our 60-card backbone is *identical* to the meta list (4 Abra / 4
+Kadabra / 3 Alakazam / 3 Dunsparce / 3 Dudunsparce / 4 Poffin / 4 Poké Pad / 4 Dawn /
+3 Hilda / 3 Rare Candy / 2 Enhanced Hammer / 2 Handheld Fan / 1 Sacred Ash / 1 Lana /
+4 Telepath / 1 Enriching), so the win has to come from piloting, not the decklist. The
+single most-cited skill in every guide — "draw to the KO threshold, then **stop** and
+bank surplus on the bench" — was exactly the principle our deck-out losses violated.
+
+**Heuristic changes:**
+1. **`hand_surplus` threshold discipline.** When a ready attacker exists (Active or
+   bench Alakazam) and `hand_n >= cards_needed`, with no Boss-snipe plan and not an
+   emergency, all non-essential draw is suppressed: Dudunsparce ability → 0.5, Fez
+   ability → -3, Dawn/Hilda/Poké Pad → 2.0. Re-running the deck-out replay through the
+   patched agent shows it now ENDs/attacks instead of firing Dawn/Poké Pad on five
+   separate overdraw turns, conserving the deck cards it previously milled itself out on.
+2. **Dudunsparce Run Away Draw** now hits a hard -8 floor at `deck_danger` (<5), not
+   just the -2 at `deck_critical` (<10).
+3. **`active_immobile` rescue attach prefers Psychic** (65 vs 55 for colorless) so a
+   stranded Alakazam gets energy that enables both retreat and attack, and the lone
+   Enriching isn't wasted on the rescue.
+
+**Verification:** agent runs clean on all 1,672 real selections across the 6 replays
+(0 exceptions, 0 illegal empty returns); guaranteed-lethal lines still taken. Deck
+unchanged (deck is 20% of scoring; the validated 60 is meta-identical).
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v16: Replay-Driven Bug Hunt
 
 Six real ladder losses (5 freshly uploaded + 1 from the v15 session) were decoded turn-by-turn with a one-off replay analyzer that reverse-engineered the kaggle-env log format: `steps[i]['action']` resolves `steps[i-1]`'s `select.option` list, not its own. This let every PLAY/ATTACH/EVOLVE/RETREAT/BOSS decision be reconstructed with card names (cross-referenced against `docs/EN_Card_Data.csv`), instead of guessing from raw IDs.
 

@@ -12,7 +12,7 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v16 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v17 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
@@ -36,14 +36,14 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v16 Alakazam heuristic agent (active ladder submission)
+main.py          ← v17 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v16 change log
+  version-history.md ← v1–v17 change log
   training-setup.md  ← self-play + curriculum training plan
   EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
 opponents/
@@ -151,9 +151,30 @@ from cg.env import env
 
 ---
 
-## v16 Agent Architecture
+## v17 Agent Architecture
 
 **File:** `main.py`
+
+### v17 Key Changes — competitive-research alignment (`docs/piloting-guide.md` v3)
+Full research of how the deck is actually piloted (Cerys Jones' Indianapolis Regional
+win, CL Osaka 2026, Limitless meta lists) confirmed our 60-card backbone matches the
+meta exactly, and identified the **#1 documented leak: threshold management / overdraw**
+— which is precisely what caused every long-game deck-out loss in the replays.
+
+1. **Threshold discipline (`hand_surplus`).** Once a ready attacker exists (active or
+   bench Alakazam) and `hand_n >= cards_needed` (and no Boss-snipe plan / not an
+   emergency), all non-essential draw is suppressed: Dudunsparce ability → 0.5, Fez
+   ability → -3, Dawn/Hilda/Poké Pad → 2.0. "Hit the threshold, then stop." Replaying
+   the deck-out game confirms the agent now ENDs/attacks instead of burning Dawn/Poké
+   Pad five separate times, preserving ~4-5 deck cards — the margin between decking out
+   and surviving.
+2. **Dudunsparce ability hard floor at `deck_danger`** (was only `deck_critical`).
+3. **`active_immobile` attach prefers Psychic** (65 vs 55) so a stranded Alakazam gets
+   the energy that lets it both retreat *and* attack, and a colorless Enriching isn't
+   wasted on the rescue.
+
+Verified: agent runs clean on all 1672 real selections across the 6 replays (0 errors,
+0 illegal empties); still takes guaranteed lethal where available.
 
 ### Constants
 ```python

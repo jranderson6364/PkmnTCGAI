@@ -91,7 +91,116 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v19: Psychic Energy Over-Attach Fix — CURRENT ACTIVE SUBMISSION
+## v21: Phase-Stuck-at-ESTABLISH + Mist-Wall Escape Fixes — CURRENT ACTIVE SUBMISSION
+
+Analyzed 4 more v19 replays. All 4 lost; `check_bad_energy_attach()` (v20's tool
+improvement) still flagged wasted Psychic attaches in 3 of the 4 — expected, since
+these predate the v20 fix. Digging into the two that *weren't* explained by that
+already-known issue surfaced two new, more consequential bugs.
+
+**1. Phase permanently stuck at `PHASE_ESTABLISH`, even mid/late-game with a fully
+fueled, attacking Alakazam.** Traced a game where deck hit 0 with an absurd 20-25
+card hand while `you_prizes` sat at 2 (needing 2 more) against an opponent needing
+5 — we were dominating the prize race and still lost to our own deck-out. Root
+cause: `_detect_phase`'s `not_established` check required BOTH `backup_abra` (2+
+Abra simultaneously in play) AND `draw_count>0` (a Dunsparce/Dudunsparce currently
+in play) — but Dudunsparce's own "Run Away Draw" ability shuffles ITSELF back into
+the deck on use, so `draw_count` routinely drops to 0 the instant the draw engine
+fires, and a spare Abra is rarely available once it's been used climbing the
+evolution line. Whenever either dropped to zero — which happens constantly,
+independent of actual board development — phase reverted to ESTABLISH and
+re-enabled its overdraw-permissive scoring (Poffin 25/19, Dawn/Hilda 22/24) for the
+rest of the game. **Fix:** removed both conditions from `not_established`, leaving
+only the two that actually gate "is the engine running": `has_alakazam` and
+`has_energy_plan`. Also closed a related gap: POFFIN's scoring had no `hand_surplus`
+gate at all (unlike Dawn/Hilda/Poké Pad), so it kept firing during the deck-out
+stretch even once the fixed phase logic would otherwise have suppressed it.
+
+**2. Mist/Rocky-walled Active with no removal left → agent kept overdrawing chasing
+an unreachable goal, AND under-prioritized Boss's Orders as the actual escape.**
+Two of the four games showed the opponent's Active permanently blocking Powerful
+Hand (Mist Energy) for the rest of the game, with both Enhanced Hammer copies
+already in the discard — confirmed via the discard pile, not just absent from hand.
+More cards can't fix a card-*type* block, so continuing to search only accelerates
+deck-out for zero payoff. **Fix:** new `hopelessly_walled` flag (`opp_mist and not
+hammer_in_hand and not boss_in_hand`) added as a hard suppressor to Poffin, Dawn,
+Hilda, Poké Pad, and Dudunsparce's ability. Separately — and this was the sharper
+find — `boss_target_exists` explicitly required `not opp_mist`, which is backwards:
+Mist only blocks the *current* Active, and gusting a *different*, unwalled bench
+target with Boss is exactly the escape valve, most valuable precisely when Mist is
+up. This bug meant Boss fell through to a generic, un-informed `12.0` fallback that
+routine search plays (Poké Pad `13.0`) could beat, even with a fully killable
+non-Mist target sitting on the opponent's bench. Fixed the condition to `(opp_mist
+or opp_hp>my_dmg)`. Also hardened `_pick_boss_target` itself: it scored candidate
+bench targets by prize/HP/energy alone, with no check for whether the target
+*also* carried Mist/Rocky Energy — gusting another walled Pokémon would just
+recreate the same dead end. Non-walled candidates are now strictly preferred, with
+walled-only targets used strictly as a last resort when literally every option is
+blocked.
+
+**Verification:** full regression clean across all 15 saved replays (4,776
+selections, 0 errors, 0 illegal empties). Re-verified both phase-stuck games with
+the fixed agent: phase now correctly reads CONVERT/PRESSURE instead of ESTABLISH,
+and the agent chooses END/RETREAT/basic plays instead of continuing to search.
+Confirmed the Boss-under-Mist fix with an isolated synthetic decision (Mist-walled
+Active, Boss + a killable non-Mist bench target + a routine search card all legal)
+— agent now correctly plays Boss instead of the search card.
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v20: Preemptive Energy on Support Mons Fix
+
+User-requested audit: "supporter mons should not get energy at all unless they are
+attacking or retreating — no preemptive giving." Per instructions, first validated
+the replay-analyzer tool by manually tracing one game (`4eeb92ef`, raw JSON, no
+script) before trusting it on the rest — found the exact bug independently within
+the first 6 steps: Shaymin (a support mon with **free retreat** — it never needs
+energy to retreat at all) got a scarce Telepath Psychic energy attached while active,
+then sat on it uselessly for the game's remaining 16 turns since the bench never
+developed. Cross-checked the current agent against this exact historical
+observation and confirmed it still made the same choice — a live bug, not stale data.
+
+**Root cause:** the `active_immobile` flag (added v16, refined v18) was meant to free
+a genuinely stuck Active by prioritizing an energy attach, but its gate was too loose
+in two ways: (1) it didn't exclude free-retreaters (`PIVOT_FREE_RETREAT_IDS` = Shaymin
+— energy was never what was blocking its retreat), and (2) it only checked
+`bench_count > 0`, not whether that bench actually contained a **ready** attacker —
+so retreating a stuck Dunsparce/Psyduck/Fezandipiti into an un-fueled Kadabra/Abra/
+other support mon still leaves you unable to attack, meaning the energy fixed
+nothing. Since this flag also drives Dawn/Hilda/Poké Pad's search suppression, the
+bug was silently distorting five separate scoring decisions, not just the ATTACH one.
+
+**Tool improvement:** added `check_bad_energy_attach()` to
+`scratchpad/analyze_replay.py` — explicitly flags any Psychic energy attach landing
+on a non-attacker (i.e. not Alakazam/Kadabra/Abra) with no legitimate retreat-cost
+reason, rather than requiring a manual eyeball of the decision log. Re-running the
+improved analyzer on all 15 saved replays found this pattern in **9 of 15 games**
+(including the one win) — Shaymin, Dunsparce, Psyduck, and Fezandipiti all repeatedly
+received energy they could never use.
+
+**Fixes (`main.py`):**
+1. `active_immobile` now excludes `active_free_retreat` (Shaymin) and requires
+   `bench_has_alak_ready` instead of the looser `bench_count>0` for any non-Alakazam
+   Active — i.e. energy only counts as "freeing" the Active if it enables an attack
+   (Alakazam) or a retreat into an attacker that's actually ready to swing.
+2. The generic `PSYCHIC_ENERGY_IDS` ATTACH fallback (any target that isn't Alakazam/
+   Kadabra/Abra) dropped from a flat `3.0` to `-2.0` — no more "preemptive giving" to
+   bench support mons by default; the one legitimate case (paying a real retreat cost
+   into a ready attacker) is already covered by the corrected `active_immobile` block.
+
+**Verification:** full regression (3,425 selections across all 15 saved replays) 0
+errors, 0 illegal empties. Re-ran every historical main-phase decision point through
+the fixed agent (using the actual board state as recorded, not a full re-simulation)
+and confirmed the wasted-energy count drops to **0 across all 15 games**. Also
+confirmed with two isolated synthetic ATTACH-decision tests.
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v19: Psychic Energy Over-Attach Fix
 
 User-requested fix: Powerful Hand costs exactly 1 Psychic energy — a 2nd Psychic on
 the same Alakazam does nothing (damage scales with hand size, not energy count), so

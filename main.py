@@ -219,9 +219,15 @@ PHASE_ESTABLISH=1; PHASE_CONVERT=2; PHASE_PRESSURE=3; PHASE_CLOSING=4
 
 def _detect_phase(cen,can_ko,at_threshold,opp_prizes_left,hand_n):
     if opp_prizes_left<=2: return PHASE_CLOSING
-    not_established=(
-        not cen['has_alakazam'] or not cen['backup_abra'] or
-        cen['draw_count']==0 or not cen['has_energy_plan'])
+    # NOTE: backup_abra (2+ Abra) and draw_count (Dunsparce/Dudunsparce currently in
+    # play) are deliberately excluded here. Both are ephemeral, self-cycling resources
+    # — Dudunsparce's own ability shuffles ITSELF back into the deck on use, so
+    # draw_count routinely drops to 0 mid-game the instant you use the engine, and a
+    # backup Abra is rarely available once it's been used climbing the evolution line.
+    # Gating phase progression on either kept whole games stuck in ESTABLISH (and its
+    # overdraw-permissive scoring) even with a fully-fueled, attacking Alakazam and a
+    # huge hand. The only real gate for "established" is: is Alakazam up and fed.
+    not_established=(not cen['has_alakazam'] or not cen['has_energy_plan'])
     if not_established: return PHASE_ESTABLISH
     if can_ko or at_threshold: return PHASE_PRESSURE
     return PHASE_CONVERT
@@ -261,7 +267,7 @@ def _pick_boss_target(obs,sel):
     opp=players[opp_idx] if len(players)>opp_idx else{}
     opp_bench=opp.get('bench') or[]
     hand_n=_hand_size(cur,me); boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
-    opts=sel.get('option',[]); ko_targets=[]; dmg_targets=[]
+    opts=sel.get('option',[]); ko_targets=[]; dmg_targets=[]; mist_ko_targets=[]
     for i,o in enumerate(opts):
         bi=o.get('index',0)
         pk=opp_bench[bi] if 0<=bi<len(opp_bench) else None
@@ -269,9 +275,14 @@ def _pick_boss_target(obs,sel):
         pk_hp=(pk.get('hp',99999) or 99999); pv=_prize_value_pk(pk)
         ec=len((pk or{}).get('energies') or [])
         pid=_pk_id(pk)
-        if boss_dmg>=pk_hp:
+        # Gusting a Pokemon that ALSO has Mist/Rocky Energy just recreates the wall —
+        # only counts as a real KO/damage option if the wall isn't there too.
+        pk_walled=_opp_has_blocking_energy(pk)
+        if boss_dmg>=pk_hp and not pk_walled:
             ko_targets.append((i,pv,pk_hp,ec))
-        else:
+        elif boss_dmg>=pk_hp:
+            mist_ko_targets.append((i,pv,pk_hp,ec))
+        elif not pk_walled:
             dmg_pct=min(boss_dmg/pk_hp, 1.0) if pk_hp>0 else 0
             dmg_targets.append((i,pv,pid,dmg_pct,pk_hp))
     if ko_targets:
@@ -287,6 +298,11 @@ def _pick_boss_target(obs,sel):
             else: threat_score=10
             return pv*300 + dmg_pct*100 + threat_score
         best=max(dmg_targets,key=dmg_value)
+        return[best[0]]
+    # Every bench option is also Mist/Rocky-walled — no choice makes progress, so fall
+    # back to the highest-prize KO available (denies the biggest investment at least).
+    if mist_ko_targets:
+        best=max(mist_ko_targets,key=lambda x:(x[1],x[2],x[3]))
         return[best[0]]
     return[0]
 
@@ -325,10 +341,20 @@ def _main_phase(obs,sel):
     opp_bench=opp.get('bench') or[]
     opp_active_pv=_prize_value_pk(opp_active)
     boss_in_hand=any(_pk_id(c)==BOSS for c in hand)
+    hammer_in_hand=any(_pk_id(c)==ENHANCED_HAMMER for c in hand)
     tool_in_hand=any(_pk_id(c) in TOOL_IDS for c in hand)
+    # Opponent's Active is permanently walling Powerful Hand (Mist/Rocky Energy) and we
+    # have no way left to answer it this turn (no Hammer to strip the energy, no Boss
+    # to gust a different, unwalled target) — more searching/drawing can't fix a wall
+    # made of card TYPE, only of hand size, so it's pure deck-out risk for zero payoff.
+    hopelessly_walled=opp_mist and not hammer_in_hand and not boss_in_hand
     boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
     boss_target_exists=(
-        active_can_attack and not opp_mist and opp_hp>my_dmg and
+        # opp_mist doesn't block Boss — it blocks Powerful Hand against the CURRENT
+        # active only. A Mist-walled active makes ANY killable bench target the
+        # correct play (it's the only way to make progress at all), not a reason to
+        # skip this check in favor of the un-informed opp_mist fallback below.
+        active_can_attack and (opp_mist or opp_hp>my_dmg) and
         any(0<(b or{}).get('hp',99999)<=boss_dmg and
             _prize_value_pk(b)>=opp_active_pv
             for b in opp_bench if b))
@@ -362,9 +388,17 @@ def _main_phase(obs,sel):
         _pk_id(my_active)==KADABRA and
         not (my_active or{}).get('appearThisTurn',False))
     retreat_available=any(o.get('type')==RETREAT for o in opts)
+    active_free_retreat=_pk_id(my_active) in PIVOT_FREE_RETREAT_IDS
+    # Energy only "frees" an immobile Active if it actually enables something:
+    # Alakazam can attack with 1 Psychic regardless of bench; anyone else needs a
+    # bench Alakazam that's ALREADY ready to attack to retreat INTO (retreating into
+    # an un-fueled Kadabra/Abra/support mon still leaves you unable to attack this
+    # turn, so it isn't a fix) — and a free-retreater (Shaymin) was never blocked by
+    # energy in the first place, so attaching to it fixes nothing either way.
     active_immobile=(
         my_active is not None and not attack_available and not retreat_available and
-        len(_energies(my_active))==0)
+        len(_energies(my_active))==0 and not active_free_retreat and
+        (active_is_alak or bench_has_alak_ready))
     # Threshold discipline (§4/§10 piloting-guide): once a ready attacker exists and the
     # hand is already at the KO threshold, more draw is pure deck-out risk -> stop drawing.
     ready_attacker_exists=active_can_attack or bench_has_alak_ready
@@ -401,6 +435,7 @@ def _main_phase(obs,sel):
                 if can_ko: return 2.0
                 if cid==DUDUNSPARCE:
                     if hand_surplus: return 0.5
+                    if hopelessly_walled and not emergency_draw: return-6.0
                     if deck_danger and not emergency_draw:   return-8.0
                     if deck_critical and not emergency_draw: return-2.0
                     if hand_n>=14 and not emergency_draw:    return 1.0
@@ -499,6 +534,9 @@ def _main_phase(obs,sel):
                 if cen['need_line']:        return 14.0
                 return 4.0
             if cid==POFFIN:
+                if deck_danger: return-8.0
+                if hopelessly_walled: return-3.0
+                if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (not cen['backup_abra'] or cen['draw_count']==0):
                     if cen['bench_count']<5: return 25.0
                 if not cen['backup_abra'] or cen['draw_count']==0:
@@ -522,6 +560,7 @@ def _main_phase(obs,sel):
                 if supporter_played: return-5.0
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
+                if hopelessly_walled: return-3.0
                 if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 22.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
@@ -535,6 +574,7 @@ def _main_phase(obs,sel):
                 if supporter_played: return-5.0
                 if deck_danger: return-8.0
                 if active_immobile: return 18.0
+                if hopelessly_walled: return-3.0
                 if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 24.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
@@ -548,6 +588,7 @@ def _main_phase(obs,sel):
             if cid==POKE_PAD:
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
+                if hopelessly_walled: return-3.0
                 if hand_surplus: return 2.0
                 if not cen['backup_abra']: return 13.0
                 if cen['need_line']:       return 9.0
@@ -590,7 +631,11 @@ def _main_phase(obs,sel):
                 if tid==KADABRA:                             return 9.0
                 if tid==ABRA:                                return 6.0
                 if tid==ALAKAZAM:                            return 1.0
-                return 3.0
+                # Never preemptively fuel a support mon (Dudunsparce/Genesect/Shaymin/
+                # Psyduck/Fez) — they don't attack, and the one legitimate case (paying
+                # a real retreat cost into a waiting bench Alakazam) is already handled
+                # above via the active_immobile rescue block.
+                return -2.0
             if active_non_atk:
                 if tid==ALAKAZAM: return 11.0
                 return 2.0

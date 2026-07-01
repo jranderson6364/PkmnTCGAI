@@ -1,7 +1,32 @@
 # Neural Net Training Log & Roadmap
 
-**Last updated:** 2026-06-28  
-**Status:** Self-play attempt 2 running. Paused while v14 heuristic detour runs.
+**Last updated:** 2026-07-01  
+**Status:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher, right at the Phase 1 exit
+threshold) while the heuristic ladder track (now v21, ~750 Elo / 1600-4000) runs.
+
+---
+
+## Resume Here
+
+Concrete next steps, in order, picking this back up:
+
+1. **Run the clean 100-game eval of `sp2_iter2.pth` vs v11** (pending — this is the
+   actual blocker on the Phase 1 → Phase 2 decision below). If ≥55-60%, Phase 1 is
+   done. If it's borderline/a fluke, run 2-3 more self-play iterations first.
+2. **BC-teacher decision — resolved as Option B (keep v11).** Don't recollect BC
+   warm-start data from the current heuristic (v21), even though it's now
+   meaningfully stronger than v11. Self-play iterations exist specifically to grow
+   past the seed teacher's ceiling — recollecting is a real time cost for a benefit
+   the training loop should already deliver. Heuristic (v21+) and NN stay
+   independently-scored, parallel tracks.
+3. **Fill in the opponent `DECK` IDs** in `opponents/starmie_agent.py`,
+   `opponents/lucario_agent.py`, `opponents/dragapult_agent.py` — still `[0]*60`
+   placeholders. One `all_card_data()` call on Kaggle. Hard blocker on both the
+   self-play opponent pool and Phase 2's league/PFSP hardening.
+4. **Open/unverified:** whether `kiyotah/cg-lib` can be `kaggle datasets download`'d
+   and used standalone outside a Kaggle notebook session — would unlock local
+   self-play iteration speed instead of Kaggle's session limits / ~30hr weekly GPU
+   quota. See `README.md` § Local Development.
 
 ---
 
@@ -156,10 +181,10 @@ Save Version (Save & Run All) → commits /kaggle/working/ outputs
 
 ---
 
-## v14 vs NN Track Decision
+## Heuristic vs NN Track Decision — Resolved
 
-v14 diverges significantly from v11 (the BC teacher). If resuming NN:
-- **Option A:** Recollect BC data using v14 as teacher → better BC signal for current piloting
-- **Option B:** Keep v11 as BC teacher, treat v14 as independent ladder track
-
-Option A is preferred if v14 proves consistently better than v11 on the ladder.
+The heuristic ladder track (now v21) has diverged significantly from v11 (the fixed
+BC teacher). **Decided: Option B** — keep v11 as the BC teacher permanently, treat
+the heuristic and NN as independent, parallel tracks rather than recollecting BC
+data every time the heuristic improves. See "Resume Here" at the top of this file
+for the reasoning.

@@ -12,7 +12,7 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v17 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v19 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
@@ -36,14 +36,14 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v17 Alakazam heuristic agent (active ladder submission)
+main.py          ← v19 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v17 change log
+  version-history.md ← v1–v19 change log
   training-setup.md  ← self-play + curriculum training plan
   EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
 opponents/
@@ -142,7 +142,7 @@ from cg.env import env
 - Rock Fighting Energy (Rocky Energy) = card #20
 - Detect by: `11 in opp_active.energies` or `20 in opp_active.energies`
 
-**Energy routing rule:** Route Psychic (5, 19) → Alakazam. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
+**Energy routing rule:** Route Psychic (5, 19) → Alakazam **only if it doesn't already have one** (Powerful Hand costs exactly 1 Psychic; a 2nd does nothing). Once Alakazam is fueled, route further Psychic → Kadabra → Abra → other bench support, in that order, so the line is pre-loaded before it evolves. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
 
 ### Poffin vs Poké Pad vs Dawn
 - **Poffin (1086):** benches Abra(50HP) / Dunsparce(70HP) / Psyduck(70HP). Cannot grab Shaymin(80HP) or Genesect(110HP) or Fez(210HP).
@@ -151,9 +151,48 @@ from cg.env import env
 
 ---
 
-## v17 Agent Architecture
+## v19 Agent Architecture
 
 **File:** `main.py`
+
+### v19 Key Changes — psychic energy over-attach fix
+Powerful Hand costs exactly 1 Psychic; a 2nd on the same Alakazam does nothing (only 6
+Psychic sources in the whole 60-card deck, so wasting one is real cost). Reordered
+`PSYCHIC_ENERGY_IDS` ATTACH scoring: was Alakazam-without(16) > Alakazam-**with**(8) >
+Kadabra(7) > else(3); now Alakazam-without(16) > **Kadabra(9) > Abra(6)** > other bench
+support(3) > **Alakazam that already has one (1, lowest)**. Verified with two synthetic
+isolated-ATTACH tests (Kadabra+Abra on bench; Abra+other-support on bench) that the
+agent now routes to Kadabra, then Abra, ahead of both the redundant re-attach and
+generic bench support. Full 2,654-selection regression across 11 replays still clean.
+
+### v18 Key Changes — ladder result (900→660 Elo) + prize-selection stall diagnosis
+Analyzed 5 fresh replays from the post-v17 losing streak. 0 missed-lethal, 0
+bad-retreat, 0 bad-Boss-target — the v16/v17 fixes are holding. Found two real issues:
+
+1. **Handheld Fan no longer counts as the `active_immobile` rescue energy.** The
+   ATTACH scoring's "free the stranded Active" bonus (55/65) fired for *any* card
+   attached to Active, including Tools — Handheld Fan provides zero Energy and can't
+   pay a retreat/attack cost, so it was wasting the rescue attach on a card that
+   couldn't fix the immobility. Now gated behind `cid in PSYCHIC_ENERGY_IDS or
+   cid==ENRICHING`.
+2. **Stall-detection hedge for a prize-card-selection freeze** (`_select_fingerprint`/
+   `_resolve_stalled_or`). 3 of 5 new losses show an identical `stype=1, context=7,
+   area=6, minCount==maxCount==N` select immediately after a scoring attack, where `N`
+   exactly matches the KO'd Pokémon's prize value (1 for regular, 2 for ex) — this is
+   prize-card selection, correcting a wrong "Sacred Ash/Lana discard" guess from the
+   v16 write-up. In 2 of 3 games it never resolved, freezing until the match ended in
+   a loss despite the opponent's Pokémon being dead. Our own resolution logic for this
+   select is already a valid blind pick; root cause is **not conclusively identified**
+   (may be engine/timing behavior, not our code) — added a narrowly-scoped hedge that
+   rotates to a different valid combination if the identical select+state repeats with
+   no progress, rather than resubmitting the same answer forever. This is a defensive
+   measure, not a proven fix.
+
+Verified: agent runs clean on all 2,654 real selections across 11 saved replays (0
+errors, 0 illegal empties). Replaying the exact stuck sequence from `f094c5ad` confirms
+the hedge now rotates `[0]→[1]→[2]→...` instead of resubmitting `[0]` forever, and
+replaying the Handheld-Fan game confirms the agent now EVOLVEs instead of wasting the
+attach on the Fan.
 
 ### v17 Key Changes — competitive-research alignment (`docs/piloting-guide.md` v3)
 Full research of how the deck is actually piloted (Cerys Jones' Indianapolis Regional

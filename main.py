@@ -51,6 +51,46 @@ DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*3+[DUNSPARCE]*3+[DUDUNSPARCE]*3+
         [ENHANCED_HAMMER]*2+[RARE_CANDY]*3+[BASIC_P]*2+[ENRICHING]+[TELEPATH_P]*4)
 
 _CARDS = None; _ATKMAP = None
+_STALL_MEMO = {}
+
+def _select_fingerprint(obs, sel):
+    """Coarse signature of a select + game state, for detecting a genuinely stuck
+    engine selection (same question, same state, asked again). Deliberately loose:
+    false negatives (missing a real stall) are free; false positives just cost one
+    extra, still-valid rotation of an equally-good blind pick."""
+    opts = sel.get('option', [])
+    opt_sig = tuple(sorted(
+        (o.get('area'), o.get('type'), o.get('playerIndex')) for o in opts))
+    cur = obs.get('current') or {}
+    me_idx = cur.get('yourIndex', 0)
+    pl = cur.get('players') or []
+    me = pl[me_idx] if len(pl) > me_idx else {}
+    opp = pl[1-me_idx] if len(pl) == 2 else {}
+    state_sig = (
+        me.get('deckCount'), me.get('handCount'), len(me.get('prize') or []),
+        opp.get('deckCount'), len(opp.get('prize') or []))
+    return (sel.get('type'), sel.get('context'), sel.get('minCount'),
+            sel.get('maxCount'), opt_sig, state_sig)
+
+def _resolve_stalled_or(obs, sel, fallback_indices):
+    """If the exact same select+state was seen on a prior call with no progress,
+    rotate to a different (still valid) combination instead of repeating the
+    identical answer forever. First occurrence always uses fallback_indices."""
+    global _STALL_MEMO
+    fp = _select_fingerprint(obs, sel)
+    seen = _STALL_MEMO.get(fp, 0)
+    _STALL_MEMO[fp] = seen + 1
+    if seen == 0:
+        return fallback_indices
+    n = len(sel.get('option', []))
+    mx = sel.get('maxCount', 1) or 1
+    mn = sel.get('minCount', 0) or 0
+    if n == 0: return fallback_indices
+    k = max(mn, min(mx, n))
+    offset = (seen * k) % n
+    idxs = [(offset + i) % n for i in range(k)]
+    return idxs
+
 def _meta():
     global _CARDS,_ATKMAP
     if _CARDS is None:
@@ -524,9 +564,12 @@ def _main_phase(obs,sel):
         if ot==ATTACH:
             if can_ko: return 0.5
             tgt=_attach_target(o,my_active,bench); tid=_pk_id(tgt)
-            if active_immobile and tgt is my_active:
+            is_energy_card=cid in PSYCHIC_ENERGY_IDS or cid==ENRICHING
+            if active_immobile and tgt is my_active and is_energy_card:
                 # Free the stranded Active. Prefer real Psychic so a stuck Alakazam can
-                # both retreat AND attack; any energy still beats leaving it locked.
+                # both retreat AND attack; Enriching still frees it but pays no {P}.
+                # Tools (Handheld Fan etc.) provide zero Energy and do NOT belong here
+                # — they can't pay a retreat cost or an attack cost.
                 if cid in PSYCHIC_ENERGY_IDS: return 65.0
                 return 55.0
             if cid==HANDHELD_FAN:
@@ -538,9 +581,15 @@ def _main_phase(obs,sel):
                 if tid==ALAKAZAM and not _has_psychic(tgt):     return 1.0
                 return 6.0
             if cid in PSYCHIC_ENERGY_IDS:
+                # Powerful Hand costs exactly 1 Psychic — a 2nd energy on the same
+                # Alakazam does nothing (damage scales with hand size, not energy
+                # count). Once an Alakazam already has its one, route further Psychic
+                # to the next-best pre-load target: Kadabra, then Abra (so the energy
+                # is already there the moment it evolves), then other bench support.
                 if tid==ALAKAZAM and not _has_psychic(tgt): return 16.0
-                if tid==ALAKAZAM:                            return 8.0
-                if tid==KADABRA:                             return 7.0
+                if tid==KADABRA:                             return 9.0
+                if tid==ABRA:                                return 6.0
+                if tid==ALAKAZAM:                            return 1.0
                 return 3.0
             if active_non_atk:
                 if tid==ALAKAZAM: return 11.0
@@ -578,7 +627,12 @@ def _choose(obs):
         if any(o.get('area')==5 for o in opts):
             return _clamp(_pick_bench_target(obs,opts),sel)
         yes_i=[i for i,o in enumerate(opts) if o.get('type')==YES]
-        return _clamp(yes_i if yes_i else list(range(n)),sel)
+        if yes_i: return _clamp(yes_i,sel)
+        # Generic blind pick (this is where prize-card selection lands: same-shaped
+        # option list, minCount==maxCount==KO'd Pokemon's prize value). If the engine
+        # re-asks the identical question with no state change, rotate the pick instead
+        # of resubmitting the same answer forever.
+        return _clamp(_resolve_stalled_or(obs,sel,list(range(n))),sel)
     if stype in(2,3,4,7): return _clamp(list(range(n)),sel)
     if stype==5:           return _clamp(list(range(n))[:max(mn,1)],sel)
     if stype==6:

@@ -319,7 +319,7 @@ data; the win comes from piloting it better.**
 | Threshold draw then **stop** (§4,10) | `hand_surplus` suppresses draw/search | ✅ (v17) |
 | Bank Dudunsparce on bench (§4) | over-pop guards on Run Away Draw | ✅ partial |
 | Deck-out brakes (§10) | `deck_critical`/`deck_danger` floors; Sacred Ash 35/25 | ✅ |
-| Free a stranded Active (§8,10) | `active_immobile` → energy-to-Active = 60/65 | ✅ (v16/v17) |
+| Free a stranded Active (§8,10) | `active_immobile` → energy-to-Active = 55/65, energy cards only | ✅ (v16-v18) |
 | Energy routing (§8) | Psychic→Alakazam, Enriching→Dudunsparce | ✅ |
 | Manual evolve > Rare Candy (§3) | evolve scores ≥ candy when not racing | ⚠️ approximate |
 | Battle Cage / Shaymin vs spread (§5,11) | reactive scoring on `bench_dmg_received` | ✅ |
@@ -327,7 +327,10 @@ data; the win comes from piloting it better.**
 | Never promote Abra/Kadabra (§5) | `_pick_bench_target` Abra/Kadabra ≤ 3 | ✅ |
 | **Iono play-around (§9)** | — | ❌ gap (needs deck modelling) |
 | **Threshold vs overfill nuance (§4)** | coarse (`hand_surplus` is binary) | ⚠️ partial |
+| **Prize-selection engine stall (v18)** | `_resolve_stalled_or` rotation hedge | ⚠️ unconfirmed root cause |
 
 The remaining true gaps — Iono play-around and fine-grained threshold/overfill — are
-exactly the spots a learned policy should later beat the rules. Everything else is now
-encoded.
+exactly the spots a learned policy should later beat the rules. The prize-selection
+stall (v18) is a different kind of gap: a reproducible engine-adjacent freeze,
+identified by prize-value cross-checking across multiple replays, that our own
+selection logic looks correct for — hedged defensively rather than root-caused.

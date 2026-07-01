@@ -362,9 +362,17 @@ def _main_phase(obs,sel):
         _pk_id(my_active)==KADABRA and
         not (my_active or{}).get('appearThisTurn',False))
     retreat_available=any(o.get('type')==RETREAT for o in opts)
+    active_free_retreat=_pk_id(my_active) in PIVOT_FREE_RETREAT_IDS
+    # Energy only "frees" an immobile Active if it actually enables something:
+    # Alakazam can attack with 1 Psychic regardless of bench; anyone else needs a
+    # bench Alakazam that's ALREADY ready to attack to retreat INTO (retreating into
+    # an un-fueled Kadabra/Abra/support mon still leaves you unable to attack this
+    # turn, so it isn't a fix) — and a free-retreater (Shaymin) was never blocked by
+    # energy in the first place, so attaching to it fixes nothing either way.
     active_immobile=(
         my_active is not None and not attack_available and not retreat_available and
-        len(_energies(my_active))==0)
+        len(_energies(my_active))==0 and not active_free_retreat and
+        (active_is_alak or bench_has_alak_ready))
     # Threshold discipline (§4/§10 piloting-guide): once a ready attacker exists and the
     # hand is already at the KO threshold, more draw is pure deck-out risk -> stop drawing.
     ready_attacker_exists=active_can_attack or bench_has_alak_ready
@@ -590,7 +598,11 @@ def _main_phase(obs,sel):
                 if tid==KADABRA:                             return 9.0
                 if tid==ABRA:                                return 6.0
                 if tid==ALAKAZAM:                            return 1.0
-                return 3.0
+                # Never preemptively fuel a support mon (Dudunsparce/Genesect/Shaymin/
+                # Psyduck/Fez) — they don't attack, and the one legitimate case (paying
+                # a real retreat cost into a waiting bench Alakazam) is already handled
+                # above via the active_immobile rescue block.
+                return -2.0
             if active_non_atk:
                 if tid==ALAKAZAM: return 11.0
                 return 2.0

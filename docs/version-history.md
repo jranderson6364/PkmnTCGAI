@@ -91,7 +91,57 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v19: Psychic Energy Over-Attach Fix — CURRENT ACTIVE SUBMISSION
+## v20: Preemptive Energy on Support Mons Fix — CURRENT ACTIVE SUBMISSION
+
+User-requested audit: "supporter mons should not get energy at all unless they are
+attacking or retreating — no preemptive giving." Per instructions, first validated
+the replay-analyzer tool by manually tracing one game (`4eeb92ef`, raw JSON, no
+script) before trusting it on the rest — found the exact bug independently within
+the first 6 steps: Shaymin (a support mon with **free retreat** — it never needs
+energy to retreat at all) got a scarce Telepath Psychic energy attached while active,
+then sat on it uselessly for the game's remaining 16 turns since the bench never
+developed. Cross-checked the current agent against this exact historical
+observation and confirmed it still made the same choice — a live bug, not stale data.
+
+**Root cause:** the `active_immobile` flag (added v16, refined v18) was meant to free
+a genuinely stuck Active by prioritizing an energy attach, but its gate was too loose
+in two ways: (1) it didn't exclude free-retreaters (`PIVOT_FREE_RETREAT_IDS` = Shaymin
+— energy was never what was blocking its retreat), and (2) it only checked
+`bench_count > 0`, not whether that bench actually contained a **ready** attacker —
+so retreating a stuck Dunsparce/Psyduck/Fezandipiti into an un-fueled Kadabra/Abra/
+other support mon still leaves you unable to attack, meaning the energy fixed
+nothing. Since this flag also drives Dawn/Hilda/Poké Pad's search suppression, the
+bug was silently distorting five separate scoring decisions, not just the ATTACH one.
+
+**Tool improvement:** added `check_bad_energy_attach()` to
+`scratchpad/analyze_replay.py` — explicitly flags any Psychic energy attach landing
+on a non-attacker (i.e. not Alakazam/Kadabra/Abra) with no legitimate retreat-cost
+reason, rather than requiring a manual eyeball of the decision log. Re-running the
+improved analyzer on all 15 saved replays found this pattern in **9 of 15 games**
+(including the one win) — Shaymin, Dunsparce, Psyduck, and Fezandipiti all repeatedly
+received energy they could never use.
+
+**Fixes (`main.py`):**
+1. `active_immobile` now excludes `active_free_retreat` (Shaymin) and requires
+   `bench_has_alak_ready` instead of the looser `bench_count>0` for any non-Alakazam
+   Active — i.e. energy only counts as "freeing" the Active if it enables an attack
+   (Alakazam) or a retreat into an attacker that's actually ready to swing.
+2. The generic `PSYCHIC_ENERGY_IDS` ATTACH fallback (any target that isn't Alakazam/
+   Kadabra/Abra) dropped from a flat `3.0` to `-2.0` — no more "preemptive giving" to
+   bench support mons by default; the one legitimate case (paying a real retreat cost
+   into a ready attacker) is already covered by the corrected `active_immobile` block.
+
+**Verification:** full regression (3,425 selections across all 15 saved replays) 0
+errors, 0 illegal empties. Re-ran every historical main-phase decision point through
+the fixed agent (using the actual board state as recorded, not a full re-simulation)
+and confirmed the wasted-energy count drops to **0 across all 15 games**. Also
+confirmed with two isolated synthetic ATTACH-decision tests.
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v19: Psychic Energy Over-Attach Fix
 
 User-requested fix: Powerful Hand costs exactly 1 Psychic energy — a 2nd Psychic on
 the same Alakazam does nothing (damage scales with hand size, not energy count), so

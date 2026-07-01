@@ -12,7 +12,7 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v19 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v20 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
@@ -36,20 +36,25 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v19 Alakazam heuristic agent (active ladder submission)
+main.py          ← v20 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v19 change log
+  version-history.md ← v1–v20 change log
   training-setup.md  ← self-play + curriculum training plan
   EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
 opponents/
   starmie_agent.py   ← Mega Starmie ex training opponent (DECK IDs TODO)
   lucario_agent.py   ← Mega Lucario ex + Rocky Energy training opponent (DECK IDs TODO)
   dragapult_agent.py ← Dragapult ex Stage 2 spread training opponent (DECK IDs TODO)
+tools/
+  analyze_replay.py  ← kaggle-env replay decoder/auditor (missed lethals, bad retreats,
+                       bad Boss targets, wasted energy attaches, timeouts). Usage:
+                       `python3 tools/analyze_replay.py <replay.json> [more...]`
+                       writes `<name>_summary.txt` next to each input.
 ```
 
 ---
@@ -142,7 +147,7 @@ from cg.env import env
 - Rock Fighting Energy (Rocky Energy) = card #20
 - Detect by: `11 in opp_active.energies` or `20 in opp_active.energies`
 
-**Energy routing rule:** Route Psychic (5, 19) → Alakazam **only if it doesn't already have one** (Powerful Hand costs exactly 1 Psychic; a 2nd does nothing). Once Alakazam is fueled, route further Psychic → Kadabra → Abra → other bench support, in that order, so the line is pre-loaded before it evolves. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
+**Energy routing rule:** Route Psychic (5, 19) → Alakazam **only if it doesn't already have one** (Powerful Hand costs exactly 1 Psychic; a 2nd does nothing). Once Alakazam is fueled, route further Psychic → Kadabra → Abra, in that order, so the line is pre-loaded before it evolves. **Never proactively attach Psychic to any other support mon** (Dudunsparce/Genesect/Shaymin/Psyduck/Fez) — they don't attack, and the only legitimate exception is paying a real retreat cost on the Active to switch into an already-ready bench Alakazam. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
 
 ### Poffin vs Poké Pad vs Dawn
 - **Poffin (1086):** benches Abra(50HP) / Dunsparce(70HP) / Psyduck(70HP). Cannot grab Shaymin(80HP) or Genesect(110HP) or Fez(210HP).
@@ -151,9 +156,37 @@ from cg.env import env
 
 ---
 
-## v19 Agent Architecture
+## v20 Agent Architecture
 
 **File:** `main.py`
+
+### v20 Key Changes — no preemptive energy on support mons
+User-requested audit ("supporter mons should not get energy unless attacking or
+retreating — no preemptive giving"). Validated the replay analyzer first by manually
+tracing one game with no tooling, independently finding: Shaymin (free retreat — never
+needs energy) got a scarce Telepath Psychic attached while active, then sat on it
+uselessly for 16 turns since bench never developed. Confirmed the current agent still
+made this exact choice on the historical observation — a live bug.
+
+**Root cause:** `active_immobile` (v16/v18) was meant to free a genuinely stuck Active,
+but didn't exclude free-retreaters and only checked `bench_count>0` instead of
+`bench_has_alak_ready` — so retreating a stuck Dunsparce/Psyduck/Fez into an un-fueled
+Kadabra/Abra/other support still leaves you unable to attack, meaning the energy fixed
+nothing. This flag also drives Dawn/Hilda/Poké Pad suppression, so the bug silently
+distorted 5 scoring paths, not just the ATTACH one.
+
+**Tool improvement:** added `check_bad_energy_attach()` to the replay analyzer —
+flags any Psychic attach landing on a non-attacker with no legitimate retreat reason.
+Found the pattern in **9 of 15 saved replays** (including the one win) — Shaymin,
+Dunsparce, Psyduck, and Fezandipiti all repeatedly received unusable energy.
+
+**Fixes:** `active_immobile` now excludes `active_free_retreat` and requires
+`bench_has_alak_ready` (not just any bench occupant); the generic `PSYCHIC_ENERGY_IDS`
+fallback dropped from `3.0` to `-2.0`.
+
+**Verification:** full regression (3,425 selections, 15 replays) clean. Re-ran every
+historical decision through the fixed agent — wasted-energy count drops to **0 across
+all 15 games**.
 
 ### v19 Key Changes — psychic energy over-attach fix
 Powerful Hand costs exactly 1 Psychic; a 2nd on the same Alakazam does nothing (only 6

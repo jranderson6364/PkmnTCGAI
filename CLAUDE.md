@@ -368,7 +368,7 @@ def prize_value(pokemon):
 2. **Timeout = instant loss.** Every inference path must have a guaranteed fast fallback (`_safe_return`).
 3. **Single-prize + non-ex beats the meta.** Crustle immunity walls all ex attackers. Alakazam hits Crustle normally. Prize trade math: giving up 1, taking 2-3.
 4. **Hand size IS damage.** Never discard unnecessarily. No Professor's Research, no Iono, no Ultra Ball.
-5. **Rule-based bots cap at ~0% on the 70% Strategy axis.** The neural net track is the competition goal; heuristic v14 is the ladder placeholder while NN training runs.
+5. **Rule-based bots cap at ~0% on the 70% Strategy axis.** The neural net track is the competition goal; the current heuristic (v21) is the ladder placeholder while NN training runs.
 6. **5 submissions/day, only the latest 2 count.** Use the ladder as an A/B testing rig.
 
 ---

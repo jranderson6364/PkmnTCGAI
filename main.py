@@ -581,9 +581,15 @@ def _main_phase(obs,sel):
                 if tid==ALAKAZAM and not _has_psychic(tgt):     return 1.0
                 return 6.0
             if cid in PSYCHIC_ENERGY_IDS:
+                # Powerful Hand costs exactly 1 Psychic — a 2nd energy on the same
+                # Alakazam does nothing (damage scales with hand size, not energy
+                # count). Once an Alakazam already has its one, route further Psychic
+                # to the next-best pre-load target: Kadabra, then Abra (so the energy
+                # is already there the moment it evolves), then other bench support.
                 if tid==ALAKAZAM and not _has_psychic(tgt): return 16.0
-                if tid==ALAKAZAM:                            return 8.0
-                if tid==KADABRA:                             return 7.0
+                if tid==KADABRA:                             return 9.0
+                if tid==ABRA:                                return 6.0
+                if tid==ALAKAZAM:                            return 1.0
                 return 3.0
             if active_non_atk:
                 if tid==ALAKAZAM: return 11.0

@@ -91,7 +91,33 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v18: Ladder Result + Prize-Selection Stall Diagnosis — CURRENT ACTIVE SUBMISSION
+## v19: Psychic Energy Over-Attach Fix — CURRENT ACTIVE SUBMISSION
+
+User-requested fix: Powerful Hand costs exactly 1 Psychic energy — a 2nd Psychic on
+the same Alakazam does nothing (damage scales with hand size, not energy count), so
+attaching a spare Psychic to an already-fueled Alakazam is pure waste of a scarce
+resource (only 6 Psychic sources in the 60-card deck: 2 Basic Psychic + 4 Telepath
+Psychic).
+
+**Fix:** reordered the `PSYCHIC_ENERGY_IDS` ATTACH scoring priority. Was: Alakazam
+without Psychic (16) > Alakazam *with* Psychic already (8) > Kadabra (7) > everything
+else (3) — meaning a redundant re-attach to a fueled Alakazam could beat pre-loading
+Kadabra. Now: Alakazam without Psychic (16) > **Kadabra (9) > Abra (6)** > other bench
+support (3) > **Alakazam that already has one (1, lowest)**. Kadabra/Abra are
+pre-loaded ahead of other bench so the energy is already there the instant they evolve
+into the next stage, without needing another attach that turn.
+
+**Verification:** full regression (2,654 selections across 11 replays) still 0 errors,
+0 illegal empties. Built two synthetic isolated-ATTACH-decision tests (Alakazam active
+already fueled; bench has Kadabra+Abra in one, Abra+other-support in the other) and
+confirmed the agent now routes to Kadabra first, then Abra, in preference to both the
+redundant Alakazam re-attach and generic bench support.
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v18: Ladder Result + Prize-Selection Stall Diagnosis
 
 v17 climbed to ~900 Elo on the ladder, then dropped to ~660 after a losing streak.
 Analyzed 5 fresh replays from that streak with the same replay-analyzer approach as

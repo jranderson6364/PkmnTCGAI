@@ -12,7 +12,7 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v18 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v19 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
@@ -36,14 +36,14 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v18 Alakazam heuristic agent (active ladder submission)
+main.py          ← v19 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v18 change log
+  version-history.md ← v1–v19 change log
   training-setup.md  ← self-play + curriculum training plan
   EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
 opponents/
@@ -142,7 +142,7 @@ from cg.env import env
 - Rock Fighting Energy (Rocky Energy) = card #20
 - Detect by: `11 in opp_active.energies` or `20 in opp_active.energies`
 
-**Energy routing rule:** Route Psychic (5, 19) → Alakazam. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
+**Energy routing rule:** Route Psychic (5, 19) → Alakazam **only if it doesn't already have one** (Powerful Hand costs exactly 1 Psychic; a 2nd does nothing). Once Alakazam is fueled, route further Psychic → Kadabra → Abra → other bench support, in that order, so the line is pre-loaded before it evolves. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
 
 ### Poffin vs Poké Pad vs Dawn
 - **Poffin (1086):** benches Abra(50HP) / Dunsparce(70HP) / Psyduck(70HP). Cannot grab Shaymin(80HP) or Genesect(110HP) or Fez(210HP).
@@ -151,9 +151,19 @@ from cg.env import env
 
 ---
 
-## v18 Agent Architecture
+## v19 Agent Architecture
 
 **File:** `main.py`
+
+### v19 Key Changes — psychic energy over-attach fix
+Powerful Hand costs exactly 1 Psychic; a 2nd on the same Alakazam does nothing (only 6
+Psychic sources in the whole 60-card deck, so wasting one is real cost). Reordered
+`PSYCHIC_ENERGY_IDS` ATTACH scoring: was Alakazam-without(16) > Alakazam-**with**(8) >
+Kadabra(7) > else(3); now Alakazam-without(16) > **Kadabra(9) > Abra(6)** > other bench
+support(3) > **Alakazam that already has one (1, lowest)**. Verified with two synthetic
+isolated-ATTACH tests (Kadabra+Abra on bench; Abra+other-support on bench) that the
+agent now routes to Kadabra, then Abra, ahead of both the redundant re-attach and
+generic bench support. Full 2,654-selection regression across 11 replays still clean.
 
 ### v18 Key Changes — ladder result (900→660 Elo) + prize-selection stall diagnosis
 Analyzed 5 fresh replays from the post-v17 losing streak. 0 missed-lethal, 0

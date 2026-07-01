@@ -91,7 +91,66 @@ Introduced 4-phase state machine (ESTABLISH/CONVERT/PRESSURE/CLOSING) and hand-c
 
 ---
 
-## v17: Competitive-Research Alignment + Threshold Discipline — CURRENT ACTIVE SUBMISSION
+## v18: Ladder Result + Prize-Selection Stall Diagnosis — CURRENT ACTIVE SUBMISSION
+
+v17 climbed to ~900 Elo on the ladder, then dropped to ~660 after a losing streak.
+Analyzed 5 fresh replays from that streak with the same replay-analyzer approach as
+v16. Result: **0 missed-lethal, 0 bad-retreat, 0 bad-Boss-target across all 5 games**
+— the v16/v17 fixes for those are holding clean. The losses are dominated by two
+different things, one already-known and one newly (and more correctly) diagnosed:
+
+1. **One pure-variance loss.** Opening 7-card hand had zero Basics and zero search
+   cards (Poffin/Poké Pad/Dawn) — no possible path to a bench that turn. Same failure
+   class as a game from the v16 batch. No heuristic fix changes this without a
+   mulligan mechanic, which the engine doesn't appear to expose.
+
+2. **Prize-card-selection stall — corrected diagnosis of a bug misidentified last
+   session.** Three of the five new losses (plus, in hindsight, the v16 deck-out game)
+   show an identical signature immediately after a scoring Powerful Hand attack:
+   `stype=1, context=7, option[].area=6, option[].playerIndex==self, option[].type=3`,
+   with `minCount == maxCount == N`. Cross-checking `N` against the KO'd Pokémon's
+   prize value across multiple games confirms an exact match every time (1-prize KO →
+   N=1, 2-prize/ex KO → N=2) — **this is prize-card selection**, not "Sacred Ash /
+   Lana's Aid discard recovery" as guessed in the v16 write-up (both those cards say
+   "up to X"; only prize-taking requires an exact count). In 2 of the 3 games this
+   selection never resolved — the identical option list repeated for 6-12 ticks with
+   no state change until the match ended in a recorded loss, despite the opponent's
+   Pokémon being confirmed dead. Root cause is **not conclusively identified**: our
+   own resolution logic for this select shape was audited and is already a valid,
+   generically-correct blind pick (`_clamp(list(range(n)), sel)` for a face-down
+   selection where any index is equally good) — the fact that the identical pattern
+   sometimes resolves in 4 ticks and sometimes never resolves points at engine/timing
+   behavior we can't fully pin down from static replay logs.
+
+**Fixes:**
+1. **Handheld Fan no longer counts as the `active_immobile` rescue energy.** Traced a
+   stuck-Alakazam game and found the ATTACH scoring's "free the stranded Active" bonus
+   (score 55-65, added in v16/v17) fired for *any* card attached to Active, including
+   Tools. Handheld Fan provides zero Energy and can't pay a retreat or attack cost, so
+   attaching it did nothing to fix the immobility it was supposedly solving. Gated the
+   bonus behind `cid in PSYCHIC_ENERGY_IDS or cid==ENRICHING`. Verified: replaying the
+   exact stuck state now has the agent EVOLVE instead of wasting the attach on the Fan.
+2. **Stall-detection hedge for the prize-selection freeze (defensive, not a proven
+   fix).** Added `_select_fingerprint`/`_resolve_stalled_or`: if the identical
+   select+game-state signature is seen again with no progress, rotate to a different
+   (still valid) combination of indices instead of resubmitting the same answer
+   forever. Scoped narrowly to the exact generic blind-pick fallback path this bug
+   lands in — every other select path is untouched. Costs nothing on the first call of
+   any select (same behavior as before); only diverges on a detected repeat. This is a
+   hedge against an unconfirmed root cause, not a guaranteed fix — flagged honestly as
+   such.
+
+**Verification:** agent runs clean on all 2,654 real selections across all 11 saved
+replays (6 from v16 + 5 new), 0 exceptions, 0 illegal empties. Replayed the exact
+stuck-selection sequence from `f094c5ad` through the patched agent and confirmed the
+stall hedge now rotates `[0]→[1]→[2]→[3]→[4]→[5]→[0]...` instead of resubmitting `[0]`
+every time.
+
+**Status:** Committed. Not yet ladder-validated.
+
+---
+
+## v17: Competitive-Research Alignment + Threshold Discipline
 
 Did a full research pass on how the Alakazam/Dudunsparce deck is actually piloted at
 the top level (Cerys Jones' 1st-place Indianapolis Regional list, CL Osaka 2026, the

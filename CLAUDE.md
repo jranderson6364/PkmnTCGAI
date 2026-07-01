@@ -12,7 +12,7 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
-**Current ladder submission:** v20 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
+**Current ladder submission:** v21 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
 
@@ -36,14 +36,14 @@ Detailed sub-topics live in `docs/`.
 ## Repo Structure
 
 ```
-main.py          ← v20 Alakazam heuristic agent (active ladder submission)
+main.py          ← v21 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line
 CLAUDE.md        ← this file
 docs/
   nn-training.md     ← full NN training log, architecture, roadmap
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v20 change log
+  version-history.md ← v1–v21 change log
   training-setup.md  ← self-play + curriculum training plan
   EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
 opponents/
@@ -156,9 +156,37 @@ from cg.env import env
 
 ---
 
-## v20 Agent Architecture
+## v21 Agent Architecture
 
 **File:** `main.py`
+
+### v21 Key Changes — phase-stuck-at-ESTABLISH + Mist-wall escape fixes
+Analyzed 4 more v19 replays (all losses). Two new, more consequential bugs beyond the
+already-known wasted-energy issue (which recurred in 3 of 4, as expected pre-v20-fix):
+
+1. **Phase permanently stuck at `PHASE_ESTABLISH`.** `_detect_phase` required
+   `backup_abra` (2+ Abra) AND `draw_count>0` (a Dunsparce/Dudunsparce in play) —
+   but Dudunsparce's own ability shuffles itself back into the deck on use, so
+   `draw_count` routinely hits 0 mid-game regardless of actual development, and a
+   backup Abra is rarely available once used. One game decked out at 0 with a
+   20-25 card hand while *winning* the prize race (2 needed vs opponent's 5) because
+   phase never left ESTABLISH's overdraw-permissive scoring. Fixed: removed both
+   conditions, keeping only `has_alakazam`/`has_energy_plan`. Also gave POFFIN a
+   `hand_surplus` gate it was missing entirely (unlike Dawn/Hilda/Poké Pad).
+2. **Mist-walled Active with no removal left, and Boss under-prioritized as the
+   actual escape.** New `hopelessly_walled` flag (`opp_mist` + no Hammer + no Boss in
+   hand) suppresses Poffin/Dawn/Hilda/Poké Pad/Dudunsparce-ability, since more cards
+   can't fix a card-type block. Separately, `boss_target_exists` required
+   `not opp_mist` — backwards, since Mist only blocks the *current* Active and
+   gusting a different bench target is the escape valve, most valuable exactly when
+   Mist is up. Fixed to `(opp_mist or opp_hp>my_dmg)`. Also hardened
+   `_pick_boss_target` to avoid gusting another Mist/Rocky-walled target (would
+   just recreate the same dead end).
+
+Verified: full regression clean (4,776 selections, 15 replays, 0 errors). Re-verified
+both bugs directly — phase now reads CONVERT/PRESSURE instead of ESTABLISH on the
+identified game; a synthetic Mist-wall test confirms Boss now beats a routine search
+play when a killable non-Mist target exists.
 
 ### v20 Key Changes — no preemptive energy on support mons
 User-requested audit ("supporter mons should not get energy unless attacking or

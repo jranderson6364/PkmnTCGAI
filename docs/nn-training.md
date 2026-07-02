@@ -3,7 +3,7 @@
 *Running log of NN architecture, training status, and the phased roadmap for the
 learned-piloting agent (the 70%-weighted "model approach" axis).*
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-02
 **Status:** RESTARTED. All prior training data was lost, but the engine now runs
 **fully locally** (`training/README.md`) — data collection no longer needs Kaggle
 or even the Vivobook (the Vivobook multiplies throughput). Teacher is v22.
@@ -146,7 +146,7 @@ full playouts inside search are expensive. Instead:
 
 - **Training value target:** n-step TD — `G_t = Σ_{k<n} γ^k r_{t+k} + γ^n V(s_{t+n})`
   with shaped intermediate rewards r (prizes taken/conceded, threshold progress —
-  see training-setup.md) mixed toward the terminal outcome:
+  see `training/README.md` §Curriculum & Reward Shaping) mixed toward the terminal outcome:
   `target = 0.7 * outcome + 0.3 * G_t^(n)`, n ≈ 8-12 decisions, γ ≈ 0.997.
 - **Search evaluation:** truncated rollouts — expand ~n steps with the policy net,
   evaluate the leaf with the value head instead of playing to termination

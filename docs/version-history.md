@@ -263,8 +263,8 @@ game-losing bugs confirmed across multiple independent games:
 2. Enhanced Hammer escalation: scores 45 when opponent has Mist/Rocky (was 28).
 3. Battle Cage reactive: scores 22 when bench damage detected (was flat 6).
 
-Training infrastructure (opponents/ agents + docs/training-setup.md) staged for
-when Vivobook compute is available.
+Training infrastructure (opponents/ agents + a training-setup plan doc, since
+folded into `training/README.md`) staged for when Vivobook compute is available.
 
 ---
 

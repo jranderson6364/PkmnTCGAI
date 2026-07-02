@@ -7,7 +7,7 @@ n-step bootstrapped value targets per docs/nn-training.md §Value Targets:
 
 using the CURRENT net's own value head for V() (bootstrap) and a shaped
 intermediate reward (prizes taken/conceded + hand-vs-KO-threshold progress,
-adapted from docs/training-setup.md's shaped_reward). Saved samples add a
+see training/README.md §Curriculum & Reward Shaping). Saved samples add a
 `value_target` field on top of the BC sample schema; dataset.py falls back to
 plain `outcome` when that field is absent, so BC and SP shards share one
 Dataset/collate implementation.
@@ -47,8 +47,8 @@ def _pk_hp(obs, me_idx, opp=True):
 
 
 def shaped_reward(obs_before, obs_after, me_idx):
-    """One decision-to-next-own-decision shaped reward (adapted from
-    training-setup.md's turn-level version to our per-decision spacing)."""
+    """One decision-to-next-own-decision shaped reward (the turn-level design
+    from training/README.md adapted to our per-decision spacing)."""
     cur_b = obs_before.get("current") or {}
     cur_a = obs_after.get("current") or {}
     pl_b, pl_a = cur_b.get("players") or [], cur_a.get("players") or []

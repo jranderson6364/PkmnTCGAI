@@ -1,10 +1,20 @@
 # training/ — Local Training & Evaluation Rig
 
+*Setup, file map, and standard workflows for the local rig: A/B testing, the
+Gauntlet, SPSA weight tuning, BC/self-play data collection, and the opponent
+pool. NN architecture and the phased training roadmap live in
+`docs/nn-training.md`; the stage plan lives in `docs/competition-strategy.md`
+§Master Plan.*
+
+**Last updated:** 2026-07-02
+
+---
+
+## Setup (once per machine — this PC and the Vivobook)
+
 The cabt engine ships **inside `kaggle_environments`** (with native binaries for
 Windows/Linux/macOS), so full games run locally at ~0.5s each. No Kaggle session
 is needed for self-play, A/B testing, weight tuning, or BC data collection.
-
-## Setup (once per machine — this PC and the Vivobook)
 
 ```
 pip install kaggle_environments --no-deps
@@ -13,6 +23,8 @@ pip install kaggle_environments --no-deps
 `--no-deps` matters on Windows: a transitive dependency (orbax, via gymnax) hits
 the Windows long-path limit. cabt needs none of those extras. Core deps you may
 also need: `flask jsonschema numpy requests` (usually already present).
+
+---
 
 ## Files
 
@@ -26,11 +38,16 @@ also need: `flask jsonschema numpy requests` (usually already present).
 | `bc_collect.py` | Teacher self-play → `bc_data.pkl.gz` for NN warmup |
 | `weight_search.py` | SPSA tuning of `main.W` scoring constants vs frozen v21 |
 | `overnight_tune.py` | Budgeted overnight SPSA + gauntlet finals (crash-safe, auto-resume) |
+| `tune_ckpt.json`, `tune_log.jsonl` | 2026-07-02 tune run evidence (kept for the report) |
 | `curriculum.py` | Mine bad-hand games + tight mid-game positions |
-| `baselines/v21.py` | Frozen v21 (pre-API-audit) |
-| `baselines/v22_pre_refactor.py` | Frozen v22 (pre-score_options refactor) |
-| `baselines/v23.py` | Frozen v23 (pre-deck-simplification) |
+| `random_agent.py` | Uniform-random opponent (baseline gate + gauntlet anchor) |
+| `baselines/` | Frozen `v21.py`, `v22_pre_refactor.py`, `v23.py` (A/B refs + anchors) |
+| `nn/` | NN track: encode/model/dataset, BC + self-play training, net agents — see `docs/nn-training.md` |
+| `kaggle_notebook/` | Kaggle notebook builders + built notebooks (BC training, MCTS spike) |
+| `kaggle_upload/` | Kaggle dataset staging (`dataset-metadata.json`; data files copied in at upload time) |
 | `../tools/deck_audit.py` | Per-card utilization stats for deck simplification |
+
+---
 
 ## Standard workflows
 
@@ -57,6 +74,52 @@ python training/curriculum.py --games 500
 
 After every ladder ship: add the realized Elo/rank to `training/ladder_history.csv`
 and write the day's `docs/report-log.md` entry.
+
+---
+
+## Opponent Pool
+
+**Directory:** `opponents/` (official Kaggle sample notebooks they were built
+from: `opponents/samples/`).
+
+| File | Archetype | Status |
+|------|-----------|--------|
+| `opponents/lucario_agent.py` | Mega Lucario ex + Rocky Energy lock (340 HP megaEx) | Complete — real deck embedded |
+| `opponents/dragapult_agent.py` | Dragapult ex Stage 2 spread (Phantom Dive, 320 HP) | Complete — real deck embedded |
+| `opponents/abomasnow_agent.py` | Mega Abomasnow ex energy-discard mill | Complete — real deck embedded |
+| `opponents/starmie_agent.py` | Mega Starmie ex spread (330 HP megaEx) | Complete — real deck embedded |
+
+All four agents return their DECK list when `sel is None` (required for
+`search_begin` in MCTS). Adding more opponents: any `agent(obs_dict)` function
+following this contract can join the pool. Crustle is the next candidate.
+
+---
+
+## Curriculum & Reward Shaping
+
+`curriculum.py` implements two mechanisms (→ `training/hard_positions.pkl.gz`):
+
+1. **Bad-hand filter:** keep only games whose first dealt hand has no Abra and
+   no search card (Poffin/Poké Pad/Dawn). Measured incidence ~5% of games —
+   generate in bulk locally and discard the rest (local games are free).
+2. **Hard-position mining:** every decision point is tagged against tight-spot
+   predicates — `mist_walled`, `deck_danger`, `behind_3_prizes`,
+   `opp_one_prize_from_win`, `weak_active`, `bad_opening`. Tagged positions
+   (with full obs dicts) become (a) fixed evaluation suites for candidate nets
+   and (b) alternate game starts for targeted self-play via `search_begin`.
+
+**Reward shaping** (variance reduction for value targets in 100+ decision
+games): per-step signals for prizes taken (+1), prizes conceded (-0.5), and
+hand-size progress toward the KO threshold (+0.1 max), mixed toward the
+terminal outcome (`0.7 * terminal + 0.3 * shaped`). Implemented in
+`training/nn/selfplay_collect.py`; design rationale in `docs/nn-training.md`
+§Value Targets.
+
+**Checkpoint pool / PFSP** (Stage 4): sparring partners drawn ~70% current
+self / ~30% past checkpoints + the meta opponents above, weighted toward
+current losing matchups — see `docs/competition-strategy.md` §Master Plan.
+
+---
 
 ## Discipline
 

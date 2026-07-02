@@ -1,5 +1,14 @@
 # variants/ — Deck Variant Agents (Stage 0)
 
+*Scratch directory for deck-variant A/B candidates. Losers get deleted; git has
+the history.*
+
+**Last updated:** 2026-07-02
+
+---
+
+## Workflow
+
 Each deck variant = a full copy of `main.py` with only the `DECK` list (and its
 count constants) edited, so `training/ab_test.py` and `training/gauntlet.py` can
 load it directly (they need `agent` + `DECK` per file). Same piloting logic, so

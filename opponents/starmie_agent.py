@@ -4,7 +4,7 @@ Archetype: Water spread + bench snipe. Stage 1 megaEx (330 HP, 3 prizes).
   Jetting Blow {W}: 120 to Active + 50 to one Benched Pokemon.
   Nebula Beam {C}{C}{C}: 210, ignores all effects on opponent's Active (bypasses Mist/Rocky Energy).
 
-Card IDs confirmed from EN_Card_Data.csv (util/):
+Card IDs confirmed from EN_Card_Data.csv (docs/):
   STARYU    = 1030  (Basic Water, 70 HP)
   STARMIE_EX = 1031 (Stage 1 megaEx, 330 HP, 3 prizes)
 

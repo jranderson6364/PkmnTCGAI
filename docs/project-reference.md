@@ -16,6 +16,7 @@ matching section here in the same session.*
 main.py          ← v24 Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line (regenerated from main.DECK)
 CLAUDE.md        ← slim orientation layer (loaded every prompt)
+README.md        ← repo landing page (humans + fresh clones); points here and to CLAUDE.md
 docs/
   project-reference.md ← THIS FILE — full reference breakdown
   engine-api.md      ← CANONICAL cabt API reference (full enums, verified behaviors)
@@ -27,10 +28,10 @@ docs/
   piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
   matchups.md        ← matchup reference + tech cheat-sheet
   version-history.md ← v1–v24 change log (canonical; CLAUDE.md only summarizes current)
-  training-setup.md  ← training rig plan: gauntlet, DAgger/AWR, curriculum, checklists
   EN_Card_Data.csv   ← official card text/IDs reference (opponent decks + replay analysis)
 training/
-  README.md          ← local training rig guide (setup, workflows, discipline)
+  README.md          ← local training rig guide (setup, workflows, opponent pool,
+                       curriculum/reward-shaping notes, discipline)
   harness.py         ← run local games in parallel (kaggle_environments cabt)
   ab_test.py         ← A/B two agent files, alternating seats, 95% CI
   gauntlet.py        ← fixed 8-anchor panel + Bradley-Terry fit → gElo scale;
@@ -47,7 +48,8 @@ training/
   nn/                ← NN track: selfplay_agent.py, selfplay_collect.py, train_sp.py,
                        dataset.py, prior_blend.py — see docs/nn-training.md
   kaggle_notebook/   ← throwaway Kaggle spikes (e.g. mcts-spike.ipynb, search API probe)
-  kaggle_upload/     ← staged files for Kaggle dataset/notebook upload
+  kaggle_upload/     ← Kaggle dataset staging (dataset-metadata.json only; data files
+                       are copied in from training/ at upload time)
   ptcg_bc_v1.pth     ← trained BC checkpoint (10 epochs, 85.9% held-out accuracy; OLD deck)
   bc_data*.pkl.gz    ← BC warmup dataset (v22 self-play, ~547k decisions; OLD deck)
   sp_data*.pkl.gz    ← self-play collection shards (Phase 1)
@@ -56,6 +58,8 @@ opponents/
   dragapult_agent.py ← Dragapult ex Stage 2 spread (official Kaggle sample; real deck embedded)
   abomasnow_agent.py ← Mega Abomasnow ex energy mill (official Kaggle sample; real deck embedded)
   starmie_agent.py   ← Mega Starmie ex spread (stub with real IDs: Staryu=1030, Starmie ex=1031)
+  samples/           ← official Kaggle sample rule-based agent notebooks (Dragapult ex,
+                       Mega Abomasnow ex, Mega Lucario ex) — source material for opponents/
 tools/
   analyze_replay.py  ← kaggle-env replay decoder/auditor (missed lethals, bad retreats,
                        bad Boss targets, wasted energy attaches, timeouts). Usage:
@@ -64,17 +68,14 @@ tools/
   deck_audit.py      ← per-card utilization over local self-play (plays/game-drawn,
                        rot rate, end-hand rate, win-rate deltas) — the deck
                        simplification evidence base. `python tools/deck_audit.py --games 1000`
-util/
-  EN_Card_Data.csv   ← duplicate of docs/EN_Card_Data.csv (kept alongside the official
-                       Kaggle sample notebooks below for offline reference)
-  *.ipynb            ← official Kaggle sample rule-based agent notebooks (Dragapult ex,
-                       Mega Abomasnow ex, Mega Lucario ex) — source material for opponents/
 variants/
   README.md          ← deck-variant workflow (Stage 0): copy of main.py with DECK
                        edited, A/B'd vs current main.py; scratch dir, losers deleted
 replays/
-  v22/, v23/         ← saved ladder/local replay JSON, grouped by agent version, for
-                       `tools/analyze_replay.py` forensics
+  v22/, v23/         ← saved ladder replays grouped by agent version, for
+                       `tools/analyze_replay.py` forensics. Summaries (*_summary.txt)
+                       are tracked; raw JSONs are git-ignored (local only —
+                       re-download from Kaggle if needed)
 ```
 
 ---

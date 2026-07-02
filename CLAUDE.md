@@ -1,7 +1,67 @@
-# PTCG AI Battle Challenge — Master Context
+Tradeoff: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-Read this file at the start of every session. It is the single source of truth.
-Detailed sub-topics live in `docs/`.
+1. Think Before Coding
+Don't assume. Don't hide confusion. Surface tradeoffs.
+
+Before implementing:
+
+State your assumptions explicitly. If uncertain, ask.
+If multiple interpretations exist, present them - don't pick silently.
+If a simpler approach exists, say so. Push back when warranted.
+If something is unclear, stop. Name what's confusing. Ask.
+2. Simplicity First
+Minimum code that solves the problem. Nothing speculative.
+
+No features beyond what was asked.
+No abstractions for single-use code.
+No "flexibility" or "configurability" that wasn't requested.
+No error handling for impossible scenarios.
+If you write 200 lines and it could be 50, rewrite it.
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+3. Surgical Changes
+Touch only what you must. Clean up only your own mess.
+
+When editing existing code:
+
+Don't "improve" adjacent code, comments, or formatting.
+Don't refactor things that aren't broken.
+Match existing style, even if you'd do it differently.
+If you notice unrelated dead code, mention it - don't delete it.
+When your changes create orphans:
+
+Remove imports/variables/functions that YOUR changes made unused.
+Don't remove pre-existing dead code unless asked.
+The test: Every changed line should trace directly to the user's request.
+
+4. Goal-Driven Execution
+Define success criteria. Loop until verified.
+
+Transform tasks into verifiable goals:
+
+"Add validation" → "Write tests for invalid inputs, then make them pass"
+"Fix the bug" → "Write a test that reproduces it, then make it pass"
+"Refactor X" → "Ensure tests pass before and after"
+For multi-step tasks, state a brief plan:
+
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+
+
+
+# PTCG AI Battle Challenge — Orientation
+
+This file is the slim always-loaded layer: current state, working rules, and
+pointers. **The full breakdown — repo tree, engine API summary, complete deck
+tables, `main.py` architecture, NN details, packaging/shipping — lives in
+`docs/project-reference.md`. READ IT before any task that touches the engine,
+the deck, `main.py` internals, training, or shipping.** It is the reference
+layer; this file only orients.
 
 ---
 
@@ -9,12 +69,24 @@ Detailed sub-topics live in `docs/`.
 
 **Competition:** Pokemon TCG AI Battle Challenge (The Pokemon Company × HEROZ × Matsuo Institute × Kaggle).
 **Goal:** Top-8 in the Strategy track → $30k + Tokyo finals.
-**Scoring:** 70% model approach / 20% deck concept / 10% report.
-**Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
+**Scoring:** 70% model approach / 20% deck concept / 10% report — but the report
+is the *delivery channel* for the 70%: report-driven development, every experiment
+logged same-day in `docs/report-log.md`.
+**Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting
+agent is the only path; the heuristic is the ladder placeholder and DAgger teacher.
 
-**Current ladder submission:** v21 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
-**NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
-**Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
+**Current agent:** v24 (`main.py` + `deck.csv`) — v23 logic on the simplified deck
+(Psyduck/Genesect → 4th Alakazam + 4th Dunsparce; 60% ± 6.8% vs frozen v23 over
+200 games). Shipped 2026-07-02, rating pending; v23 sits at ladder public score
+796.3. See `docs/version-history.md`.
+**Roadmap (canonical: `docs/competition-strategy.md` §Master Plan):**
+Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → Stage 1
+DAgger → Stage 2 advantage-weighted self-play → Stage 3 belief model (parallel) →
+Stage 4 hardening → Stage 5 search-at-inference (Kaggle-gated).
+**Engine runs locally:** `pip install kaggle_environments --no-deps` → ~0.5s/game.
+Rig + workflows: `training/README.md`.
+**NN track:** BC done on the OLD deck (22% vs teacher = compounding error →
+DAgger next). Re-collect after deck freeze. `docs/nn-training.md` §Resume Here.
 
 ---
 
@@ -22,406 +94,116 @@ Detailed sub-topics live in `docs/`.
 
 | Item | Detail |
 |------|--------|
-| Ladder ends | ~Aug 16–17, 2026 |
-| Strategy report due | ~Sep 13, 2026 |
+| Ladder ends | ~Aug 16–17, 2026 (slug: `pokemon-tcg-ai-battle`) |
+| Strategy report due | ~Sep 13, 2026 (slug: `pokemon-tcg-ai-battle-challenge-strategy`) |
 | Team merger deadline | ~Aug 9, 2026 |
 | Submissions | 5/day; only the latest 2 count for final standing |
-| Submission format | `main.py` + `deck.csv` packaged as `submission.tar.gz` |
+| Submission format | `main.py` + `deck.csv` → `submission.tar.gz` (ship via Kaggle CLI — see project-reference §Packaging) |
 | Agent contract | `def agent(obs_dict: dict) -> list[int]` returning legal option indices |
 | Clock | 10 minutes total per match; timeout = instant loss |
 | Rating | Win/loss/tie only; margin irrelevant |
 
 ---
 
-## Repo Structure
+## Deck Essentials (full tables: `docs/project-reference.md` §Deck)
 
-```
-main.py          ← v21 Alakazam heuristic agent (active ladder submission)
-deck.csv         ← 60-card deck, one card ID per line
-CLAUDE.md        ← this file
-docs/
-  nn-training.md     ← full NN training log, architecture, roadmap
-  piloting-guide.md  ← expert Alakazam piloting logic (NN training target spec)
-  matchups.md        ← matchup reference + tech cheat-sheet
-  version-history.md ← v1–v21 change log
-  training-setup.md  ← self-play + curriculum training plan
-  EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
-opponents/
-  starmie_agent.py   ← Mega Starmie ex training opponent (DECK IDs TODO)
-  lucario_agent.py   ← Mega Lucario ex + Rocky Energy training opponent (DECK IDs TODO)
-  dragapult_agent.py ← Dragapult ex Stage 2 spread training opponent (DECK IDs TODO)
-tools/
-  analyze_replay.py  ← kaggle-env replay decoder/auditor (missed lethals, bad retreats,
-                       bad Boss targets, wasted energy attaches, timeouts). Usage:
-                       `python3 tools/analyze_replay.py <replay.json> [more...]`
-                       writes `<name>_summary.txt` next to each input.
-```
+**Alakazam single-prize control (v24, 60 cards).** Win condition: **Powerful Hand**
+(Alakazam 743, cost 1 Psychic) — `damage = 20 × hand_size`. Hand size IS the damage
+stat; never discard unnecessarily. KO threshold: `ceil(opp_active_hp / 20)` cards.
+**Blocked by** Mist Energy (#11) and Rock Fighting Energy (#20) on the opponent's
+Active. Energy routing: exactly one Psychic on Alakazam, then Kadabra → Abra;
+Enriching (13) → Dudunsparce only, never Alakazam.
 
 ---
 
-## Engine API (cabt + kiyotah/cg-lib)
+## Where Things Live
 
-```python
-# Install (Kaggle notebook only)
-import sys, glob
-sys.path.append(glob.glob('/kaggle/input/**/cg-lib', recursive=True)[0])
-
-# Direct play API (A/B harness)
-from cg.game import battle_start, battle_select, battle_finish
-
-# Dataclass API (NN track / MCTS)
-from cg.api import to_observation_class, all_card_data, all_attack
-from cg.api import search_begin, search_step, search_end
-
-# env.run wrapper (recommended for submission validation)
-from cg.env import env
-```
-
-**Confirmed observation fields:**
-- `state.supporterPlayed`, `state.energyAttached`, `state.retreated`, `state.turnActionCount`
-- `pokemon.hp` (remaining, not max), `pokemon.maxHp`, `pokemon.appearThisTurn`
-- `pokemon.energies` (list of energy type IDs), `pokemon.tools` (list of tool card IDs)
-- `pokemon.ex` (bool, 2-prize), `pokemon.megaEx` (bool, 3-prize)
-
-**Option schema — options are positional, never carry cardId:**
-- `PLAY {index, type}` → resolve via `hand[o['index']].id`
-- `ATTACH {index, inPlayArea, inPlayIndex, type}` → `index`=energy hand pos; `inPlayArea` 4=active/5=bench
-- `EVOLVE {index, inPlayArea, inPlayIndex}` → same pattern
-- `ABILITY {area, index, type}` → resolve via active(4)/bench(5) pokemon
-- `ATTACK {attackId, type}`, `RETREAT {type}`, `END {type}`
-- Selections: area 1=deck (BLIND), 2=hand, 5=bench, 6=discard
-- **Deck searches are blind** — `current.looking` is null; don't try to decode them
-
-**Log types used in v14:**
-- Type 10 = PLAY (cardId visible for opponent — use to detect opponent's card plays)
-- Type 6 = MOVE_CARD (fromArea in {4,5} → toArea 3 = KO detection)
-- Type 16 = HP_CHANGE (`putDamageCounter` flag = bench damage detection)
-
-**Boss/gust target selection:** `stype=1`, options have `area=5`, `playerIndex=opponent`, `index` into `opp_bench`
-
-**Setup contexts:** `ctx=1` = SETUP_ACTIVE_POKEMON, `ctx=2` = SETUP_BENCH_POKEMON
-
----
-
-## Deck — Alakazam Single-Prize Control/Combo (60 cards)
-
-### Win Condition
-**Powerful Hand** (Alakazam 743, attackId 1072, cost 1 Psychic): place 2 damage counters on the opponent's Active for each card **in your hand**. `damage = 20 × hand_size`. Ignores Weakness/Resistance/reduction.
-
-- KO threshold: `ceil(opponent_active_hp / 20)` cards needed
-- Hand size IS the damage stat — never discard unnecessarily
-- Blocked by: **Mist Energy (#11)** and **Rock Fighting Energy (#20)** — both say "prevent all effects of attacks"
-
-### Card IDs
-
-| Constant | ID | Count | Role |
-|----------|----|-------|------|
-| ABRA | 741 | 4 | Evolution base |
-| KADABRA | 742 | 4 | Evolution middle (+2 draw on evolve) |
-| ALAKAZAM | 743 | 3 | Main attacker (+3 draw on evolve) |
-| DUNSPARCE | 305 | 3 | Draw engine base |
-| DUNSPARCE2 | 65 | — | (alt print, not in deck) |
-| DUDUNSPARCE | 66 | 3 | Run Away Draw: draw 3, shuffle back |
-| GENESECT | 142 | 1 | ACE Nullifier: blocks Rocky Energy |
-| SHAYMIN | 343 | 1 | Flower Curtain: prevents bench damage |
-| PSYDUCK | 858 | 1 | Damp: strips self-KO abilities |
-| FEZ (Fezandipiti ex) | 140 | 1 | Flip the Script: draw 3 after KO |
-| POFFIN (Buddy-Buddy) | 1086 | 4 | Search 2 Basics ≤70 HP to bench |
-| POKE_PAD | 1152 | 4 | Search any non-Rule-Box pokemon to hand |
-| HANDHELD_FAN | 1161 | 2 | Anti-deck-out tool + Genesect ACE blocker |
-| BOSS (Boss's Orders) | 1182 | 3 | Gust opponent's benched pokemon |
-| LANA (Lana's Aid) | 1184 | 1 | Recover pokemon from discard |
-| BATTLE_CAGE | 1264 | 4 | Prevents bench damage from opponent attacks |
-| DAWN | 1231 | 4 | Search Basic + Stage 1 + Stage 2 to hand |
-| WONDROUS_PATCH | 1146 | 1 | Attach Basic Psychic from discard to bench |
-| SACRED_ASH | 1129 | 1 | Recover pokemon from discard |
-| HILDA | 1225 | 3 | Search Evolution + Energy to hand |
-| ENHANCED_HAMMER | 1081 | 2 | Discard Special Energy from opponent |
-| RARE_CANDY | 1079 | 3 | Abra → Alakazam (skips Kadabra) |
-| BASIC_P | 5 | 2 | Basic Psychic energy (pays Powerful Hand) |
-| ENRICHING | 13 | 1 | Draw 4 on attach (Colorless — cannot pay Powerful Hand) |
-| TELEPATH_P | 19 | 4 | Psychic energy + bench 2 Abra on attach |
-
-**Special energies that block Powerful Hand:**
-- Mist Energy = card #11
-- Rock Fighting Energy (Rocky Energy) = card #20
-- Detect by: `11 in opp_active.energies` or `20 in opp_active.energies`
-
-**Energy routing rule:** Route Psychic (5, 19) → Alakazam **only if it doesn't already have one** (Powerful Hand costs exactly 1 Psychic; a 2nd does nothing). Once Alakazam is fueled, route further Psychic → Kadabra → Abra, in that order, so the line is pre-loaded before it evolves. **Never proactively attach Psychic to any other support mon** (Dudunsparce/Genesect/Shaymin/Psyduck/Fez) — they don't attack, and the only legitimate exception is paying a real retreat cost on the Active to switch into an already-ready bench Alakazam. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
-
-### Poffin vs Poké Pad vs Dawn
-- **Poffin (1086):** benches Abra(50HP) / Dunsparce(70HP) / Psyduck(70HP). Cannot grab Shaymin(80HP) or Genesect(110HP) or Fez(210HP).
-- **Poké Pad (1152):** puts any non-Rule-Box pokemon into hand (includes Genesect/Shaymin/Psyduck but NOT Fez ex).
-- **Dawn (1231):** grabs the full Abra+Kadabra+Alakazam line at once.
-
----
-
-## v21 Agent Architecture
-
-**File:** `main.py`
-
-### v21 Key Changes — phase-stuck-at-ESTABLISH + Mist-wall escape fixes
-Analyzed 4 more v19 replays (all losses). Two new, more consequential bugs beyond the
-already-known wasted-energy issue (which recurred in 3 of 4, as expected pre-v20-fix):
-
-1. **Phase permanently stuck at `PHASE_ESTABLISH`.** `_detect_phase` required
-   `backup_abra` (2+ Abra) AND `draw_count>0` (a Dunsparce/Dudunsparce in play) —
-   but Dudunsparce's own ability shuffles itself back into the deck on use, so
-   `draw_count` routinely hits 0 mid-game regardless of actual development, and a
-   backup Abra is rarely available once used. One game decked out at 0 with a
-   20-25 card hand while *winning* the prize race (2 needed vs opponent's 5) because
-   phase never left ESTABLISH's overdraw-permissive scoring. Fixed: removed both
-   conditions, keeping only `has_alakazam`/`has_energy_plan`. Also gave POFFIN a
-   `hand_surplus` gate it was missing entirely (unlike Dawn/Hilda/Poké Pad).
-2. **Mist-walled Active with no removal left, and Boss under-prioritized as the
-   actual escape.** New `hopelessly_walled` flag (`opp_mist` + no Hammer + no Boss in
-   hand) suppresses Poffin/Dawn/Hilda/Poké Pad/Dudunsparce-ability, since more cards
-   can't fix a card-type block. Separately, `boss_target_exists` required
-   `not opp_mist` — backwards, since Mist only blocks the *current* Active and
-   gusting a different bench target is the escape valve, most valuable exactly when
-   Mist is up. Fixed to `(opp_mist or opp_hp>my_dmg)`. Also hardened
-   `_pick_boss_target` to avoid gusting another Mist/Rocky-walled target (would
-   just recreate the same dead end).
-
-Verified: full regression clean (4,776 selections, 15 replays, 0 errors). Re-verified
-both bugs directly — phase now reads CONVERT/PRESSURE instead of ESTABLISH on the
-identified game; a synthetic Mist-wall test confirms Boss now beats a routine search
-play when a killable non-Mist target exists.
-
-### v20 Key Changes — no preemptive energy on support mons
-User-requested audit ("supporter mons should not get energy unless attacking or
-retreating — no preemptive giving"). Validated the replay analyzer first by manually
-tracing one game with no tooling, independently finding: Shaymin (free retreat — never
-needs energy) got a scarce Telepath Psychic attached while active, then sat on it
-uselessly for 16 turns since bench never developed. Confirmed the current agent still
-made this exact choice on the historical observation — a live bug.
-
-**Root cause:** `active_immobile` (v16/v18) was meant to free a genuinely stuck Active,
-but didn't exclude free-retreaters and only checked `bench_count>0` instead of
-`bench_has_alak_ready` — so retreating a stuck Dunsparce/Psyduck/Fez into an un-fueled
-Kadabra/Abra/other support still leaves you unable to attack, meaning the energy fixed
-nothing. This flag also drives Dawn/Hilda/Poké Pad suppression, so the bug silently
-distorted 5 scoring paths, not just the ATTACH one.
-
-**Tool improvement:** added `check_bad_energy_attach()` to the replay analyzer —
-flags any Psychic attach landing on a non-attacker with no legitimate retreat reason.
-Found the pattern in **9 of 15 saved replays** (including the one win) — Shaymin,
-Dunsparce, Psyduck, and Fezandipiti all repeatedly received unusable energy.
-
-**Fixes:** `active_immobile` now excludes `active_free_retreat` and requires
-`bench_has_alak_ready` (not just any bench occupant); the generic `PSYCHIC_ENERGY_IDS`
-fallback dropped from `3.0` to `-2.0`.
-
-**Verification:** full regression (3,425 selections, 15 replays) clean. Re-ran every
-historical decision through the fixed agent — wasted-energy count drops to **0 across
-all 15 games**.
-
-### v19 Key Changes — psychic energy over-attach fix
-Powerful Hand costs exactly 1 Psychic; a 2nd on the same Alakazam does nothing (only 6
-Psychic sources in the whole 60-card deck, so wasting one is real cost). Reordered
-`PSYCHIC_ENERGY_IDS` ATTACH scoring: was Alakazam-without(16) > Alakazam-**with**(8) >
-Kadabra(7) > else(3); now Alakazam-without(16) > **Kadabra(9) > Abra(6)** > other bench
-support(3) > **Alakazam that already has one (1, lowest)**. Verified with two synthetic
-isolated-ATTACH tests (Kadabra+Abra on bench; Abra+other-support on bench) that the
-agent now routes to Kadabra, then Abra, ahead of both the redundant re-attach and
-generic bench support. Full 2,654-selection regression across 11 replays still clean.
-
-### v18 Key Changes — ladder result (900→660 Elo) + prize-selection stall diagnosis
-Analyzed 5 fresh replays from the post-v17 losing streak. 0 missed-lethal, 0
-bad-retreat, 0 bad-Boss-target — the v16/v17 fixes are holding. Found two real issues:
-
-1. **Handheld Fan no longer counts as the `active_immobile` rescue energy.** The
-   ATTACH scoring's "free the stranded Active" bonus (55/65) fired for *any* card
-   attached to Active, including Tools — Handheld Fan provides zero Energy and can't
-   pay a retreat/attack cost, so it was wasting the rescue attach on a card that
-   couldn't fix the immobility. Now gated behind `cid in PSYCHIC_ENERGY_IDS or
-   cid==ENRICHING`.
-2. **Stall-detection hedge for a prize-card-selection freeze** (`_select_fingerprint`/
-   `_resolve_stalled_or`). 3 of 5 new losses show an identical `stype=1, context=7,
-   area=6, minCount==maxCount==N` select immediately after a scoring attack, where `N`
-   exactly matches the KO'd Pokémon's prize value (1 for regular, 2 for ex) — this is
-   prize-card selection, correcting a wrong "Sacred Ash/Lana discard" guess from the
-   v16 write-up. In 2 of 3 games it never resolved, freezing until the match ended in
-   a loss despite the opponent's Pokémon being dead. Our own resolution logic for this
-   select is already a valid blind pick; root cause is **not conclusively identified**
-   (may be engine/timing behavior, not our code) — added a narrowly-scoped hedge that
-   rotates to a different valid combination if the identical select+state repeats with
-   no progress, rather than resubmitting the same answer forever. This is a defensive
-   measure, not a proven fix.
-
-Verified: agent runs clean on all 2,654 real selections across 11 saved replays (0
-errors, 0 illegal empties). Replaying the exact stuck sequence from `f094c5ad` confirms
-the hedge now rotates `[0]→[1]→[2]→...` instead of resubmitting `[0]` forever, and
-replaying the Handheld-Fan game confirms the agent now EVOLVEs instead of wasting the
-attach on the Fan.
-
-### v17 Key Changes — competitive-research alignment (`docs/piloting-guide.md` v3)
-Full research of how the deck is actually piloted (Cerys Jones' Indianapolis Regional
-win, CL Osaka 2026, Limitless meta lists) confirmed our 60-card backbone matches the
-meta exactly, and identified the **#1 documented leak: threshold management / overdraw**
-— which is precisely what caused every long-game deck-out loss in the replays.
-
-1. **Threshold discipline (`hand_surplus`).** Once a ready attacker exists (active or
-   bench Alakazam) and `hand_n >= cards_needed` (and no Boss-snipe plan / not an
-   emergency), all non-essential draw is suppressed: Dudunsparce ability → 0.5, Fez
-   ability → -3, Dawn/Hilda/Poké Pad → 2.0. "Hit the threshold, then stop." Replaying
-   the deck-out game confirms the agent now ENDs/attacks instead of burning Dawn/Poké
-   Pad five separate times, preserving ~4-5 deck cards — the margin between decking out
-   and surviving.
-2. **Dudunsparce ability hard floor at `deck_danger`** (was only `deck_critical`).
-3. **`active_immobile` attach prefers Psychic** (65 vs 55) so a stranded Alakazam gets
-   the energy that lets it both retreat *and* attack, and a colorless Enriching isn't
-   wasted on the rescue.
-
-Verified: agent runs clean on all 1672 real selections across the 6 replays (0 errors,
-0 illegal empties); still takes guaranteed lethal where available.
-
-### Constants
-```python
-ABRA,KADABRA,ALAKAZAM = 741,742,743
-DUNSPARCE,DUNSPARCE2,DUDUNSPARCE = 305,65,66
-GENESECT,SHAYMIN,PSYDUCK,FEZ = 142,343,858,140
-POFFIN,POKE_PAD,HANDHELD_FAN = 1086,1152,1161
-BOSS,LANA,BATTLE_CAGE,DAWN = 1182,1184,1264,1231
-WONDROUS_PATCH,SACRED_ASH,HILDA = 1146,1129,1225
-ENHANCED_HAMMER,RARE_CANDY = 1081,1079
-BASIC_P,ENRICHING,TELEPATH_P = 5,13,19
-MIST_ENERGY,ROCK_ENERGY = 11,20
-PSYCHIC_TYPE = 5
-PH_DMG_PER_CARD = 20
-```
-
-### 4-Phase State Machine
-```python
-PHASE_ESTABLISH=1  # Build board: get Alakazam up with Psychic + backup + draw engine
-PHASE_CONVERT=2    # Hand conservation, advance setup, energy routing
-PHASE_PRESSURE=3   # Can KO or at damage threshold — attack/Boss now
-PHASE_CLOSING=4    # ≤2 prizes left — close out
-
-def _detect_phase(cen, can_ko, at_threshold, opp_prizes_left, hand_n):
-    if opp_prizes_left <= 2: return PHASE_CLOSING
-    not_established = (not cen['has_alakazam'] or not cen['backup_abra'] or
-        cen['draw_count'] == 0 or not cen['has_energy_plan'])
-    if not_established: return PHASE_ESTABLISH
-    if can_ko or at_threshold: return PHASE_PRESSURE
-    return PHASE_CONVERT
-```
-
-### Key Functions
-- `_analyze_logs(obs)` — parses log history for KO detection, bench damage, opponent card plays
-- `_census(obs)` — board state snapshot: has_alakazam, backup_abra, draw_count, has_energy_plan, etc.
-- `_pick_setup_active(obs, sel)` — handles ctx=1/2 (setup phase pokemon selection)
-- `_pick_bench_target(obs, sel)` — which bench pokemon to promote
-- `_pick_boss_target(obs, sel)` — which opponent bench to gust (requires prize_value guard)
-- `_main_phase(obs, sel)` — main action loop with nested `score()` function
-- `_safe_return(sel)` — always returns a valid legal action (fallback)
-- `agent(obs_dict)` — entry point
-
-### v16 Key Changes — found via real ladder replay analysis (6 losses replayed turn-by-turn)
-A custom replay analyzer (`scratchpad/analyze_replay.py` pattern, not committed) decoded the kaggle-env log format (each step's `action` resolves the *previous* step's option list) and traced 5 losing games. Found two systemic, game-losing bugs that hand-reading the code missed:
-
-1. **ATTACK/Boss score tie at PHASE_CLOSING (the big one).** `ATTACK can_ko` and `BOSS phase==CLOSING` both scored exactly 200.0, so on ties the agent sometimes played Boss instead of taking a guaranteed lethal attack — confirmed in 2 of 4 full games, both times wasting the winning turn and KOing a *smaller*-prize bench target instead of the lethal one. Fixed: `can_ko` attack now scores 500; `boss_ex_snipe` (Boss into a strictly bigger prize KO) scores 600 so it still correctly outranks a same-turn plain KO; generic Boss-in-closing dropped to 199 and is now gated by `not can_ko`.
-2. **Energy-starved stuck active → deck-out.** In 2 games, a non-attacker (Fezandipiti ex, Dudunsparce) got promoted to Active with 0 energy attached, leaving it unable to attack *or retreat* (both options absent from `select.option`). The agent then spent 30-40 turns spamming Dawn/Poké Pad searches and Fez's "Flip the Script" draw, burning its own deck to 0 with an 18-card hand it never used, and lost via deck-out at 1-2 prizes remaining. Fixed: new `active_immobile` flag (no attack, no retreat, 0 energy on active) makes attaching energy to Active score 60 (overrides normal Psychic-to-Alakazam routing); Dawn/Poké Pad score -3 while immobile (they can't fix it); Hilda scores 18 while immobile (it *can* fetch energy). Also added a hard `deck_danger` (<5 cards) floor of -8 to Dawn/Hilda/Poké Pad so no search ever fires that close to decking out, and Fez's ability now respects `deck_critical`/`deck_danger` instead of scoring a flat 5.0 regardless of deck size.
-
-One of the 6 replayed games was an unfixable bad-luck loss (lone Abra opening hand, blind Poké Pad search whiffed onto an unplayable Stage-1 card, turn-2 Mega Lucario ex OHKO) — no heuristic bug there, just variance.
-
-### v15 Key Changes (on top of v14)
-1. **Bench Alakazam evolution scoring** — bench Kadabra→Alakazam now scores 50 (no Alakazam), 40 (ESTABLISH), 25 (CONVERT), 12 (late). Was 16/10. Second Alakazam on bench is critical for continuity after active KO.
-2. **Enhanced Hammer escalation** — scores 45 when opp has blocking energy (was 28). Mist/Rocky Energy means Powerful Hand deals 0; removing it is near-mandatory.
-3. **Battle Cage reactive** — scores 22 when bench damage detected in logs (was flat 6). Responds to Dragapult/Starmie spread with appropriate urgency.
-
-### v14 Key Fixes (all carried forward)
-1. **Fez suppressed by default** (-1.0 score) — only activates when reactive triggers fire
-2. **Sacred Ash deck-out prevention** — scores 35 at deck<5, 25 at deck<10 (was 2-5)
-3. **Dudunsparce overdraw guard** — suppressed when deck<10 or hand≥14
-4. **Evolution scoring fix** — active Kadabra→Alakazam evolve scores 250-270 (was 13)
-5. **Boss prize-value guard** — Boss target must have `prize_value >= prize_value(opp_active)`
-6. **Rock Energy detection** — Enhanced Hammer detects Mist (#11) OR Rock (#20)
-7. **Genesect role implemented** — Bench Genesect + Handheld Fan scores 11 (ACE Nullifier)
-8. **Shaymin reactive** — scores 16 when bench damage detected in logs
-9. **Psyduck reactive** — scores 18 when opponent self-damage cards detected (placeholder IDs — see Outstanding Items)
-
-### Prize Value Logic
-```python
-def prize_value(pokemon):
-    if pokemon.megaEx: return 3
-    if pokemon.ex: return 2
-    return 1
-```
+| Need | Go to |
+|------|-------|
+| **Full reference breakdown** | `docs/project-reference.md` |
+| Roadmap / writeup strategy | `docs/competition-strategy.md` |
+| Experiment journal + glossary + target figures | `docs/report-log.md` |
+| Engine API (canonical) | `docs/engine-api.md` |
+| Version change log (v1–v24) | `docs/version-history.md` |
+| NN training log + pipeline | `docs/nn-training.md` |
+| Belief model design + phases (Stage 3) | `docs/belief-model.md` |
+| Training rig workflows (A/B, gauntlet, tuning) | `training/README.md` |
+| Piloting logic spec / matchups | `docs/piloting-guide.md`, `docs/matchups.md` |
 
 ---
 
 ## Outstanding Items (Priority Order)
 
-1. **Opponent DECK IDs are all placeholder (0)** — fill in `opponents/*.py` using `all_card_data()` on Kaggle before self-play can start. See `docs/training-setup.md`.
-2. **v15 A/B harness validation pending** — run `ab_test(v15, random, n=200)` and `ab_test(v15, v11, n=400)` on Kaggle to confirm improvements over v14.
-3. **Psyduck threat detection uses guessed placeholder IDs `{109, 110, 111}`** — grep `all_card_data()` for self-damage ability text to find real Dusknoir card ID.
-4. **`opp_likely_ace_spec` hardcoded to True** — infer from early-game logs (opponent archetype detection).
-5. **NN track decision** — v15 diverges from v11 (the self-play warmup teacher). If NN resumes, decide: (a) recollect warmup data with v15 as teacher, OR (b) keep v11 teacher (independent tracks).
-6. **Verify `battle_finish()` early-exit behavior** — curriculum data generation exits bad-hand games early; confirm this does not count as a ladder loss before running at scale.
+Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
+
+1. **Ladder-confirm v24** (submission 54265639) → fill the
+   `training/ladder_history.csv` row → declare the 60 frozen. Day-one reading
+   (690 vs v23's 773) is provisional noise; decision rule: if v24 is still 50+
+   below v23 after ~48h of episodes, audit v24 loss replays (specifically: losses
+   to Rocky/Mist walls — Genesect's Nullifier is the one cut that could matter).
+   ~~Stage 0b weight tune~~ DONE 2026-07-02: gate not cleared (52.0% ± 4.0% over
+   600 games) → default `W` kept; see `docs/report-log.md`.
+2. **Stage 0: full Gauntlet baseline** — `python training/gauntlet.py
+   --candidate main.py --name v24 --games 200` (all 8 anchors).
+3. **Stage 1: BC re-collect + retrain on the frozen deck, then DAgger** — build
+   `training/nn/dagger_collect.py`; 2–3 rounds; gate 50%+ vs teacher → ship.
+4. **Stage 2: advantage-weighted self-play** — gate 55–60% vs teacher over 400 games.
+5. **Stage 3 (parallel): belief model** — archetype classifier + accuracy-by-turn
+   figure; fixes `opp_likely_ace_spec` hardcoded to True.
+6. **Dragapult step-limit ties** — 50/100 local games tie in one seat direction;
+   diagnose if ladder Dragapults match (ties = half-losses).
 
 ---
 
 ## Design Principles
 
-1. **Real-ladder A/B is the only honest evaluator.** Offline win rates systematically overrate (v5 went 64% offline, 0-5 live). Never optimize on offline sim alone.
-2. **Timeout = instant loss.** Every inference path must have a guaranteed fast fallback (`_safe_return`).
-3. **Single-prize + non-ex beats the meta.** Crustle immunity walls all ex attackers. Alakazam hits Crustle normally. Prize trade math: giving up 1, taking 2-3.
-4. **Hand size IS damage.** Never discard unnecessarily. No Professor's Research, no Iono, no Ultra Ball.
-5. **Rule-based bots cap at ~0% on the 70% Strategy axis.** The neural net track is the competition goal; the current heuristic (v21) is the ladder placeholder while NN training runs.
-6. **5 submissions/day, only the latest 2 count.** Use the ladder as an A/B testing rig.
+1. **Real-ladder A/B is the only honest evaluator.** Offline win rates systematically overrate (v5: 64% offline, 0-5 live). Gauntlet gElo ranks candidates; the ladder decides.
+2. **Timeout = instant loss.** Every inference path needs a guaranteed fast fallback (`_safe_return`).
+3. **Single-prize + non-ex beats the meta.** Crustle immunity walls ex attackers; Alakazam hits it normally. Prize trade: give 1, take 2-3.
+4. **Hand size IS damage.** No Professor's Research, no Iono, no Ultra Ball.
+5. **Rule-based caps at ~0% on the 70% axis.** The NN track is the goal; the heuristic (v24) is placeholder + teacher.
+6. **5 submissions/day, latest 2 count.** The ladder is an A/B rig; ship via the Kaggle CLI without asking.
 
 ---
 
-## NN Track Summary
+## Documentation Standards
 
-See `docs/nn-training.md` for full details.
+**MANDATORY — after ANY change (code, deck, plans, results), update the docs in
+the same session:** the canonical `docs/*.md` home for that fact, the matching
+section of `docs/project-reference.md`, and the summary lines here (Quick
+Orientation / Outstanding Items) if the current state changed. A change without
+its doc update is an unfinished change — this is how the v24 deck swap briefly
+went missing from this file.
 
-**Status (as of 2026-06-30):** Imitation warmup complete (self-play on v11 games, NOT opponent BC — opponent decks differ). Self-play paused pending Vivobook access.
-- Warmup data: 113k samples from v11 self-play, at `/kaggle/working/bc_data.pkl`
-- Best checkpoint: `sp2_iter2.pth` at ~55% vs v11
-- Architecture: EmbeddingBag(22000) + Transformer(128d, 2-head) + actor-critic heads
-- Exit criterion for Phase 1: net beats v11 teacher 55-60%+ over 100 games
+Every doc file (`CLAUDE.md`, every `docs/*.md`) follows the same shape:
 
-**Note: Behavior cloning from opponent replays is NOT viable** — top bots run different decks/strategies; their action sequences don't transfer to Alakazam.
+```
+# Title
 
-**Phase plan:**
-1. Imitation warmup (self-play on v11 games) → done
-2. Expert iteration self-play vs diverse pool → active (attempt 2)
-3. League/PFSP hardening → next (needs meta opponent decks + Vivobook)
-4. Report writeup → Aug–Sep
+*One- to three-line italic description of what this file is for.*
+
+**Last updated:** YYYY-MM-DD
 
 ---
 
-## Kaggle File Locations
-
-```
-/kaggle/working/main.py              ← v15 source (submitted)
-/kaggle/working/deck.csv             ← 60-card deck
-/kaggle/working/submission.tar.gz    ← packaged submission
-/kaggle/working/bc_data.pkl          ← 113k BC samples (v11 teacher)
-/kaggle/working/bc_final.pth         ← current best weights
-/kaggle/working/checkpoints/
-  sp_iter1.pth                       ← best self-play checkpoint (46% vs teacher, pre-collapse)
-  sp2_iter*.pth                      ← attempt 2 checkpoints (current run, ~55% at iter2)
-```
-
+## Section
+content
 ---
-
-## Packaging for Submission
-
-```python
-import os, tarfile, subprocess, py_compile
-
-# Validate syntax
-py_compile.compile('main.py', doraise=True)
-
-# Count deck
-with open('deck.csv') as f:
-    assert len(f.readlines()) == 60, "deck must be exactly 60 cards"
-
-# Package
-with tarfile.open('submission.tar.gz', 'w:gz') as tar:
-    tar.add('main.py')
-    tar.add('deck.csv')
+## Next Section
+content
 ```
+
+Rules:
+1. **`---` separates every top-level (`##`) section**; never stack two `---`.
+2. **`**Last updated:**` is mandatory** — bump on material changes, real date.
+3. **One canonical home per fact** — link, don't copy-paste. `CLAUDE.md` stays a
+   slim orientation layer; durable reference lives in `docs/project-reference.md`;
+   narrative history, API dumps, and matchup detail live in their dedicated docs.
+4. **Version/change-log entries newest-first**, each under its own `##` heading.
+5. **Tables over prose** for anything enumerable.
+6. **When a file's status changes**, update the home doc AND the pointer/summary
+   here in the same edit — don't let them drift.
+7. **Every experiment → same-day `docs/report-log.md` entry** (hypothesis, plain-
+   English method, numbers, decision, report relevance); **every ladder ship →
+   `training/ladder_history.csv` row.** The report is assembled from these —
+   nothing is reconstructed in September.

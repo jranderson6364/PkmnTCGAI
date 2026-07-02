@@ -1,0 +1,59 @@
+=== 83166796.json ===
+Opponent: Kazuta MIZUTA | Result: LOSS | Total steps: 107
+
+--- Decision log (19 main-phase actions) ---
+  step  8 | you_prizes=6 opp_prizes=6 | PLAY: Poké Pad(1152)
+  step 10 | you_prizes=6 opp_prizes=6 | PLAY: Poké Pad(1152)
+  step 12 | you_prizes=6 opp_prizes=6 | PLAY: Abra(741)
+  step 13 | you_prizes=6 opp_prizes=6 | END: END TURN
+  step 26 | you_prizes=6 opp_prizes=6 | PLAY: Rare Candy(1079)
+  step 29 | you_prizes=6 opp_prizes=6 | ATTACH: Basic {P} Energy(5) BENCH[1]:Alakazam(743) 140/140
+  step 30 | you_prizes=6 opp_prizes=6 | PLAY: Battle Cage(1264)
+  step 31 | you_prizes=6 opp_prizes=6 | END: END TURN
+  step 48 | you_prizes=6 opp_prizes=5 | PLAY: Poké Pad(1152)
+  step 50 | you_prizes=6 opp_prizes=5 | PLAY: Abra(741)
+  step 51 | you_prizes=6 opp_prizes=5 | ATTACK: 1072
+  step 66 | you_prizes=6 opp_prizes=4 | EVOLVE: Kadabra(742) BENCH[0]:Abra(741) 50/50
+  step 68 | you_prizes=6 opp_prizes=4 | PLAY: Hilda(1225)
+  step 71 | you_prizes=6 opp_prizes=4 | ATTACH: Basic {P} Energy(5) BENCH[0]:Kadabra(742) 80/80
+  step 72 | you_prizes=6 opp_prizes=4 | PLAY: Wondrous Patch(1146)
+  step 75 | you_prizes=6 opp_prizes=4 | END: END TURN
+  step 88 | you_prizes=6 opp_prizes=3 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80
+  step 90 | you_prizes=6 opp_prizes=3 | PLAY: Boss’s Orders(1182)
+  step 92 | you_prizes=6 opp_prizes=3 | ATTACK: 1072
+
+--- FLAGS ---
+Timeouts/empty-or-OOB actions: 66
+  step5: stype=1 n_opts=2 
+  step7: stype=1 n_opts=1 
+  step14: stype=0 n_opts=1 
+  step15: stype=0 n_opts=1 
+  step16: stype=0 n_opts=1 
+  step17: stype=0 n_opts=1 
+  step18: stype=0 n_opts=1 
+  step19: stype=0 n_opts=1 
+  step20: stype=0 n_opts=1 
+  step21: stype=0 n_opts=1 
+  step22: stype=0 n_opts=1 
+  step23: stype=0 n_opts=1 
+  step24: stype=0 n_opts=1 
+  step25: stype=0 n_opts=1 
+  step32: stype=0 n_opts=2 
+  step33: stype=0 n_opts=2 
+  step34: stype=0 n_opts=2 
+  step35: stype=0 n_opts=2 
+  step36: stype=0 n_opts=2 
+  step37: stype=0 n_opts=2 
+Missed lethal attacks: 0
+Bad retreats (promoted non-attacker while ready Alakazam on bench): 0
+Wasted/preemptive Psychic energy attaches: 0
+Boss's Orders plays: 1
+  step90: prizes you=6 opp=3 | opp_active_was=Archaludon ex(190) 200/300 | gusted_target=Duraludon(169) 130/130
+
+Final state check (last few steps):
+  step101: you=Alakazam(743) 140/140 prizes=6 deck=29 | opp=NONE prizes=3 deck=12
+  step102: you=Alakazam(743) 140/140 prizes=6 deck=29 | opp=NONE prizes=3 deck=12
+  step103: you=Alakazam(743) 140/140 prizes=6 deck=29 | opp=NONE prizes=3 deck=12
+  step104: you=Alakazam(743) 140/140 prizes=6 deck=29 | opp=NONE prizes=3 deck=12
+  step105: you=Alakazam(743) 140/140 prizes=6 deck=29 | opp=NONE prizes=3 deck=12
+  step106: you=Alakazam(743) 140/140 prizes=6 deck=29 | opp=NONE prizes=3 deck=12

@@ -1,0 +1,88 @@
+=== 83173539.json ===
+Opponent: titanascended | Result: LOSS | Total steps: 177
+
+--- Decision log (46 main-phase actions) ---
+  step  9 | you_prizes=6 opp_prizes=6 | PLAY: Hilda(1225)
+  step 12 | you_prizes=6 opp_prizes=6 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Abra(741) 50/50
+  step 14 | you_prizes=6 opp_prizes=6 | PLAY: Battle Cage(1264)
+  step 15 | you_prizes=6 opp_prizes=6 | END: END TURN
+  step 32 | you_prizes=6 opp_prizes=6 | PLAY: Rare Candy(1079)
+  step 35 | you_prizes=6 opp_prizes=6 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Genesect(142) 110/110
+  step 36 | you_prizes=6 opp_prizes=6 | RETREAT: Alakazam(743) 140/140
+  step 36 | you_prizes=6 opp_prizes=6 | RETREAT: RETREAT (target chosen in next select)
+  step 39 | you_prizes=6 opp_prizes=6 | EVOLVE: Kadabra(742) BENCH[1]:Abra(741) 50/50
+  step 41 | you_prizes=6 opp_prizes=6 | PLAY: Buddy-Buddy Poffin(1086)
+  step 43 | you_prizes=6 opp_prizes=6 | EVOLVE: Kadabra(742) BENCH[2]:Abra(741) 50/50
+  step 45 | you_prizes=6 opp_prizes=6 | ATTACK: 1072
+  step 61 | you_prizes=5 opp_prizes=5 | EVOLVE: Alakazam(743) BENCH[0]:Kadabra(742) 80/80
+  step 63 | you_prizes=5 opp_prizes=5 | EVOLVE: Alakazam(743) BENCH[1]:Kadabra(742) 80/80
+  step 65 | you_prizes=5 opp_prizes=5 | PLAY: Buddy-Buddy Poffin(1086)
+  step 67 | you_prizes=5 opp_prizes=5 | ATTACH: Telepath Psychic Energy(19) BENCH[0]:Alakazam(743) 140/140
+  step 68 | you_prizes=5 opp_prizes=5 | ATTACH: Handheld Fan(1161) ACTIVE:Genesect(142) 110/110
+  step 69 | you_prizes=5 opp_prizes=5 | EVOLVE: Kadabra(742) BENCH[2]:Abra(741) 50/50
+  step 71 | you_prizes=5 opp_prizes=5 | PLAY: Lana’s Aid(1184)
+  step 73 | you_prizes=5 opp_prizes=5 | END: END TURN
+  step 97 | you_prizes=5 opp_prizes=4 | EVOLVE: Alakazam(743) BENCH[1]:Kadabra(742) 80/80
+  step 99 | you_prizes=5 opp_prizes=4 | PLAY: Abra(741)
+  step100 | you_prizes=5 opp_prizes=4 | ATTACH: Basic {P} Energy(5) BENCH[0]:Alakazam(743) 140/140
+  step101 | you_prizes=5 opp_prizes=4 | PLAY: Poké Pad(1152)
+  step103 | you_prizes=5 opp_prizes=4 | EVOLVE: Dudunsparce(66) BENCH[2]:Dunsparce(305) 70/70
+  step104 | you_prizes=5 opp_prizes=4 | ABILITY: BENCH[2]:Dudunsparce(66) 140/140
+  step105 | you_prizes=5 opp_prizes=4 | PLAY: Dunsparce(305)
+  step106 | you_prizes=5 opp_prizes=4 | PLAY: Poké Pad(1152)
+  step108 | you_prizes=5 opp_prizes=4 | ATTACK: 1072
+  step117 | you_prizes=5 opp_prizes=3 | PLAY: Boss’s Orders(1182)
+  step119 | you_prizes=5 opp_prizes=3 | ATTACK: 1072
+  step136 | you_prizes=2 opp_prizes=2 | PLAY: Boss’s Orders(1182)
+  step138 | you_prizes=2 opp_prizes=2 | ATTACH: Basic {P} Energy(5) ACTIVE:Alakazam(743) 140/140
+  step139 | you_prizes=2 opp_prizes=2 | ATTACK: 1072
+  step147 | you_prizes=1 opp_prizes=1 | PLAY: Buddy-Buddy Poffin(1086)
+  step149 | you_prizes=1 opp_prizes=1 | EVOLVE: Kadabra(742) BENCH[0]:Abra(741) 50/50
+  step151 | you_prizes=1 opp_prizes=1 | PLAY: Sacred Ash(1129)
+  step153 | you_prizes=1 opp_prizes=1 | PLAY: Poké Pad(1152)
+  step155 | you_prizes=1 opp_prizes=1 | EVOLVE: Dudunsparce(66) BENCH[1]:Dunsparce(305) 70/70
+  step156 | you_prizes=1 opp_prizes=1 | ATTACH: Enriching Energy(13) BENCH[1]:Dudunsparce(66) 140/140
+  step157 | you_prizes=1 opp_prizes=1 | PLAY: Boss’s Orders(1182)
+  step159 | you_prizes=1 opp_prizes=1 | PLAY: Abra(741)
+  step160 | you_prizes=1 opp_prizes=1 | PLAY: Wondrous Patch(1146)
+  step163 | you_prizes=1 opp_prizes=1 | ATTACH: Handheld Fan(1161) ACTIVE:Psyduck(858) 70/70
+  step164 | you_prizes=1 opp_prizes=1 | PLAY: Shaymin(343)
+  step165 | you_prizes=1 opp_prizes=1 | END: END TURN
+
+--- FLAGS ---
+Timeouts/empty-or-OOB actions: 87
+  step5: stype=1 n_opts=2 
+  step7: stype=1 n_opts=1 
+  step8: stype=1 n_opts=1 
+  step16: stype=0 n_opts=3 
+  step17: stype=0 n_opts=3 
+  step18: stype=0 n_opts=3 
+  step19: stype=0 n_opts=3 
+  step20: stype=0 n_opts=3 
+  step21: stype=0 n_opts=3 
+  step22: stype=0 n_opts=3 
+  step23: stype=0 n_opts=3 
+  step24: stype=0 n_opts=3 
+  step25: stype=0 n_opts=3 
+  step26: stype=0 n_opts=3 
+  step27: stype=0 n_opts=3 
+  step28: stype=0 n_opts=3 
+  step29: stype=0 n_opts=3 
+  step30: stype=0 n_opts=3 
+  step31: stype=0 n_opts=3 
+  step46: stype=0 n_opts=4 
+Missed lethal attacks: 0
+Bad retreats (promoted non-attacker while ready Alakazam on bench): 0
+Wasted/preemptive Psychic energy attaches: 0
+Boss's Orders plays: 3
+  step117: prizes you=5 opp=3 | opp_active_was=Mega Lucario ex(678) 340/340 | gusted_target=Mega Lucario ex(678) 160/440
+  step136: prizes you=2 opp=2 | opp_active_was=Mega Lucario ex(678) 340/340 | gusted_target=Lunatone(675) 110/110
+  step157: prizes you=1 opp=1 | opp_active_was=Mega Lucario ex(678) 340/340 | gusted_target=Solrock(676) 110/110
+
+Final state check (last few steps):
+  step171: you=Psyduck(858) 70/70 prizes=1 deck=9 | opp=Solrock(676) 110/110 prizes=1 deck=4
+  step172: you=Psyduck(858) 70/70 prizes=1 deck=9 | opp=Solrock(676) 110/110 prizes=1 deck=4
+  step173: you=Psyduck(858) 0/70 prizes=1 deck=9 | opp=Mega Lucario ex(678) 340/340 prizes=1 deck=3
+  step174: you=Psyduck(858) 0/70 prizes=1 deck=9 | opp=Mega Lucario ex(678) 340/340 prizes=1 deck=3
+  step175: you=Psyduck(858) 0/70 prizes=1 deck=9 | opp=Mega Lucario ex(678) 340/340 prizes=1 deck=3
+  step176: you=Psyduck(858) 0/70 prizes=1 deck=9 | opp=Mega Lucario ex(678) 340/340 prizes=1 deck=3

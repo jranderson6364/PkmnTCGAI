@@ -143,6 +143,12 @@ def check_bad_energy_attach(names, prev_obs, sel, action):
     tgt = active if ipa == 4 else (bench[ipi] if ipa == 5 and 0 <= ipi < len(bench) else None)
     tid = pk_id(tgt)
     if tid in (ALAKAZAM, KADABRA, ABRA):
+        tgt_has_psychic = 5 in (tgt.get('energies') or [])
+        if tgt_has_psychic:
+            # Powerful Hand only ever needs 1 Psychic on the card that attacks with
+            # it — a 2nd copy on the SAME physical Pokemon is pure waste (hand size,
+            # not energy count, is the damage stat).
+            return f"-> {cname(names, tid)} ALREADY has Psychic — 2nd copy is pure waste (Powerful Hand only needs 1)"
         return None  # legitimate: the attacker itself, or pre-loading the evolution line
     if tid in PIVOT_FREE_RETREAT_IDS:
         return f"-> {cname(names, tid)} (FREE retreat — energy can never help it retreat, and it never attacks)"

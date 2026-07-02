@@ -1,0 +1,4 @@
+date,version,ladder_elo,ladder_rank,field_size,gelo,notes
+2026-06-28,v22,771.6,1489,4000,,public score from Kaggle submissions API; rank approximate
+2026-07-01,v23,796.3,700,4005,719,public score from Kaggle submissions API; rank approximate (user reported ~880/~700 on 07-01); 773 on 07-02
+2026-07-02,v24,,,4005,762,submission 54265639 provisional 690 on day one — fill converged Elo/rank at ~48h

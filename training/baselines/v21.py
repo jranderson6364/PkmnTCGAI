@@ -44,42 +44,14 @@ PIVOT_FREE_RETREAT_IDS = {SHAYMIN}
 TOOL_IDS               = {HANDHELD_FAN}
 PH_DMG_PER_CARD = 20
 
-# v24 deck: Psyduck + Genesect out (deck audit: ~0 plays/game, pure hand fuel),
-# 4th Alakazam + 4th Dunsparce in (win-condition + draw-engine consistency; both
-# fully covered by existing heuristic logic). Genesect/Psyduck code paths below
-# stay but are dead — they only fire if the card is seen in play/hand.
-DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*4+[DUNSPARCE]*4+[DUDUNSPARCE]*3+
-        [SHAYMIN]+[FEZ]+
+DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*3+[DUNSPARCE]*3+[DUDUNSPARCE]*3+
+        [GENESECT]+[SHAYMIN]+[PSYDUCK]+[FEZ]+
         [POFFIN]*4+[POKE_PAD]*4+[HANDHELD_FAN]*2+[BOSS]*3+[LANA]+
         [BATTLE_CAGE]*4+[DAWN]*4+[WONDROUS_PATCH]+[SACRED_ASH]+[HILDA]*3+
         [ENHANCED_HAMMER]*2+[RARE_CANDY]*3+[BASIC_P]*2+[ENRICHING]+[TELEPATH_P]*4)
 
 _CARDS = None; _ATKMAP = None
 _STALL_MEMO = {}
-
-# Tunable scoring weights (v22). Defaults ARE v21 behavior; weight_search.py mutates
-# this dict in-process to run optimization — the submission never reads env/files.
-W = {
-    'atk_threshold':150.0,'atk_default':7.0,
-    'dudun_base':11.0,'fez_base':8.0,
-    'evo_bench_establish':40.0,'evo_bench_convert':25.0,'evo_bench_late':12.0,
-    'boss_target':16.0,'boss_mega_chip':18.0,'boss_mist_escape':12.0,
-    'cage_base':6.0,'cage_reactive':22.0,'hammer_mist':45.0,
-    'poffin_estab':25.0,'poffin_need':19.0,
-    'dawn_estab':22.0,'dawn_need':11.0,'hilda_estab':24.0,'hilda_immobile':18.0,
-    'pad_no_backup':13.0,'end_convert':4.0,
-    'candy_ready':30.0,'candy_estab':25.0,'candy_active_abra':45.0,
-    'attach_kadabra':9.0,'attach_abra':6.0,
-    'retreat_nonatk_ready':30.0,'retreat_alak_stuck':22.0,
-    # MCTS heuristic-prior blend temperatures (training/nn/prior_blend.py).
-    # score_options_main's scale spans ~4 (default) to 600 (KO) — prior_T_h_main
-    # is tuned large enough that a softmax doesn't fully saturate on the KO/
-    # boss-snipe outliers alone. Non-MAIN select types (_score_deck_search,
-    # _score_bench_target, etc.) score in a much flatter ~0-100 range, hence the
-    # separate, smaller default temperature. prior_T_net is the net policy
-    # logits' own softmax temperature (unrelated scale, tuned independently).
-    'prior_T_h_main':40.0,'prior_T_h_default':3.0,'prior_T_net':1.0,
-}
 
 def _select_fingerprint(obs, sel):
     """Coarse signature of a select + game state, for detecting a genuinely stuck
@@ -260,213 +232,34 @@ def _detect_phase(cen,can_ko,at_threshold,opp_prizes_left,hand_n):
     if can_ko or at_threshold: return PHASE_PRESSURE
     return PHASE_CONVERT
 
-def _score_setup_active(obs,opts):
-    # v22 fix: options never carry cardId — they are {type:CARD, area:2(HAND), index}.
-    # Resolve through our hand. (v21 read o['cardId'], which is always None, so every
-    # option scored the default 20 and it silently picked opts[0] every game.)
+def _pick_setup_active(opts):
     PREF={ABRA:90,DUNSPARCE:100,DUNSPARCE2:100,PSYDUCK:40,SHAYMIN:30,GENESECT:25,FEZ:5}
-    cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-    players=cur.get('players',[])
-    hand=_hand_list(players[me]) if len(players)>me else []
-    scores=[]
-    for o in opts:
-        idx=o.get('index')
-        cid=_pk_id(hand[idx]) if idx is not None and 0<=idx<len(hand) else -1
-        scores.append(float(PREF.get(cid,20)))
-    return scores
-
-def _pick_setup_active(obs,opts):
-    if not opts: return[0]
-    s=_score_setup_active(obs,opts)
-    return[max(range(len(s)),key=lambda i:s[i])]
-
-def _score_deck_search(obs,sel):
-    """v22: deck searches are NOT blind — sel['deck'] lists the deck and each option's
-    'index' points into it. Score candidates by what the board actually needs instead
-    of taking the first N options (which is what the old generic fallback did)."""
-    deck=sel.get('deck') or []
-    opts=sel.get('option',[])
-    cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-    players=cur.get('players',[])
-    my=players[me] if len(players)>me else {}
-    bench=my.get('bench') or[]; my_active=_active(my)
-    hand=_hand_list(my); hand_ids=[_pk_id(c) for c in hand]
-    cen=_census(my_active,bench)
-    candy_in_hand=RARE_CANDY in hand_ids
-    kadabra_in_hand=KADABRA in hand_ids
-    alak_in_hand=ALAKAZAM in hand_ids
-    def card_score(cid):
-        if cid==ALAKAZAM:
-            if not cen['has_alakazam'] and not alak_in_hand: return 95.0
-            return 40.0
-        if cid==KADABRA:
-            if cen['abra_count']>0 and not kadabra_in_hand and not candy_in_hand: return 70.0
-            return 30.0
-        if cid==ABRA:
-            if cen['abra_count']==0: return 90.0
-            if not cen['backup_abra']: return 60.0
-            return 25.0
-        if cid in(DUNSPARCE,DUNSPARCE2):
-            if cen['draw_count']==0: return 55.0
-            return 20.0
-        if cid==DUDUNSPARCE:
-            if cen['draw_count']>0 and cen['dudun_bench']==0: return 50.0
-            return 18.0
-        if cid in PSYCHIC_ENERGY_IDS:
-            if not cen['has_energy_plan']: return 85.0
-            return 35.0
-        if cid==ENRICHING: return 22.0
-        if cid==PSYDUCK:  return 12.0
-        if cid==SHAYMIN:  return 10.0
-        if cid==GENESECT: return 11.0
-        if cid==FEZ:      return 4.0
-        if cid==RARE_CANDY: return 28.0
-        if cid==BOSS:     return 26.0
-        return 15.0
-    scores=[]
-    for o in opts:
-        di=o.get('index')
-        cid=_pk_id(deck[di]) if di is not None and 0<=di<len(deck) else -1
-        scores.append(card_score(cid))
-    return scores
-
-def _deck_search_pick(obs,sel):
-    opts=sel.get('option',[])
-    scores=_score_deck_search(obs,sel)
-    order=sorted(range(len(opts)),key=lambda i:-scores[i])
-    mn=sel.get('minCount',0) or 0; mx=sel.get('maxCount',1) or 1
-    picks=order[:mx]
-    return _clamp(picks,sel) if len(picks)>=mn else _clamp(list(range(len(opts))),sel)
-
-def _score_energy_discard(obs,sel):
-    """v22: Enhanced Hammer / discard-energy selects (stype=4). Options carry
-    area/index/energyIndex into the target pokemon's energyCards. Prefer discarding
-    Mist/Rocky (the Powerful Hand blockers); otherwise keep the old first-pick."""
-    cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-    players=cur.get('players',[])
-    opts=sel.get('option',[])
-    scores=[]
-    for o in opts:
-        pidx=o.get('playerIndex'); area=o.get('area'); idx=o.get('index',0)
-        ei=o.get('energyIndex',0)
-        eid=None
-        if pidx is not None and pidx<len(players):
-            pl=players[pidx]
-            pk=_active(pl) if area==4 else ((pl.get('bench') or[None]*5)[idx] if idx<len(pl.get('bench') or[]) else None)
-            ecs=(pk or{}).get('energyCards') or []
-            eid=ecs[ei].get('id') if 0<=ei<len(ecs) else None
-        scores.append(100.0 if eid in (MIST_ENERGY,ROCK_ENERGY) else 1.0)
-    return scores
-
-def _pick_energy_discard(obs,sel):
-    opts=sel.get('option',[])
-    scores=_score_energy_discard(obs,sel)
-    order=sorted(range(len(opts)),key=lambda i:-scores[i])
-    return _clamp(order,sel)
-
-def _score_evolve_target(obs,sel):
-    """v22: Rare Candy target select (stype=7, ctx=EVOLVE). Options carry
-    inPlayArea/inPlayIndex (which Abra). Prefer the ACTIVE Abra — it's already
-    positioned to attack, so Candying it gets an attacker online immediately,
-    whereas Candying a bench Abra still needs a promotion/retreat afterward.
-    Psychic-fueled is a secondary tiebreak on top of that."""
-    cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-    players=cur.get('players',[])
-    my=players[me] if len(players)>me else {}
-    bench=my.get('bench') or[]; my_active=_active(my)
-    opts=sel.get('option',[])
-    scores=[]
-    for o in opts:
-        tgt=_attach_target(o,my_active,bench)
-        s=0.0
-        if o.get('inPlayArea')==4: s+=15.0
-        if _has_psychic(tgt): s+=10.0
-        scores.append(s)
-    return scores
-
-def _pick_evolve_target(obs,sel):
-    if not sel.get('option'): return[0]
-    s=_score_evolve_target(obs,sel)
-    return[max(range(len(s)),key=lambda i:s[i])]
+    best_i,best_s=0,-1
+    for i,o in enumerate(opts):
+        cid=o.get('cardId') or o.get('id',-1)
+        s=PREF.get(cid,20)
+        if s>best_s: best_s,best_i=s,i
+    return[best_i]
 
 def _pick_setup_bench(opts): return list(range(len(opts)))
 
-def _score_bench_target(obs,opts):
+def _pick_bench_target(obs,opts):
     cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
     players=cur.get('players',[]); me=players[me_idx] if players and len(players)>me_idx else{}
     bench=me.get('bench') or[]
     area5=[(i,o) for i,o in enumerate(opts) if o.get('area')==5]
-    scores=[-1e9]*len(opts)
+    best_i,best_score=(area5[0][0] if area5 else 0),-1
     for order,(i,o) in enumerate(area5):
         idx=o.get('index',order)
         pk=bench[idx] if 0<=idx<len(bench) else(bench[order] if order<len(bench) else None)
         pid=_pk_id(pk)
-        # Promoting after a KO is a hard forced pick with no do-over — an un-evolved
-        # line piece (Kadabra especially) is a much better bet than a pure-support
-        # mon (Psyduck/Fez/Genesect/Dunsparce) that can never become the attacker.
-        # These used to share the same -10 fallback, so ties broke on array order
-        # instead of board value (confirmed losing this exact coinflip in a replay:
-        # promoted Psyduck over an already-energized Kadabra sitting right next to it).
         if pid==ALAKAZAM and _has_psychic(pk): s=100
         elif pid==ALAKAZAM: s=80
-        elif pid==KADABRA and _has_psychic(pk): s=70
-        elif pid==KADABRA: s=55
         elif pid==DUDUNSPARCE: s=50
         elif pid in PIVOT_FREE_RETREAT_IDS: s=40
-        elif pid==ABRA and _has_psychic(pk): s=30
-        elif pid==ABRA: s=20
         else: s=-10
-        scores[i]=s
-    return scores
-
-def _pick_bench_target(obs,opts):
-    if not opts: return[0]
-    s=_score_bench_target(obs,opts)
-    return[max(range(len(s)),key=lambda i:s[i])]
-
-def _score_boss_target(obs,sel):
-    """Standalone scoring mirror of _pick_boss_target's tiered KO > damage >
-    mist-KO > fallback logic, for use as an MCTS prior (score_options). Kept as
-    a SEPARATE function rather than refactoring _pick_boss_target into a thin
-    wrapper around it — Boss's Orders targeting is too game-critical to risk
-    subtle drift from collapsing tiered tie-break logic into one scalar via
-    lexicographic weight encoding. _pick_boss_target's own decision logic is
-    untouched. Encoding: tiers are separated by 1e9 (KO=3e9, damage=2e9,
-    mist-KO=1e9); within a tier, weights (1e5, 1e2, 1) are wide enough apart
-    that pv<=3, hp<1000, and energy-count<100 can never bleed into the next
-    weight's digit range, so tie-break ordering exactly matches the tuple-key
-    max() used by _pick_boss_target."""
-    cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-    players=cur.get('players',[]); opp_idx=1-me
-    opp=players[opp_idx] if len(players)>opp_idx else{}
-    opp_bench=opp.get('bench') or[]
-    hand_n=_hand_size(cur,me); boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
-    opts=sel.get('option',[])
-    scores=[0.0]*len(opts)
-    any_candidate=False
-    for i,o in enumerate(opts):
-        bi=o.get('index',0)
-        pk=opp_bench[bi] if 0<=bi<len(opp_bench) else None
-        if not pk:
-            scores[i]=-1e9; continue
-        any_candidate=True
-        pk_hp=(pk.get('hp',99999) or 99999); pv=_prize_value_pk(pk)
-        ec=len((pk or{}).get('energies') or [])
-        pid=_pk_id(pk)
-        pk_walled=_opp_has_blocking_energy(pk)
-        if boss_dmg>=pk_hp and not pk_walled:
-            scores[i]=3e9 + pv*1e5 + min(pk_hp,999)*1e2 + min(ec,99)
-        elif boss_dmg>=pk_hp:
-            scores[i]=1e9 + pv*1e5 + min(pk_hp,999)*1e2 + min(ec,99)
-        elif not pk_walled:
-            dmg_pct=min(boss_dmg/pk_hp, 1.0) if pk_hp>0 else 0
-            threat_score=100 if pid==ALAKAZAM else(40 if pid==KADABRA else(30 if pid in PIVOT_FREE_RETREAT_IDS else 10))
-            scores[i]=2e9 + pv*300 + dmg_pct*100 + threat_score
-        else:
-            scores[i]=-1e9
-    if not any_candidate:
-        scores=[0.0]+[-1e9]*(len(opts)-1) if opts else []
-    return scores
+        if s>best_score: best_score,best_i=s,i
+    return[best_i]
 
 def _pick_boss_target(obs,sel):
     cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
@@ -513,16 +306,9 @@ def _pick_boss_target(obs,sel):
         return[best[0]]
     return[0]
 
-def _main_phase_features(obs,sel):
-    """Computes every board-state local the MAIN-phase scorer needs, then
-    returns the `score(o)` closure itself (unchanged body, just relocated so
-    it's reachable outside the argmax-and-return control flow that used to
-    own it). This lets score_options_main(obs,sel) expose a per-option score
-    vector — the heuristic side of the MCTS prior blend — via one call,
-    instead of re-deriving this analysis inline. Pure: no I/O, no RNG, no
-    mutation of _STALL_MEMO or any other global (search may call this
-    thousands of times per game)."""
-    opts=sel['option']
+def _main_phase(obs,sel):
+    opts=sel['option']; n=len(opts)
+    if n==0: return[]
     cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
     players=cur.get('players',[])
     my=players[me_idx]   if players and len(players)>me_idx else{}
@@ -563,6 +349,15 @@ def _main_phase_features(obs,sel):
     # made of card TYPE, only of hand size, so it's pure deck-out risk for zero payoff.
     hopelessly_walled=opp_mist and not hammer_in_hand and not boss_in_hand
     boss_dmg=(hand_n-1)*PH_DMG_PER_CARD
+    boss_target_exists=(
+        # opp_mist doesn't block Boss — it blocks Powerful Hand against the CURRENT
+        # active only. A Mist-walled active makes ANY killable bench target the
+        # correct play (it's the only way to make progress at all), not a reason to
+        # skip this check in favor of the un-informed opp_mist fallback below.
+        active_can_attack and (opp_mist or opp_hp>my_dmg) and
+        any(0<(b or{}).get('hp',99999)<=boss_dmg and
+            _prize_value_pk(b)>=opp_active_pv
+            for b in opp_bench if b))
     ready_alak_exists=active_can_attack or bench_has_alak_ready
     opp_bench_ko_gte=any(
         0<(b or{}).get('hp',99999)<=boss_dmg and _prize_value_pk(b)>=opp_active_pv
@@ -574,23 +369,6 @@ def _main_phase_features(obs,sel):
     emergency_draw=hand_n<=4
     phase=_detect_phase(cen,can_ko,at_threshold,opp_prizes,hand_n)
     in_late_phase=phase in(PHASE_CONVERT,PHASE_PRESSURE,PHASE_CLOSING)
-    # v23: Boss's Orders is a one-shot resource (3 copies) that should be SAVORED for
-    # high-value bench snipes once the hand is actually built up, not spent early to
-    # pick off any killable small-fry bench mon — that trades a scarce out for a target
-    # that often wasn't threatening anything anyway. Require BOTH: (a) hand already
-    # developed (in_late_phase — ESTABLISH means Alakazam isn't even fed yet, far too
-    # early to burn a Boss) and (b) the target is actually worth gusting: an ex/mega
-    # (2-3 prizes) or a beefy (150+ HP) Pokemon — not just "kills whatever's back there".
-    boss_target_exists=(
-        # opp_mist doesn't block Boss — it blocks Powerful Hand against the CURRENT
-        # active only. A Mist-walled active makes ANY killable bench target the
-        # correct play (it's the only way to make progress at all), not a reason to
-        # skip this check in favor of the un-informed opp_mist fallback below.
-        active_can_attack and (opp_mist or opp_hp>my_dmg) and in_late_phase and
-        any(0<(b or{}).get('hp',99999)<=boss_dmg and
-            (_prize_value_pk(b)>=2 or (b or{}).get('hp',99999)>=150) and
-            _prize_value_pk(b)>=opp_active_pv
-            for b in opp_bench if b))
     active_hp=(my_active or{}).get('hp',99999) or 99999
     active_max_hp=(my_active or{}).get('maxHp',999) or 999
     active_below_half=(active_max_hp-active_hp)>active_max_hp//2
@@ -609,12 +387,6 @@ def _main_phase_features(obs,sel):
     active_kadabra_can_evolve=(
         _pk_id(my_active)==KADABRA and
         not (my_active or{}).get('appearThisTurn',False))
-    active_abra_can_evolve=(
-        _pk_id(my_active)==ABRA and
-        not (my_active or{}).get('appearThisTurn',False))
-    candy_playable=any(
-        o.get('type')==PLAY and _opt_card_id(o,hand,my_active,bench)==RARE_CANDY
-        for o in opts)
     retreat_available=any(o.get('type')==RETREAT for o in opts)
     active_free_retreat=_pk_id(my_active) in PIVOT_FREE_RETREAT_IDS
     # Energy only "frees" an immobile Active if it actually enables something:
@@ -633,13 +405,6 @@ def _main_phase_features(obs,sel):
     hand_surplus=(
         ready_attacker_exists and opp_hp<99999 and hand_n>=cards_needed and
         not boss_snipe_plan and not emergency_draw)
-    # Down to a single Pokemon in play (no bench at all) is a distinct existential
-    # risk regardless of prize lead or hand size: one KO on the Active with nothing
-    # to promote is an instant loss. Confirmed losing exactly this way in a replay
-    # (140 HP Alakazam active, empty bench, KO'd on the opponent's next turn with
-    # a commanding prize lead otherwise) — surplus-hand and phase gating shouldn't
-    # suppress rebuilding the bench once it's completely empty.
-    bench_empty=cen['bench_count']==0
 
     def score(o):
         ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
@@ -647,16 +412,16 @@ def _main_phase_features(obs,sel):
             if not active_can_attack: return-5
             if opp_mist: return-5
             if can_ko: return 500
-            if at_threshold: return W['atk_threshold']
+            if at_threshold: return 150
             if hand_too_small: return 0.5
-            return W['atk_default']
+            return 7.0
         if ot==RETREAT:
             if retreated: return-50
             if alak_stuck:
-                if bench_has_alak_ready: return W['retreat_alak_stuck']
+                if bench_has_alak_ready: return 22.0
                 return -5.0
             if active_non_atk and bench_has_alak_ready:
-                return W['retreat_nonatk_ready'] if active_below_half else W['retreat_alak_stuck']
+                return 30.0 if active_below_half else 22.0
             if active_non_atk and bench_has_alak:
                 return 20.0 if active_below_half else 16.0
             if active_non_atk:                     return -3.0
@@ -675,14 +440,14 @@ def _main_phase_features(obs,sel):
                     if deck_critical and not emergency_draw: return-2.0
                     if hand_n>=14 and not emergency_draw:    return 1.0
                     if cen['dudun_bench']>1 and not emergency_draw: return 6.0
-                    return W['dudun_base']
+                    return 11.0
                 if emergency_draw: return 15.0
                 return 10.0
             if cid==FEZ:
                 if deck_danger: return-5.0
                 if hand_surplus: return-3.0
                 if deck_critical and not emergency_draw: return-2.0
-                return W['fez_base']
+                return 8.0
             return 5.0
         if ot==EVOLVE:
             evo_area=o.get('inPlayArea',4)
@@ -690,9 +455,9 @@ def _main_phase_features(obs,sel):
                 if evo_area==5:
                     if can_ko: return 3.0
                     if not cen['has_alakazam']: return 50.0
-                    if phase==PHASE_ESTABLISH: return W['evo_bench_establish']
-                    if phase==PHASE_CONVERT: return W['evo_bench_convert']
-                    return W['evo_bench_late']
+                    if phase==PHASE_ESTABLISH: return 40.0
+                    if phase==PHASE_CONVERT: return 25.0
+                    return 12.0
                 post_evo_dmg=(hand_n+3)*PH_DMG_PER_CARD
                 if phase==PHASE_ESTABLISH and active_kadabra_can_evolve:
                     return 300
@@ -705,31 +470,25 @@ def _main_phase_features(obs,sel):
                 return 10.0
             if cid==KADABRA:
                 if can_ko: return 3.0
-                if evo_area==4 and active_abra_can_evolve and candy_playable:
-                    # Rare Candy can take THIS SAME active Abra straight to Alakazam
-                    # this turn — normal-evolving it to Kadabra first just burns the
-                    # turn's evolution on an intermediate stage and pushes Alakazam
-                    # a full turn later than necessary. Let Candy (scored below) win.
-                    return 2.0
                 return 13.0
             if can_ko: return 2.0
             if active_non_atk: return 12.0
             return 8.5
         if ot==PLAY:
             if cid==ENHANCED_HAMMER:
-                if opp_mist: return W['hammer_mist']
+                if opp_mist: return 45.0
                 return 3.0
             if cid==BATTLE_CAGE:
-                if bench_dmg_received: return W['cage_reactive']
+                if bench_dmg_received: return 22.0
                 if in_late_phase and hand_n>=8: return 1.0
-                return W['cage_base']
+                return 6.0
             if cid==BOSS:
                 if boss_ex_snipe:        return 600.0
                 if can_ko: return 1.0
                 if phase==PHASE_CLOSING: return 199.0
-                if boss_target_exists:   return W['boss_target']
-                if boss_can_damage_mega: return W['boss_mega_chip']
-                if opp_mist and ready_alak_exists: return W['boss_mist_escape']
+                if boss_target_exists:   return 16.0
+                if boss_can_damage_mega: return 18.0
+                if opp_mist and ready_alak_exists: return 12.0
                 return 4.0
             if can_ko: return 1.0
             if cid in BENCHABLE_BASIC_IDS:
@@ -767,16 +526,9 @@ def _main_phase_features(obs,sel):
                 if bc==1: return 7.0
                 return 3.0
             if cid==RARE_CANDY:
-                if active_abra_can_evolve:
-                    # Get the already-positioned Active online NOW. This is the
-                    # highest-priority Candy use — it avoids the wasted-tempo pattern
-                    # of normal-evolving the active Abra to Kadabra this turn and only
-                    # Candying a *different* (bench) Abra to Alakazam later, which
-                    # leaves the active stuck needing its own extra evolve turn.
-                    return W['candy_active_abra']
                 if cen['kadabra_can_evolve']:
-                    if at_threshold or phase in(PHASE_PRESSURE,PHASE_CLOSING): return W['candy_ready']
-                    if phase==PHASE_ESTABLISH: return W['candy_estab']
+                    if at_threshold or phase in(PHASE_PRESSURE,PHASE_CLOSING): return 30.0
+                    if phase==PHASE_ESTABLISH: return 25.0
                     return 8.0
                 if not cen['has_alakazam']: return 28.0
                 if cen['need_line']:        return 14.0
@@ -784,12 +536,11 @@ def _main_phase_features(obs,sel):
             if cid==POFFIN:
                 if deck_danger: return-8.0
                 if hopelessly_walled: return-3.0
-                if bench_empty: return W['poffin_estab']
                 if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (not cen['backup_abra'] or cen['draw_count']==0):
-                    if cen['bench_count']<5: return W['poffin_estab']
+                    if cen['bench_count']<5: return 25.0
                 if not cen['backup_abra'] or cen['draw_count']==0:
-                    if cen['bench_count']<4: return W['poffin_need']
+                    if cen['bench_count']<4: return 19.0
                 if cen['bench_count']<2: return 14.0
                 if phase==PHASE_ESTABLISH: return 12.0
                 if in_late_phase: return 2.0
@@ -811,21 +562,21 @@ def _main_phase_features(obs,sel):
                 if active_immobile: return-3.0
                 if hopelessly_walled: return-3.0
                 if hand_surplus: return 2.0
-                if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return W['dawn_estab']
+                if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 22.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
                 if deck_critical: return 1.0
                 if hand_n>=12: return 2.0
                 if emergency_draw: return 14.0
-                if cen['need_line'] or not cen['has_alakazam']: return W['dawn_need']
+                if cen['need_line'] or not cen['has_alakazam']: return 11.0
                 if phase==PHASE_CONVERT: return 8.0
                 return 6.0
             if cid==HILDA:
                 if supporter_played: return-5.0
                 if deck_danger: return-8.0
-                if active_immobile: return W['hilda_immobile']
+                if active_immobile: return 18.0
                 if hopelessly_walled: return-3.0
                 if hand_surplus: return 2.0
-                if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return W['hilda_estab']
+                if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return 24.0
                 if boss_snipe_plan and not emergency_draw: return 1.0
                 if deck_critical: return 1.0
                 if not enriching_on_dudun and cen['draw_count']>0: return 11.0
@@ -838,9 +589,8 @@ def _main_phase_features(obs,sel):
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
                 if hopelessly_walled: return-3.0
-                if bench_empty: return W['pad_no_backup']
                 if hand_surplus: return 2.0
-                if not cen['backup_abra']: return W['pad_no_backup']
+                if not cen['backup_abra']: return 13.0
                 if cen['need_line']:       return 9.0
                 if cen['need_draw']:       return 10.0
                 if in_late_phase:          return 2.0
@@ -869,32 +619,22 @@ def _main_phase_features(obs,sel):
             if cid==ENRICHING:
                 if tid==DUDUNSPARCE and cen['dudun_no_energy']: return 20.0
                 if tid==DUDUNSPARCE:                             return 13.0
-                # Enriching is Colorless — it can NEVER pay Powerful Hand's Psychic
-                # cost. Attaching it to Alakazam (fueled or not) wastes the card:
-                # fueled, it does nothing; unfueled, it still leaves Alakazam unable
-                # to attack while consuming the energy-drop for the turn instead of
-                # a real Psychic source. Never route it here (see CLAUDE.md).
-                if tid==ALAKAZAM: return -8.0
-                return 1.0
+                if tid==ALAKAZAM and not _has_psychic(tgt):     return 1.0
+                return 6.0
             if cid in PSYCHIC_ENERGY_IDS:
-                # Powerful Hand costs exactly 1 Psychic — a 2nd energy on the SAME
-                # physical card does nothing (damage scales with hand size, not
-                # energy count), and unlike a bench pivot there's no cost this ever
-                # pays down. Hard cap this at the target level, before the per-line
-                # priority order below, so it can never lose to "nothing better
-                # this turn" and get attached anyway — the card is strictly more
-                # valuable left in hand as +20 future Powerful Hand damage.
-                if _has_psychic(tgt): return -6.0
-                # Route further Psychic to the next-best un-fueled pre-load target:
-                # Alakazam (fuels the attacker itself) > Kadabra > Abra (so the
-                # energy is already there the moment it evolves) > other bench
-                # support (never preemptively fuel Dudunsparce/Genesect/Shaymin/
-                # Psyduck/Fez — they don't attack, and the one legitimate case,
-                # paying a real retreat cost into a waiting bench Alakazam, is
-                # already handled above via the active_immobile rescue block).
-                if tid==ALAKAZAM: return 16.0
-                if tid==KADABRA:  return W['attach_kadabra']
-                if tid==ABRA:     return W['attach_abra']
+                # Powerful Hand costs exactly 1 Psychic — a 2nd energy on the same
+                # Alakazam does nothing (damage scales with hand size, not energy
+                # count). Once an Alakazam already has its one, route further Psychic
+                # to the next-best pre-load target: Kadabra, then Abra (so the energy
+                # is already there the moment it evolves), then other bench support.
+                if tid==ALAKAZAM and not _has_psychic(tgt): return 16.0
+                if tid==KADABRA:                             return 9.0
+                if tid==ABRA:                                return 6.0
+                if tid==ALAKAZAM:                            return 1.0
+                # Never preemptively fuel a support mon (Dudunsparce/Genesect/Shaymin/
+                # Psyduck/Fez) — they don't attack, and the one legitimate case (paying
+                # a real retreat cost into a waiting bench Alakazam) is already handled
+                # above via the active_immobile rescue block.
                 return -2.0
             if active_non_atk:
                 if tid==ALAKAZAM: return 11.0
@@ -903,26 +643,16 @@ def _main_phase_features(obs,sel):
             return 3.0
         if ot==DISCARD: return 0.0
         if ot==END:
-            if phase==PHASE_CONVERT and hand_n>=8: return W['end_convert']
+            if phase==PHASE_CONVERT and hand_n>=8: return 4.0
             if phase==PHASE_PRESSURE and at_threshold: return 3.0
             return 1.0
         return 2.0
 
-    return score
-
-def score_options_main(obs,sel):
-    """Standalone, reusable per-option heuristic score vector for MAIN-phase
-    (stype==0) decisions — the heuristic half of the MCTS prior blend."""
-    opts=sel.get('option') or[]
-    if not opts: return[]
-    score=_main_phase_features(obs,sel)
-    return[score(o) for o in opts]
-
-def _main_phase(obs,sel):
-    opts=sel.get('option') or[]
-    if not opts: return[]
-    s=score_options_main(obs,sel)
-    return[max(range(len(opts)),key=lambda i:s[i])]
+    best_i,best_s=0,-1e18
+    for i,o in enumerate(opts):
+        s=score(o)
+        if s>best_s: best_s,best_i=s,i
+    return[best_i]
 
 def _choose(obs):
     sel=obs.get('select')
@@ -933,13 +663,9 @@ def _choose(obs):
     mn=sel.get('minCount',0) or 0; mx=sel.get('maxCount',1) or 1
     if stype==0: return _main_phase(obs,sel)
     if stype==1:
-        if ctx==CTX_SETUP_ACTIVE: return _pick_setup_active(obs,opts)
+        if ctx==CTX_SETUP_ACTIVE: return _pick_setup_active(opts)
         if ctx==CTX_SETUP_BENCH:  return _pick_setup_bench(opts)
         cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-        # v22: deck searches expose sel['deck'] (they are NOT blind) — options index
-        # into it. Route any deck-area select through need-based scoring.
-        if sel.get('deck') and any(o.get('area')==1 for o in opts):
-            return _deck_search_pick(obs,sel)
         is_boss_target=(len(opts)>0
             and all(o.get('playerIndex')==(1-me) and o.get('area')==5 for o in opts))
         if is_boss_target: return _pick_boss_target(obs,sel)
@@ -952,9 +678,7 @@ def _choose(obs):
         # re-asks the identical question with no state change, rotate the pick instead
         # of resubmitting the same answer forever.
         return _clamp(_resolve_stalled_or(obs,sel,list(range(n))),sel)
-    if stype==4: return _pick_energy_discard(obs,sel)
-    if stype==7: return _clamp(_pick_evolve_target(obs,sel),sel)
-    if stype in(2,3): return _clamp(list(range(n)),sel)
+    if stype in(2,3,4,7): return _clamp(list(range(n)),sel)
     if stype==5:           return _clamp(list(range(n))[:max(mn,1)],sel)
     if stype==6:
         _,A=_meta()
@@ -968,34 +692,6 @@ def _choose(obs):
     if stype==10: return _clamp(list(range(n))[:max(mn,1)],sel)
     k=mn if mn>0 else(1 if mx>=1 else 0)
     return _clamp(list(range(n))[:k] if k else[],sel)
-
-def score_options(obs,sel):
-    """Per-option heuristic score vector for ANY select shape, mirroring
-    _choose's dispatch. This is the heuristic half of the MCTS prior blend
-    (docs/nn-training.md's heuristic-weighted-search plan) — pure, deterministic,
-    side-effect-free (never touches _STALL_MEMO), safe to call repeatedly inside
-    a search tree. Where no meaningful per-option ranking exists (bare YES/NO,
-    forced picks, blind selections), returns a flat/uniform vector — softmax of
-    a flat vector is a uniform prior, which is the honest answer there."""
-    opts=sel.get('option') or[]
-    n=len(opts)
-    if n==0: return[]
-    stype=sel.get('type'); ctx=sel.get('context',0)
-    if stype==0: return score_options_main(obs,sel)
-    if stype==1:
-        if ctx==CTX_SETUP_ACTIVE: return _score_setup_active(obs,opts)
-        if ctx==CTX_SETUP_BENCH:  return[0.0]*n
-        cur=obs.get('current') or{}; me=cur.get('yourIndex',0)
-        if sel.get('deck') and any(o.get('area')==1 for o in opts):
-            return _score_deck_search(obs,sel)
-        is_boss_target=(n>0 and all(o.get('playerIndex')==(1-me) and o.get('area')==5 for o in opts))
-        if is_boss_target: return _score_boss_target(obs,sel)
-        if any(o.get('area')==5 for o in opts):
-            return _score_bench_target(obs,opts)
-        return[0.0]*n
-    if stype==4: return _score_energy_discard(obs,sel)
-    if stype==7: return _score_evolve_target(obs,sel)
-    return[0.0]*n
 
 def _safe_return(result,sel):
     if not sel: return result

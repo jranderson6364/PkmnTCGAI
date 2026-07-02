@@ -2,11 +2,19 @@
 
 *Summary of the strategic analysis for the PTCG AI Battle Challenge.*
 
+**Last updated:** 2026-07-01
+
 ---
 
 ## The Thesis in One Paragraph
 
-Top 8 is **not** won by the best forward-search engine or the flashiest RL run. It is won by a **learned-piloting agent on a deliberately simple deck**, trained primarily by **imitation from ladder replays** (which include strong players), optionally fine-tuned with light self-play, and deployed with **fast, shallow determinized search** under the 10-minute clock — then written up as a rigorous "model approach." This is the one path that scores on *both* axes: real ladder performance *and* the 70%-weighted "model approach" rubric.
+Top 8 is **not** won by the best forward-search engine or the flashiest RL run. It is won by a **learned-piloting agent on a deliberately simplified deck**, trained by **BC → DAgger → advantage-weighted self-play** from a strong scripted teacher, optionally deployed with **fast, shallow belief-determinized search** under the 10-minute clock — then written up as a rigorous "model approach." This is the one path that scores on *both* axes: real ladder performance *and* the 70%-weighted "model approach" rubric. And the report is not the 10% axis — it is the delivery channel for the whole 70%: **report-driven development** (`docs/report-log.md`).
+
+The heuristic (v23) is the live ladder placeholder and the DAgger teacher. Ladder
+replays are still downloaded and audited (`tools/analyze_replay.py`); the heuristic
+changes only through three sanctioned channels (replay-confirmed bugs, weight
+search, belief-classifier wiring — see Stage 0b). All new effort goes to Stage 0
+(deck + Gauntlet) and then the NN track.
 
 ---
 
@@ -36,49 +44,152 @@ Top 8 is **not** won by the best forward-search engine or the flashiest RL run. 
 - All deployed agents in wmh/ptcg-abc are rule-based, with MCTS/RL only in `research/`. **That's the gap we exploit.**
 
 ### Comparable Kaggle 1v1 Ladders (Lux AI, Hungry Geese)
-- **BC from high-rated replays → RL → light MCTS at inference** is the proven recipe.
+- **BC from self-play → RL → light MCTS at inference** is the proven recipe.
 - Imitation is the cheap, high-leverage half; self-play RL is the expensive half.
-- BC alone needs only a modest GPU and the replay data — closes most of the piloting gap.
+- BC alone needs only a modest GPU and the self-play data — closes most of the piloting gap.
 
 ---
 
-## Recommended Method
+## The Master Plan (2026-07-01 roadmap, second revision)
 
-**(1) Behavior cloning from ladder replays — do this first, 60% of the win.**
-Download daily episode datasets, filter to high-rated agents' games, train a network to predict the action taken from the observation. Plain supervised learning: cheap, stable, no self-play infrastructure. Directly transplants *good piloting* into the agent.
+**Game-changer:** the cabt engine runs fully locally (`training/README.md`) at
+~0.5s/game. Self-play, A/B evaluation, weight tuning, and BC data collection no
+longer need Kaggle sessions. The Vivobook (16 cores) multiplies throughput but is
+no longer a hard blocker.
 
-**(2) Use the cloned net as policy/value inside light search.**
-Wrap in **shallow determinized / IS-MCTS**: sample plausible opponent hands/decks consistent with public info, run a *small* number of simulations guided by the net's priors, average. Budget search by wall-clock with a hard latency guard.
+**Governing principle — report-driven development.** The report is not the 10%
+axis; it is the *only channel through which the 70% "model approach" score is
+delivered*. Every stage below must produce a figure, an ablation row, or a
+finding, logged in `docs/report-log.md` the day it happens. The five target
+figures are listed at the top of that file.
 
-**(3) Optionally fine-tune with self-play RL — only if compute allows.**
-Once cloning works, self-play RL (policy-gradient or AlphaZero-style) squeezes out the last increment and lets you exceed the players you imitated. This is the expensive part. Cloning alone is plausibly enough to clear rule-based bots.
+**Method narrative the stages build** (each step motivated by a diagnosed
+failure of the previous one): BC from a strong scripted teacher → compounding
+error diagnosed (85.9% action match yet 22% head-to-head) → **DAgger** on the
+net's own state distribution → **advantage-weighted self-play** to exceed the
+teacher → **belief-modeled hidden information** (originality centerpiece) →
+optionally shallow search with blended priors, justified by a measured latency
+curve.
 
-**(4) Deck: simple, single-prize, meta-aware. Lock early, stop touching it.**
-Alakazam — single-prize, low-branch, consistent, flat deterministic damage. Single-prize sidesteps prize-trade math, dodges Crustle ex-immunity, gives clean learning targets.
+### Stage 0 — Deck simplification + Gauntlet (NOW, before any rigorous training)
+
+Deck changes invalidate collected teacher data, so the 60 gets settled first:
+
+1. **Deck audit at scale:** `python tools/deck_audit.py --games 1000` — per-card
+   utilization (plays per game drawn, rot rate, end-hand rate, win-rate deltas).
+   4-game smoke run already fingered Genesect and Psyduck (0 plays, 100% rot).
+2. **Variant A/B:** copy `main.py` → `variants/<name>.py`, edit `DECK`, then
+   `python training/ab_test.py variants/<name>.py main.py 600`. Test at most
+   1–3 swaps; likely outs are low-utilization passengers, likely ins are
+   consistency/redundancy (e.g. 4th Alakazam). One decision point, then the 60
+   is **frozen permanently** and `deck.csv` regenerated from `DECK`.
+3. **Gauntlet baseline:** `python training/gauntlet.py --candidate main.py
+   --name v24-<deck> --games 200` — establishes the new agent's gElo against
+   the fixed 8-anchor panel. All future candidates get gauntleted under a
+   distinct `--name`; results accumulate in `training/gauntlet_results.csv`,
+   ladder outcomes go to `training/ladder_history.csv`. This pair is the
+   offline/online calibration dataset.
+4. **The pro list is the control**, not just the starting point: "started from
+   the Indianapolis 1st-place list, instrumented utilization over N thousand
+   games, swapped X for Y, +Z% over 600 games, confirmed on ladder" is the 20%
+   deck-concept story.
+
+### Stage 0b — Heuristic tuning on the frozen deck (parallel, ongoing)
+
+The heuristic is the live submission AND the DAgger teacher — every Elo added
+compounds through the student. Three sanctioned channels only:
+
+- **Replay-forensics bug fixes** (bar unchanged: confirmed game-losing bug in
+  2+ ladder replays).
+- **Weight search** (`training/weight_search.py`, unattended overnight; winner
+  needs a 600+ game A/B and a ladder confirm). Ship any teacher upgrade
+  *before* the big DAgger collection runs.
+- **Belief-classifier output wired into the heuristic** (fixes the hardcoded
+  `opp_likely_ace_spec` — shared work with Stage 3).
+
+No open-ended manual feature engineering — it competes with the 70% axis.
+
+### Stage 1 — DAgger (target: week of Jul 6)
+
+The net pilots self-play games; at every decision `main.score_options()` is
+also queried and the teacher's choice recorded as the label. Retrain on the
+aggregate (original BC data + DAgger rounds), iterate 2–3 rounds. This attacks
+the state-distribution problem directly — the net gets teacher supervision
+exactly on the states *it* reaches. **Gate: ~50%+ vs the teacher on the
+Gauntlet → ship the learned agent to the ladder** (single forward pass, no
+timeout risk) and start logging its real-bracket results.
+
+### Stage 2 — Advantage-weighted self-play (mid-Jul → early Aug)
+
+Past the teacher: weight each self-play sample's policy loss by
+`exp(advantage/β)` using the n-step value targets already computed — actions
+that outperformed expectation get imitated harder. Keep the 40% BC / 60% SP
+batch mix (non-negotiable — SP-only collapsed 46%→20%). Winner-only filtering
+runs as the dumb-baseline ablation row. **Gate: 55–60% vs the teacher over 400
+local games.** Retired checkpoints join the Gauntlet panel and the sparring pool.
+
+### Stage 3 — Belief model (parallel B-track; design: `docs/belief-model.md`)
+
+Supervised classifier `P(archetype | opponent's observed plays, turn)` trained
+from local games vs the four opponent bots, extended to ladder archetypes via
+bulk replay download. Deliverables: the accuracy-by-turn figure (report
+centerpiece), the `opp_likely_ace_spec` fix (teacher upgrade), and the
+determinization sampler for Stage 5. Full phase plan, model choice, and the
+decisions table live in `docs/belief-model.md`.
+
+### Stage 4 — Hardening (Aug)
+
+PFSP league vs the opponent pool + checkpoint hall-of-fame; frozen
+hard-position and bad-hand eval suites (`training/curriculum.py`) as regression
+gates on every checkpoint; curriculum training starts from mined tight positions.
+
+### Stage 5 — Search at inference (Kaggle-gated, freeze-week go/no-go)
+
+MCTS with the already-built λ-blended heuristic/net priors
+(`training/nn/prior_blend.py`) + belief-based determinization. Gated on the
+`search_begin` Kaggle spike and a measured latency curve (sims/decision vs p99
+move time vs win rate). The go/no-go is a lookup in that curve, and the curve
+is a report figure either way.
 
 ---
 
-## Concrete Plan
+## Concrete Timeline
 
-**Phase 0 — now → July 1:** Keep v14 (or better, a simple rule-based) on the ladder. Prep the replay-download + dataset-builder script and observation→tensor encoder.
-
-**Phase 1 — July 1 → mid-July:** Download and filter replays. Train the policy/value net. Ship inside the existing search scaffold with a strict latency guard. **Success metric: beats the untrained baseline and a clean rule-based bot in real-ladder A/B.**
-
-**Phase 2 — mid-July → mid-Aug:** Improve encoder, add strongest opponents' games, tune search depth vs clock. If compute permits: self-play RL fine-tune. Lock the deck. Freeze best two submissions before the Aug 16 ladder deadline.
-
-**Phase 3 — mid-Aug → Sep 13:** The writeup. Budget real time here — it's 30% of the score directly (deck + writing) and the *presentation* of the 70% method axis.
+| Window | Goal |
+|--------|------|
+| **Jul 1–6** | Stage 0: deck audit at scale → variant A/B → **freeze the 60**; Gauntlet baseline for the new deck; weight search overnight; re-collect BC data on the frozen deck |
+| **Jul 6–15** | Stage 1: DAgger rounds → learned agent to ~teacher parity → ship to ladder |
+| **Jul 15 – Aug 5** | Stage 2: advantage-weighted self-play iterations; Stage 3 belief model in parallel; gauntlet + ladder A/B each checkpoint |
+| **~Jul 20** | Merger decision point: solo if AWR shows a gradient; else recruit (GPU/RL partner) before Aug 9 |
+| **Aug 5–16** | Stage 4 hardening; freeze best 2 submissions; Stage 5 MCTS go/no-go via latency curve; no risky changes |
+| **Aug 16 – Sep 13** | Report assembly from `docs/report-log.md` (method section drafted during Stage 2, not after) |
 
 ---
 
 ## Writeup Strategy
 
-The 2,000-word report should read like a tight research note:
+2,000 words ≈ 4 pages: a tight research note where **figures and tables carry
+the evidence and prose carries the argument**. Assembled from
+`docs/report-log.md` (which also holds the five target figures and the plain-
+English method glossary). Skeleton with word budget:
 
-- **Lead with the method and its justification.** Frame it as: imperfect-information game → determinized/IS-MCTS with a learned value/policy → trained by imitation from real ladder data → optional self-play refinement. Cite the imperfect-information rationale explicitly (why not vanilla AlphaZero). This is your 70%.
-- **Show ablations / evidence.** "Untrained search went 0-5; cloned policy went X-Y on the same ladder bracket." Quantified, real-ladder, honest.
-- **Make the deck a thesis, not a list.** Single-prize, consistency-over-burst, immune to Crustle ex-counter meta, clean learning signal. That's your 20%, and it's a *story*.
-- **Use hard-won findings as credibility.** The draw-scoring bug, real prize values, text-driven damage formulas, the lone-Pokémon ability forfeit trap — these show you understood the engine at a level most won't.
-- **Be honest about the offline/ladder gap.** Stating "local sims overrate; we optimized on the real ladder" is exactly the kind of mature insight that scores.
+| § | ~Words | Content |
+|---|--------|---------|
+| 1. Problem framing | 200 | Imperfect information (hidden hand/deck/prizes), stochasticity, 100+ decision episodes, 10-min hard clock, positional option schema. State explicitly why vanilla AlphaZero doesn't apply and what does (determinization / belief-state methods). Correct problem taxonomy before any method. |
+| 2. Deck as thesis | 200 | Not a list — an argument: single-prize trade math, Crustle-immunity vs the ex meta, and the ML-native point that **hand size = damage yields a dense per-turn learning signal**, freeing model capacity for micro-decisions. Plus the measured adaptation story: pro list as control, utilization audit, validated swaps. |
+| 3. Method | 700 | The failure→fix chain: BC (85.9% action match) → why that coexists with 22% head-to-head (compounding error, explained) → DAgger → advantage-weighted self-play → belief-model determinization → (if shipped) shallow search with λ-blended priors. Every arrow is a diagnosed failure mode and its named cure. |
+| 4. Evaluation | 400 | The methodology itself (seat-alternating A/Bs with CIs, frozen baselines, the Gauntlet's Bradley-Terry scale), the offline↔ladder calibration scatter, the ablation table, ladder trajectory of shipped versions. |
+| 5. Findings & honesty | 300 | Engine discoveries (positional options, non-blind searches, the setup-active bug), the SP-only collapse (46%→20%) as a negative result, limitations. Honest negative results are rare in competition reports and score disproportionately. |
+| 6. Compute statement | 100 | The "reasonableness standard" favors us: one consumer machine + free Kaggle T4 quota. State total GPU-hours and game counts; frame lean-ness as a design principle. |
+
+**The five figures** (logged continuously — see `docs/report-log.md` header):
+archetype-inference accuracy by turn; gElo-vs-ladder-Elo calibration scatter;
+win-rate-vs-teacher across training stages with CIs; the ablation table;
+the latency budget curve.
+
+**Ablations to schedule (one table row each):** binary-terminal vs n-step value
+targets; BC/SP mix ratios (the 46%→20% collapse is already a data point);
+placeholder vs belief determinization; DAgger on/off; prior-blend λ sweep.
 
 ---
 
@@ -88,8 +199,9 @@ The 2,000-word report should read like a tight research note:
 |------|-----------|
 | Latency cliff (timeout = loss) | Hard wall-clock guard; guaranteed legal fallback in `_safe_return` |
 | Chasing offline numbers | Ladder-only evaluation discipline |
-| Sep 13 deadline collides with Stanford move-in | Front-load method by mid-Aug; writeup is not for the final week |
-| Team merger: highest single odds move | Seek RL-experienced partner with GPU compute; float post in July before ~Aug 9 deadline |
+| Sep 13 deadline vs other commitments | Front-load method by mid-Aug; writeup is not for the final week |
+| NN track not ready in time | Heuristic (v21+) is a credible standalone submission; NN is upside |
+| Team merger window closes Aug 9 | Actively seek partner with GPU/RL experience in July |
 
 ---
 
@@ -108,4 +220,12 @@ The 2,000-word report should read like a tight research note:
 | Mega ex boxes (incl. Lucario) | 3 ✗ | High + variance | Walled | 3.0 |
 | Stall / mill | varies | Subtle + clock risk | n/a | 2.0 |
 
-**Two-deck plan:** Primary = Alakazam (learned approach unlocks the Stage-2 setup). Fallback = Bellibolt ex (maximum simplicity, proven top-Elo, use to hold ladder now).
+**Deck status: one sanctioned simplification pass, then frozen forever.** The 60
+started as the meta backbone (Cerys Jones, Indianapolis Regional 1st) — a list
+tuned for *human* pilots. Stage 0 adapts it for a machine pilot: instrumented
+per-card utilization (`tools/deck_audit.py`), at most 1–3 swaps validated by a
+600+ game A/B plus ladder confirm, at a single decision point. Early audit
+suspects: Genesect and Psyduck (fine-grained human meta calls, ~0 plays/game in
+bot games); likely ins: consistency/redundancy (4th Alakazam). After that pass
+the 60 is frozen — no churn on uncertain data, and every deck change before the
+freeze invalidates collected teacher data (recollect after).

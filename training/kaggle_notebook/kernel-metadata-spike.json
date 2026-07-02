@@ -1,0 +1,13 @@
+{
+  "id": "jander6364/ptcg-mcts-searchstate-spike",
+  "title": "PTCG MCTS - SearchState Spike",
+  "code_file": "mcts-spike.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "dataset_sources": ["kiyotah/cg-lib"],
+  "competition_sources": [],
+  "kernel_sources": []
+}

@@ -1,19 +1,19 @@
 """
 Mega Starmie ex training opponent for self-play pool.
 Archetype: Water spread + bench snipe. Stage 1 megaEx (330 HP, 3 prizes).
-  JetknockBlow: 120 to Active + 50 to one Benched Pokemon.
-  Nebula Beam: 210, ignores all effects on opponent's Active.
+  Jetting Blow {W}: 120 to Active + 50 to one Benched Pokemon.
+  Nebula Beam {C}{C}{C}: 210, ignores all effects on opponent's Active (bypasses Mist/Rocky Energy).
 
-TODO: Fill DECK with real card IDs.
-  In a Kaggle notebook: {c.cardId: c.name for c in all_card_data()}
-  Then replace 0-valued constants below and build a real 60-card list.
+Card IDs confirmed from EN_Card_Data.csv (util/):
+  STARYU    = 1030  (Basic Water, 70 HP)
+  STARMIE_EX = 1031 (Stage 1 megaEx, 330 HP, 3 prizes)
 
 Strategy encoded here:
-  - Bench Staryu ASAP, evolve to Starmie ex
+  - Bench Staryu ASAP, evolve to Mega Starmie ex
   - Always attack when possible (Nebula Beam vs protected targets is automatic
     via stype=6 highest-damage selection)
-  - For JetknockBlow bench-snipe follow-up: pick lowest-HP opponent bench
-  - Prioritize energy on Starmie ex (megaEx target)
+  - For Jetting Blow bench-snipe follow-up: pick lowest-HP opponent bench
+  - Prioritize energy on Mega Starmie ex (megaEx target)
   - Never retreat — spread is cumulative, staying up compounds damage
 """
 import sys, glob
@@ -34,13 +34,28 @@ CTX_SETUP_ACTIVE = 1
 CTX_SETUP_BENCH  = 2
 
 # ── Card IDs ─────────────────────────────────────────────────────────────────
-# TODO: replace 0 with real IDs
-STARYU     = 0   # Basic Water, ~60-70 HP
-STARMIE_EX = 0   # Stage 1 megaEx, 330 HP, 3 prizes
+STARYU     = 1030  # Basic Water, 70 HP
+STARMIE_EX = 1031  # Stage 1 megaEx, 330 HP, 3 prizes
 
-# Build a real 60-card Starmie ex deck here once IDs are known.
-# Typical composition: 4 Staryu + 3 Starmie ex + water energy + search trainers
-DECK = [0] * 60  # TODO: 60 real card IDs
+# Trainer IDs (confirmed from EN_Card_Data.csv)
+_ULTRA_BALL       = 1121  # ×4  — search any Pokemon
+_BUDDY_POFFIN     = 1086  # ×4  — bench 2 Basics ≤70 HP (hits Staryu)
+_BOSS_ORDERS      = 1182  # ×2  — gust opponent bench
+_CARMINE          = 1192  # ×4  — draw supporter
+_LILLIE_DET       = 1227  # ×4  — draw supporter
+_SURFING_BEACH    = 1262  # ×3  — Water stadium: free switch once/turn
+_BROCK_SCOUTING   = 1210  # ×2  — search 2 Basics or 1 Evolution
+_NIGHT_STRETCHER  = 1097  # ×2  — recover Pokemon or Basic Energy from discard
+_BASIC_WATER      = 3     # ×27 — Water Energy
+
+DECK = (
+    [STARYU] * 4 + [STARMIE_EX] * 4 +
+    [_ULTRA_BALL] * 4 + [_BUDDY_POFFIN] * 4 + [_BOSS_ORDERS] * 2 +
+    [_CARMINE] * 4 + [_LILLIE_DET] * 4 +
+    [_SURFING_BEACH] * 3 + [_BROCK_SCOUTING] * 2 + [_NIGHT_STRETCHER] * 2 +
+    [_BASIC_WATER] * 27
+)
+assert len(DECK) == 60, f"Starmie deck has {len(DECK)} cards, expected 60"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def _pk_id(pk):  return (pk or {}).get('id', -1)

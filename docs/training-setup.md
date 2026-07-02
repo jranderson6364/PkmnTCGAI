@@ -1,19 +1,42 @@
 # Training Setup — Self-Play + Curriculum
 
-*Plan for raising Elo from 600–700 to 1000+ using self-play with a diverse opponent pool and curriculum data generation.*
+*Plan for raising Elo from current (~750) to 1000+ using self-play with a diverse
+opponent pool and curriculum data generation.*
+
+**Last updated:** 2026-07-01
 
 ---
 
 ## Overview
 
-Replay BC from opponents is off the table (different decks, different strategies — their action sequences don't transfer to Alakazam). Instead:
+**2026-07-01: the engine runs locally** — `training/` contains the working rig
+(see `training/README.md`). Everything below runs on this desktop or the Vivobook
+via `kaggle_environments` (`pip install kaggle_environments --no-deps`); no Kaggle
+sessions needed for data generation. Measured: ~0.5s/game single-thread.
 
-1. **Self-play against a diverse opponent pool** — v15 heuristic + meta opponent bots
-2. **Curriculum via selective game starts** — bias training toward hard positions
-3. **Reward shaping** — intermediate signals to reduce variance in long games
-4. **Checkpoint pool** — train against past versions, not just current self
+Replay BC from opponents is off the table (different decks, different strategies —
+their action sequences don't transfer to Alakazam). The stage roadmap lives in
+`docs/competition-strategy.md` §Master Plan; the training-side pieces are:
 
-Needs the Vivobook (16 CPU workers) for self-play throughput. All code below is pre-staged; run it when the machine is available.
+1. **The Gauntlet** — `training/gauntlet.py`: fixed 8-anchor panel + Bradley-Terry
+   fit over all accumulated results (`gauntlet_results.csv`) → one comparable
+   offline scale (gElo), calibrated against `training/ladder_history.csv`
+2. **DAgger → advantage-weighted self-play** — the NN pipeline (see
+   `docs/nn-training.md` §Resume Here)
+3. **Curriculum via selective game starts + mined hard positions** — `training/curriculum.py`
+4. **Reward shaping / n-step value targets** — intermediate signals to reduce
+   variance in long games
+5. **Checkpoint pool / PFSP** — train against past versions and worst matchups,
+   not just current self
+6. **Heuristic weight search** — `training/weight_search.py` (SPSA over `main.W`);
+   improves both the ladder agent and the DAgger teacher — run unattended overnight
+
+⚠️ The inline `battle_start(our_agent, opponent_agent, seed=...)` sample code that
+used to live in this file had the wrong signature (`battle_start` takes two DECKS
+and returns `(obs, StartData)`; `battle_select` takes only the select list). Use
+`training/harness.py` instead — it drives games through `kaggle_environments.make("cabt")`,
+which handles the loop correctly. The `battle_finish()` early-exit concern is moot:
+local games are free, so uninteresting games are simply discarded after the fact.
 
 ---
 
@@ -23,70 +46,34 @@ Needs the Vivobook (16 CPU workers) for self-play throughput. All code below is 
 
 | File | Archetype | Status |
 |------|-----------|--------|
-| `opponents/starmie_agent.py` | Mega Starmie ex spread (330 HP megaEx) | Code complete; DECK IDs TODO |
-| `opponents/lucario_agent.py` | Mega Lucario ex + Rocky Energy lock (340 HP megaEx) | Code complete; DECK IDs TODO |
-| `opponents/dragapult_agent.py` | Dragapult ex Stage 2 spread (Phantom Dive) | Code complete; DECK IDs TODO |
+| `opponents/lucario_agent.py` | Mega Lucario ex + Rocky Energy lock (340 HP megaEx) | Complete — real deck embedded |
+| `opponents/dragapult_agent.py` | Dragapult ex Stage 2 spread (Phantom Dive, 320 HP) | Complete — real deck embedded |
+| `opponents/abomasnow_agent.py` | Mega Abomasnow ex energy-discard mill | Complete — real deck embedded |
+| `opponents/starmie_agent.py` | Mega Starmie ex spread (330 HP megaEx) | Complete — real deck embedded |
 
-**Filling in DECK IDs (do this first on Kaggle):**
-```python
-from cg.api import all_card_data
-card_names = {c.cardId: c.name for c in all_card_data()}
-# Then search: {k:v for k,v in card_names.items() if 'Starmie' in v}
-```
-
-Replace all `0` values in each agent's card ID constants and build a realistic 60-card DECK list. The strategic logic (heuristic) does not depend on specific card IDs — only the DECK list and `_pick_active` need real IDs.
-
-**Adding more opponents later:** Any `agent(obs_dict)` function that returns DECK when `sel is None` and legal indices otherwise can join the pool. Crustle is next candidate.
+All four agents return their DECK list when `sel is None` (required for `search_begin`
+in MCTS). Adding more opponents: any `agent(obs_dict)` function following this
+contract can join the pool. Crustle is the next candidate.
 
 ---
 
-## Curriculum via Selective Game Starts
+## Curriculum: Bad-Hand Games + Mined Hard Positions
 
-Generate training data biased toward hard opening hands:
+Implemented in `training/curriculum.py` (the previous sample code in this section
+used a wrong `battle_start` signature and is deleted). Two mechanisms:
 
-```python
-from cg.game import battle_start, battle_select, battle_finish
-import random
+1. **Bad-hand filter:** keep only games whose first dealt hand has no Abra and no
+   search card (Poffin/Poké Pad/Dawn). Measured incidence ~5% of games — generate
+   in bulk locally and discard the rest (games are free now; no early-exit concern).
+2. **Hard-position mining:** every decision point is tagged against tight-spot
+   predicates — `mist_walled`, `deck_danger`, `behind_3_prizes`,
+   `opp_one_prize_from_win`, `weak_active`, `bad_opening`. Tagged positions
+   (with full obs dicts) become (a) fixed evaluation suites for candidate nets and
+   (b) alternate game starts for targeted self-play via `search_begin` on Kaggle.
 
-def has_bad_hand(obs):
-    """True if this starting hand has no Abra AND no search card (Poffin/Poké Pad/Dawn)."""
-    ABRA = 741
-    SEARCH_IDS = {1086, 1152, 1231}  # Poffin, Poké Pad, Dawn
-    cur = obs.get('current') or {}
-    me  = cur.get('yourIndex', 0)
-    pl  = cur.get('players', [])
-    hand = (pl[me].get('hand') or []) if len(pl) > me else []
-    hand_ids = {(c or {}).get('id', -1) for c in hand}
-    return ABRA not in hand_ids and not (hand_ids & SEARCH_IDS)
-
-def generate_curriculum_game(our_agent, opponent_agent, seed=None):
-    """
-    Start a game, check if the opening hand is bad (curriculum target).
-    If not bad, return None (skip this game to preserve curriculum bias).
-    If bad, play out and return the full game trajectory.
-    Returns: list of (obs_dict, chosen_indices) pairs, or None.
-    """
-    obs = battle_start(our_agent, opponent_agent, seed=seed)
-    if not has_bad_hand(obs):
-        battle_finish(obs)   # clean exit — do NOT count as a loss
-        return None
-    trajectory = []
-    while True:
-        sel = obs.get('select')
-        if sel is None:
-            break
-        action = our_agent(obs)
-        trajectory.append((obs, action))
-        obs, done = battle_select(obs, action)
-        if done:
-            break
-    return trajectory
-
-# Usage: generate N curriculum games
-# data = [t for _ in range(5000) if (t := generate_curriculum_game(agent, lucario_agent)) is not None]
+```bash
+python training/curriculum.py --games 500   # → training/hard_positions.pkl.gz
 ```
-
-**Note on early exits:** The engine may record an early exit as a loss. Verify with `battle_finish()` semantics before running at scale. If early exits cost rating, run curriculum generation in a local harness (not on the live ladder).
 
 ---
 
@@ -152,34 +139,49 @@ def sample_opponent_from_pool(pool_paths, current_model):
     return current_model
 ```
 
-Combine with the meta opponents (Starmie, Lucario, Dragapult) so the pool covers:
+Combine with the meta opponents so the pool covers:
 - Current self (Alakazam mirror)
 - Past Alakazam checkpoints (diversity)
 - Starmie ex (spread matchup)
 - Lucario ex (Rocky Energy lock matchup)
 - Dragapult ex (Stage 2 spread matchup)
+- Abomasnow ex (energy mill matchup)
 
 ---
 
-## Launch Checklist (When Vivobook Available)
+## Launch Checklist
 
-- [ ] Fill in DECK card IDs in all three opponent agents (Kaggle notebook: `all_card_data()`)
-- [ ] Verify `battle_finish()` behavior for early-exit curriculum games
-- [ ] Set up local self-play harness (based on `battle_start/battle_select/battle_finish`)
-- [ ] Run 200-game A/B: v15 vs random (sanity check)
-- [ ] Run 400-game A/B: v15 vs v11 (confirm v15 improvement)
-- [ ] Start self-play: v15 vs pool (Starmie + Lucario + Dragapult + self)
-- [ ] First curriculum run: 1000 bad-hand games vs Lucario (Rocky Energy lock)
-- [ ] Checkpoint pool: save every 50 self-play iterations
+- [x] Local harness (`training/harness.py` via kaggle_environments) — 2026-07-01
+- [x] `battle_finish()` early-exit concern — moot (local games, discard freely)
+- [x] 400-game A/B v22 vs v21: 56.3% ± 4.9%, 0 errors — 2026-07-01
+- [x] Opponent-pool baselines: 94% Lucario, 94% Abomasnow, 79% Starmie,
+      50W-0L-50T Dragapult (step-limit ties) — 2026-07-01
+- [x] BC warmup collected + trained (`ptcg_bc_v1.pth`, old deck) — 2026-07-01
+- [x] Gauntlet + deck audit tools built and smoke-tested — 2026-07-01
+- [ ] **Stage 0:** deck audit at scale (`python tools/deck_audit.py --games 1000`)
+- [ ] **Stage 0:** deck variant A/Bs (600 games each) → freeze the 60 → regen deck.csv
+- [ ] **Stage 0:** Gauntlet baseline on new deck (`python training/gauntlet.py
+      --candidate main.py --name v24-<deck> --games 200`)
+- [ ] **Stage 0b:** weight search on frozen deck: `python training/weight_search.py --iters 30`
+- [ ] **Stage 1:** re-collect BC data on frozen deck (`bc_collect.py --games 2000`) + retrain
+- [ ] **Stage 1:** build `training/nn/dagger_collect.py`; 2–3 DAgger rounds; gate 50%+ vs teacher
+- [ ] **Stage 2:** advantage weights in `train_sp.py`; AWR iterations; gate 55–60% vs teacher
+- [ ] **Stage 3:** belief classifier + accuracy-by-turn figure + `opp_likely_ace_spec` fix
+- [ ] **Stage 4:** frozen hard-position/bad-hand eval suites (`curriculum.py --games 2000`);
+      PFSP pool
+- [ ] Every run → `docs/report-log.md` entry; every ladder ship → `ladder_history.csv` row
 
 ---
 
 ## Priority Order
 
-| Priority | Action | Elo Impact | Compute |
-|----------|--------|-----------|---------|
-| 1 | Fill opponent DECK IDs, run A/B harness | Measurement only | Kaggle only |
-| 2 | Self-play vs opponent pool | High | Vivobook |
-| 3 | Curriculum bad-hand generation | Medium | Vivobook |
-| 4 | Reward shaping integration | Medium | Vivobook |
-| 5 | Checkpoint pool diversity | Medium | Vivobook |
+| Priority | Action | Impact | Compute |
+|----------|--------|--------|---------|
+| 1 | Deck audit → simplification → freeze (Stage 0) | Unblocks all training data | Local CPU |
+| 2 | Gauntlet baselines + results logging (Stage 0) | Evaluation backbone + report figure | Local CPU |
+| 3 | Weight search on frozen deck (Stage 0b, unattended) | Ladder Elo + teacher quality | Local CPU (idle) |
+| 4 | BC re-collect + retrain on frozen deck (Stage 1) | Foundation for DAgger | Local CPU + Kaggle GPU |
+| 5 | DAgger rounds (Stage 1) | The 70% axis; ship learned agent | Local CPU + Kaggle GPU |
+| 6 | Advantage-weighted self-play (Stage 2) | Exceed the teacher | Local CPU + Kaggle GPU |
+| 7 | Belief model (Stage 3, parallel B-track) | Report centerpiece | Local CPU |
+| 8 | Curriculum suites + PFSP (Stage 4) | Robustness | Local CPU |

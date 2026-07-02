@@ -6,6 +6,8 @@ meta lists, TCGplayer/Cardsrealm/Deltia guides) and cross-checked against our ow
 ladder replay losses. Section 13 maps every principle to the `main.py` heuristic
 that encodes it, and flags the gaps.*
 
+**Last updated:** 2026-07-01
+
 ---
 
 ## 1. Game Plan (one sentence)
@@ -129,8 +131,11 @@ low. Fire it *before* the deck reaches ~5 cards, not after.
   bench it, use the ability reactively, and **never let it get stuck Active with no
   energy** (see deck-out failure mode). Respect deck count: its draw can mill you.
 - **Genesect (142, Basic, 110HP, ACE-relevant) ×1** — Nullifier role: with a Handheld
-  Fan attached it blanks opposing ACE-SPEC plays (notably an opponent's Rocky/Mist
-  shenanigans and Unfair-Stamp-style ACE disruption). Bench + tool it vs ex/ACE decks.
+  Fan attached, **ACE Nullifier prevents the opponent from playing their ACE SPEC card
+  at all** (Rocky Fighting Energy, Unfair Stamp, etc. can't hit the field while Genesect
+  + Fan is in play). Note: this blocks the *play*, not an already-attached energy —
+  once Rocky Energy is already attached you need Enhanced Hammer to remove it. Bench +
+  tool it early vs Lucario and other ACE-heavy decks.
 - **Shaymin (343, Basic, 70HP) ×1** — bench-damage insurance vs spread (its presence
   + Battle Cage zero out chip damage to your fragile bench line).
 - **Psyduck (858, Basic, 70HP) ×1** — "Damp"-style tech that strips opposing

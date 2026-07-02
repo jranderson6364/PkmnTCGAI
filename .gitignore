@@ -3,5 +3,11 @@ __pycache__/
 *.pyo
 *.pth
 *.pkl
+*.pkl.gz
 *.tar.gz
 .DS_Store
+training/weights_ckpt.json
+.claude/settings.local.json
+replays/**/*.json
+training/*_out.txt
+training/*_ab.txt

@@ -2,6 +2,8 @@
 
 *Tech cheat-sheet and matchup verdicts for the heuristic and learned agents.*
 
+**Last updated:** 2026-07-01
+
 ---
 
 ## Core Principle: Win the Prize Trade
@@ -34,6 +36,7 @@ Alakazam is a single-prize attacker. Every key matchup is decided by: **can you 
 | **Mega Starmie ex** | Favorable with Battle Cage | Disciplined Cage play; win on prize race |
 | **Crustle** | Favorable | You're non-ex; immunity doesn't apply |
 | **Dragapult ex** | Hardest; mitigated | Battle Cage + bot pilots Dragapult badly |
+| **Mega Abomasnow ex** | Favorable | Prize math; race before Kyogre loads |
 | **Mirror / single-prize** | Even | Decided by piloting |
 | **Team Rocket (Articuno)** | Worst matchup | Mewtwo ≈ unwinnable; Honchkrow hard; rush |
 
@@ -41,12 +44,12 @@ Alakazam is a single-prize attacker. Every key matchup is decided by: **can you 
 
 ## vs Mega Starmie ex (Spread) — Favorable
 
-**Their card:** Stage 1, 330 HP, 3 prizes. JetknockBlow: 120 to Active + 50 to one Benched Pokemon. Nebula Beam: 210, ignores effects on Active.
+**Their card:** Stage 1, 330 HP, 3 prizes. Jetting Blow {W}: 120 to Active + 50 to one Benched Pokemon. Nebula Beam {C}{C}{C}: 210, ignores effects on Active.
 
 - **Their plan:** snipe Abra/Kadabra off the bench before you set up.
-- **Your answer:** Battle Cage stops damage counters on benched Pokemon — zeroes out the 50 snipe, plus Froslass and Risky Ruins. Starmie reduced to 120-to-your-active only.
+- **Your answer:** Battle Cage stops damage counters on benched Pokemon — zeroes out the 50 bench snipe. Starmie reduced to 120-to-your-active only.
 - **Prize math:** KO a Starmie = 3 prizes (half the game); they KO an Alakazam = 1. You can lose the attrition and still win the race.
-- **Risks:** stadium war (their Risky Ruins vs your Battle Cage); OHKO on 330 HP needs ~17 cards, so grind via prize math and gust.
+- **Risks:** OHKO on 330 HP needs ~17 cards, so grind via prize math and gust. Their deck runs Boss's Orders — guard against them dragging up a low-HP bench target.
 - **Important:** Nebula Beam *ignores effects on the Active* — this means it bypasses Mysterious Rock Inn (Crustle immunity). Not directly relevant to you but worth knowing.
 
 ---
@@ -88,6 +91,25 @@ Alakazam is a single-prize attacker. Every key matchup is decided by: **can you 
 - Korrina + Arena of Antiquity buffs their damage to 190 against ex — **do not bench Fez against Lucario**
 - **Our answers:** (a) Enhanced Hammer removes Rocky Energy once attached; (b) Genesect+Handheld Fan (ACE Nullifier) prevents Rocky Energy from being played at all
 - **Boss note:** don't gust Lucario off the field — you *want* to KO it for 3 prizes (the whole game)
+
+---
+
+## vs Mega Abomasnow ex (Energy Mill)
+
+**Their card:** Stage 1 megaEx, 3 prizes. Hammer-lanche: discard top 6 cards of their
+own deck, deal 100 damage per Basic Water Energy discarded. Kyogre (backup): Riptide —
+20 × Basic Water Energy in discard. Their whole game is self-milling Water Energy for
+damage.
+
+- **Their plan:** pile Water Energy into discard fast, then hit for massive damage with
+  Kyogre once Abomasnow is gone or set up.
+- **Your answer:** they're self-milling, not attacking your bench — Battle Cage is less
+  critical here. Race the prize trade: KO Abomasnow for 3 prizes, then KO Kyogre for 2.
+  You give up 1 per Alakazam. Pure prize math — heavily favored.
+- **Watch for:** if they get enough Water in discard quickly, Kyogre can spike for
+  200+ damage. Don't let them stall while building Kyogre — Boss it up before it's ready.
+- **Enhanced Hammer note:** their deck runs Basic Water Energy, not Special, so Hammer
+  doesn't help here. Win through speed.
 
 ---
 

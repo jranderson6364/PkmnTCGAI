@@ -1,0 +1,58 @@
+=== 83168738.json ===
+Opponent: Thazzeus | Result: LOSS | Total steps: 90
+
+--- Decision log (17 main-phase actions) ---
+  step  7 | you_prizes=6 opp_prizes=6 | PLAY: Dunsparce(305)
+  step  8 | you_prizes=6 opp_prizes=6 | PLAY: Battle Cage(1264)
+  step  9 | you_prizes=6 opp_prizes=6 | ATTACH: Handheld Fan(1161) ACTIVE:Shaymin(343) 80/80
+  step 10 | you_prizes=6 opp_prizes=6 | END: END TURN
+  step 28 | you_prizes=6 opp_prizes=5 | EVOLVE: Dudunsparce(66) ACTIVE:Dunsparce(305) 70/70
+  step 29 | you_prizes=6 opp_prizes=5 | PLAY: Boss’s Orders(1182)
+  step 31 | you_prizes=6 opp_prizes=5 | PLAY: Sacred Ash(1129)
+  step 33 | you_prizes=6 opp_prizes=5 | END: END TURN
+  step 44 | you_prizes=6 opp_prizes=5 | PLAY: Poké Pad(1152)
+  step 46 | you_prizes=6 opp_prizes=5 | PLAY: Abra(741)
+  step 47 | you_prizes=6 opp_prizes=5 | ABILITY: ACTIVE:Dudunsparce(66) 140/140
+  step 49 | you_prizes=6 opp_prizes=5 | PLAY: Hilda(1225)
+  step 52 | you_prizes=6 opp_prizes=5 | ATTACH: Basic {P} Energy(5) ACTIVE:Abra(741) 50/50
+  step 53 | you_prizes=6 opp_prizes=5 | PLAY: Genesect(142)
+  step 54 | you_prizes=6 opp_prizes=5 | END: END TURN
+  step 73 | you_prizes=6 opp_prizes=4 | PLAY: Boss’s Orders(1182)
+  step 75 | you_prizes=6 opp_prizes=4 | END: END TURN
+
+--- FLAGS ---
+Timeouts/empty-or-OOB actions: 57
+  step4: stype=1 n_opts=1 
+  step6: stype=8 n_opts=5 
+  step11: stype=0 n_opts=5 
+  step12: stype=0 n_opts=5 
+  step13: stype=0 n_opts=5 
+  step14: stype=0 n_opts=5 
+  step15: stype=0 n_opts=5 
+  step16: stype=0 n_opts=5 
+  step17: stype=0 n_opts=5 
+  step18: stype=0 n_opts=5 
+  step19: stype=0 n_opts=5 
+  step20: stype=0 n_opts=5 
+  step21: stype=0 n_opts=5 
+  step22: stype=0 n_opts=5 
+  step23: stype=0 n_opts=5 
+  step26: stype=1 n_opts=4 
+  step34: stype=0 n_opts=4 
+  step35: stype=0 n_opts=4 
+  step36: stype=0 n_opts=4 
+  step37: stype=0 n_opts=4 
+Missed lethal attacks: 0
+Bad retreats (promoted non-attacker while ready Alakazam on bench): 0
+Wasted/preemptive Psychic energy attaches: 0
+Boss's Orders plays: 2
+  step29: prizes you=6 opp=5 | opp_active_was=Solrock(676) 110/110 | gusted_target=Lunatone(675) 110/110
+  step73: prizes you=6 opp=4 | opp_active_was=Mega Lucario ex(678) 340/340 | gusted_target=Solrock(676) 110/110
+
+Final state check (last few steps):
+  step84: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
+  step85: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
+  step86: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
+  step87: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
+  step88: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
+  step89: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25

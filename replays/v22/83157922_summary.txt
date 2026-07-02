@@ -1,0 +1,76 @@
+=== 83157922.json ===
+Opponent: Alfonso Sánchez | Result: LOSS | Total steps: 164
+
+--- Decision log (34 main-phase actions) ---
+  step 11 | you_prizes=6 opp_prizes=6 | PLAY: Fezandipiti ex(140)
+  step 12 | you_prizes=6 opp_prizes=6 | ATTACH: Enriching Energy(13) ACTIVE:Abra(741) 50/50
+  step 13 | you_prizes=6 opp_prizes=6 | PLAY: Abra(741)
+  step 14 | you_prizes=6 opp_prizes=6 | PLAY: Boss’s Orders(1182)
+  step 16 | you_prizes=6 opp_prizes=6 | PLAY: Enhanced Hammer(1081)
+  step 18 | you_prizes=6 opp_prizes=6 | END: END TURN
+  step 41 | you_prizes=6 opp_prizes=6 | PLAY: Rare Candy(1079)
+  step 44 | you_prizes=6 opp_prizes=6 | EVOLVE: Kadabra(742) BENCH[1]:Abra(741) 50/50
+  step 46 | you_prizes=6 opp_prizes=6 | PLAY: Battle Cage(1264)
+  step 47 | you_prizes=6 opp_prizes=6 | PLAY: Boss’s Orders(1182)
+  step 49 | you_prizes=6 opp_prizes=6 | PLAY: Enhanced Hammer(1081)
+  step 51 | you_prizes=6 opp_prizes=6 | END: END TURN
+  step 73 | you_prizes=6 opp_prizes=4 | ATTACH: Basic {P} Energy(5) ACTIVE:Alakazam(743) 140/140
+  step 74 | you_prizes=6 opp_prizes=4 | EVOLVE: Alakazam(743) BENCH[0]:Kadabra(742) 80/80
+  step 76 | you_prizes=6 opp_prizes=4 | PLAY: Boss’s Orders(1182)
+  step 78 | you_prizes=6 opp_prizes=4 | ATTACK: 1072
+  step 84 | you_prizes=5 opp_prizes=3 | PLAY: Lana’s Aid(1184)
+  step 86 | you_prizes=5 opp_prizes=3 | ATTACH: Basic {P} Energy(5) ACTIVE:Alakazam(743) 140/140
+  step 87 | you_prizes=5 opp_prizes=3 | PLAY: Abra(741)
+  step 88 | you_prizes=5 opp_prizes=3 | PLAY: Poké Pad(1152)
+  step 90 | you_prizes=5 opp_prizes=3 | PLAY: Abra(741)
+  step 91 | you_prizes=5 opp_prizes=3 | PLAY: Poké Pad(1152)
+  step 93 | you_prizes=5 opp_prizes=3 | PLAY: Dunsparce(305)
+  step 94 | you_prizes=5 opp_prizes=3 | ATTACK: 1072
+  step 98 | you_prizes=5 opp_prizes=2 | PLAY: Rare Candy(1079)
+  step101 | you_prizes=5 opp_prizes=2 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Alakazam(743) 140/140
+  step103 | you_prizes=5 opp_prizes=2 | ATTACK: 1072
+  step126 | you_prizes=4 opp_prizes=1 | PLAY: Buddy-Buddy Poffin(1086)
+  step128 | you_prizes=4 opp_prizes=1 | PLAY: Hilda(1225)
+  step131 | you_prizes=4 opp_prizes=1 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Alakazam(743) 140/140
+  step132 | you_prizes=4 opp_prizes=1 | ATTACK: 1072
+  step155 | you_prizes=3 opp_prizes=1 | PLAY: Hilda(1225)
+  step158 | you_prizes=3 opp_prizes=1 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Alakazam(743) 140/140
+  step159 | you_prizes=3 opp_prizes=1 | ATTACK: 1072
+
+--- FLAGS ---
+Timeouts/empty-or-OOB actions: 97
+  step5: stype=1 n_opts=1 
+  step6: stype=1 n_opts=1 
+  step7: stype=1 n_opts=1 
+  step8: stype=1 n_opts=1 
+  step9: stype=1 n_opts=1 
+  step10: stype=1 n_opts=1 
+  step19: stype=0 n_opts=2 
+  step20: stype=0 n_opts=2 
+  step21: stype=0 n_opts=2 
+  step22: stype=0 n_opts=2 
+  step23: stype=0 n_opts=2 
+  step24: stype=0 n_opts=2 
+  step25: stype=0 n_opts=2 
+  step26: stype=0 n_opts=2 
+  step27: stype=0 n_opts=2 
+  step28: stype=0 n_opts=2 
+  step29: stype=0 n_opts=2 
+  step30: stype=0 n_opts=2 
+  step31: stype=0 n_opts=2 
+  step32: stype=0 n_opts=2 
+Missed lethal attacks: 0
+Bad retreats (promoted non-attacker while ready Alakazam on bench): 0
+Wasted/preemptive Psychic energy attaches: 0
+Boss's Orders plays: 3
+  step14: prizes you=6 opp=6 | opp_active_was=Dunsparce(305) 170/170 | gusted_target=Abra(741) 50/50
+  step47: prizes you=6 opp=6 | opp_active_was=Alakazam(743) 140/140 | gusted_target=Kadabra(742) 80/80
+  step76: prizes you=6 opp=4 | opp_active_was=Alakazam(743) 240/240 | gusted_target=Kadabra(742) 80/80
+
+Final state check (last few steps):
+  step158: you=Alakazam(743) 140/140 prizes=3 deck=17 | opp=Fezandipiti ex(140) 210/210 prizes=1 deck=4
+  step159: you=Alakazam(743) 140/140 prizes=3 deck=17 | opp=NONE prizes=1 deck=4
+  step160: you=Alakazam(743) 140/140 prizes=3 deck=17 | opp=NONE prizes=1 deck=4
+  step161: you=Alakazam(743) 140/140 prizes=3 deck=17 | opp=NONE prizes=1 deck=4
+  step162: you=Alakazam(743) 140/140 prizes=3 deck=17 | opp=NONE prizes=1 deck=4
+  step163: you=Alakazam(743) 140/140 prizes=3 deck=17 | opp=NONE prizes=1 deck=4

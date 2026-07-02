@@ -1,32 +1,162 @@
 # Neural Net Training Log & Roadmap
 
-**Last updated:** 2026-07-01  
-**Status:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher, right at the Phase 1 exit
-threshold) while the heuristic ladder track (now v21, ~750 Elo / 1600-4000) runs.
+*Running log of NN architecture, training status, and the phased roadmap for the
+learned-piloting agent (the 70%-weighted "model approach" axis).*
+
+**Last updated:** 2026-07-01
+**Status:** RESTARTED. All prior training data was lost, but the engine now runs
+**fully locally** (`training/README.md`) — data collection no longer needs Kaggle
+or even the Vivobook (the Vivobook multiplies throughput). Teacher is v22.
 
 ---
 
-## Resume Here
+## Status (2026-07-01, heuristic-blended MCTS — local parts complete)
 
-Concrete next steps, in order, picking this back up:
+Per the approved plan (`when-do-we-start-eager-mountain.md`), the three
+Kaggle-independent parts are built and verified:
 
-1. **Run the clean 100-game eval of `sp2_iter2.pth` vs v11** (pending — this is the
-   actual blocker on the Phase 1 → Phase 2 decision below). If ≥55-60%, Phase 1 is
-   done. If it's borderline/a fluke, run 2-3 more self-play iterations first.
-2. **BC-teacher decision — resolved as Option B (keep v11).** Don't recollect BC
-   warm-start data from the current heuristic (v21), even though it's now
-   meaningfully stronger than v11. Self-play iterations exist specifically to grow
-   past the seed teacher's ceiling — recollecting is a real time cost for a benefit
-   the training loop should already deliver. Heuristic (v21+) and NN stay
-   independently-scored, parallel tracks.
-3. **Fill in the opponent `DECK` IDs** in `opponents/starmie_agent.py`,
-   `opponents/lucario_agent.py`, `opponents/dragapult_agent.py` — still `[0]*60`
-   placeholders. One `all_card_data()` call on Kaggle. Hard blocker on both the
-   self-play opponent pool and Phase 2's league/PFSP hardening.
-4. **Open/unverified:** whether `kiyotah/cg-lib` can be `kaggle datasets download`'d
-   and used standalone outside a Kaggle notebook session — would unlock local
-   self-play iteration speed instead of Kaggle's session limits / ~30hr weekly GPU
-   quota. See `README.md` § Local Development.
+1. **`main.py` scoring is now standalone-callable.** `score_options(obs, sel)`
+   (dispatching by select type) and `score_options_main(obs, sel)` expose the
+   heuristic's per-option scores without needing the old argmax-and-return
+   control flow. Verified behavior-preserving: 210W-190L (52.5%, well within
+   the 95% CI of 50%) over 400 real games vs a pre-refactor snapshot, plus a
+   1,875-decision fuzz test across all select types in 15 real games (0
+   exceptions, correct output shape every time). `_pick_boss_target` was left
+   untouched (too game-critical to risk drift); a parallel `_score_boss_target`
+   was added instead and verified to agree with the real function's choice in
+   50/50 real instances.
+2. **`training/nn/prior_blend.py`** — `heuristic_prior`/`net_prior`/`blended_prior`,
+   mixing softmaxed heuristic scores and net policy logits as distributions
+   (not raw scores — the scales are wildly different). New `main.py` `W`
+   entries: `prior_T_h_main` (40.0), `prior_T_h_default` (3.0), `prior_T_net`
+   (1.0). `anneal_lambda()` implements the evidence-gated λ schedule (start
+   0.8, step down 0.15 only when a checkpoint beats the previous one by more
+   than the A/B's 95% CI, floor 0.2). Diagnostic run on 500 real saved samples:
+   0 NaNs; heuristic/net/blend argmax agreement with the actual action taken
+   at 85.2%/87.8%/91.4% respectively (sane — many select types get a flat/
+   uniform heuristic prior by design, so <100% agreement there is expected).
+3. **Soft policy-target + MCTS-Q plumbing** — `dataset.py` now carries an
+   optional `policy_target` (normalized visit counts, once `mcts_collect.py`
+   exists) through `__getitem__`/`collate`, falling back to one-hot(label) for
+   plain BC/direct-SP samples. `train_sp.py` trains with soft cross-entropy
+   against `policy_targets` (a strict generalization of hard CE — verified:
+   loss magnitude with the one-hot fallback matches the pre-change hard-CE
+   loss almost exactly). `selfplay_collect.py.compute_value_targets` accepts
+   an optional `mcts_root_values` list to use as the bootstrap `V(s_t)` in
+   place of the raw value head, verified to actually change targets where the
+   bootstrap window engages, and to leave terminal-dominated targets alone.
+
+**Blocked on Kaggle (next step):** the `SearchState` discovery spike — the
+actual tree (`training/nn/mcts.py`) and its Kaggle self-play driver
+(`training/nn/mcts_collect.py`) can't start until `cg.api.search_begin`'s
+real param order and return structure are confirmed in a Kaggle session (see
+the plan file for the exact spike steps). The direct self-play loop
+(`selfplay_collect.py`/`train_sp.py`, no tree) keeps running and shipping
+checkpoints in parallel in the meantime — unaffected by any of the above.
+
+---
+
+## Status (2026-07-01, later same day)
+
+BC warmup complete: `training/ptcg_bc_v1.pth`, trained on all 547,796 v22 self-play
+samples (10 epochs, Kaggle T4). Held-out top-1 action-match accuracy 85.9%. Real-game
+gates (`training/net_agent.py` via `training/ab_test.py`, 100 games each):
+- vs random: **86% (86W-14L)** — clears the 65% target.
+- vs v22 heuristic: **22% (22W-78L)** — well below the ~50% parity target, as
+  expected for a first BC pass (compounding-error/distributional-shift, not a bug —
+  0 errors in both runs). This is the seed for self-play, not a ladder-ready net.
+
+**Self-play Phase 1 is built and locally smoke-tested** (`training/nn/`):
+`selfplay_agent.py` (temperature-softmax sampling for exploration, env-configurable
+checkpoint/temperature), `selfplay_collect.py` (net-vs-net games via the local
+engine; computes n-step bootstrapped value targets — see below), `train_sp.py`
+(warm-starts from a checkpoint, 40% BC / 60% SP mixed batches via
+`WeightedRandomSampler`). `dataset.py` transparently uses `value_target` when
+present, else falls back to terminal `outcome`, so BC and SP shards share one
+loader.
+
+**Scope note — MCTS is deferred, this is direct self-play.** True MCTS needs
+`cg.api.search_begin`/`search_step` (tree search over hypothetical futures), which
+only exists in the `kiyotah/cg-lib` dataset and must run on Kaggle — it cannot run
+against the local `kaggle_environments` engine we use for fast iteration. Phase 1
+as built plays full real games with policy sampling for exploration and bootstraps
+value targets with the net's own value head; it captures the core self-improvement
+loop (fresh data from the current policy → retrain → repeat) without the search
+tree. Upgrading to real MCTS-in-the-loop is a Kaggle-only follow-up (see Phase 2).
+
+**To run at scale** (Vivobook, no Kaggle needed for collection):
+```bash
+python training/nn/selfplay_collect.py --games 500 --ckpt training/ptcg_bc_v1.pth \
+    --temp 1.0 --workers 14 --out training/sp_data.pkl.gz
+python training/nn/train_sp.py --bc-data "training/bc_data*.pkl.gz" \
+    --sp-data training/sp_data.pkl.gz --init training/ptcg_bc_v1.pth \
+    --out training/ptcg_sp_iter1.pth --epochs 3
+python training/ab_test.py training/nn/net_agent.py main.py 200   # set NET_CKPT=.../ptcg_sp_iter1.pth
+```
+Repeat: collect fresh self-play with the newest checkpoint, retrain, re-evaluate.
+Exit criterion unchanged: 55-60%+ vs v22 over 100+ games before shipping.
+
+---
+
+## Resume Here (2026-07-01 roadmap revision — DAgger first)
+
+**Why the plan changed:** direct self-play as previously designed (net imitates
+its own temperature-sampled games) has **no improvement operator** — nothing
+makes iteration k+1 better than k, so the most likely outcome was hovering at
+the BC seed forever. See the glossary in `docs/report-log.md`. The revised
+pipeline names an operator at every step: DAgger (teacher supervision on the
+net's own state distribution) → advantage weighting (imitate
+better-than-expected actions harder) → optionally MCTS expert iteration
+(Kaggle-gated). Full roadmap: `docs/competition-strategy.md` §Master Plan.
+
+Concrete next steps, in order:
+
+0. **WAIT for the Stage 0 deck freeze** (`docs/competition-strategy.md`). Deck
+   changes invalidate teacher data — the existing `bc_data*.pkl.gz` /
+   `ptcg_bc_v1.pth` were collected on the old 60 and must be re-collected /
+   re-trained once the simplified deck is frozen. Cheap locally (~hours).
+1. **Re-run BC warmup on the frozen deck** — `python training/bc_collect.py
+   --games 2000`, retrain on Kaggle T4 (same recipe as `ptcg_bc_v1.pth`,
+   which hit 85.9% action match / 86% vs random / 22% vs teacher).
+2. **DAgger rounds (Stage 1).** New collector (`training/nn/dagger_collect.py`,
+   to build): the *net* pilots mirror games; at every decision, query
+   `main.score_options(obs, sel)` and record the teacher's argmax as the label.
+   Retrain on BC data + all DAgger rounds; iterate 2–3 rounds. This trains the
+   net exactly on the states it actually reaches — the direct cure for the
+   85.9%-action-match-but-22%-head-to-head compounding-error gap.
+   **Gate: ~50%+ vs the teacher (Gauntlet + 400-game A/B) → ship to ladder**
+   (single forward pass, no timeout risk) and log its bracket results.
+3. **Advantage-weighted self-play (Stage 2).** `train_sp.py` gains per-sample
+   policy-loss weights `exp(advantage/β)` where advantage = n-step value target
+   minus the value head's V(s) (both already computed). Keep the 40% BC / 60%
+   SP batch mix (non-negotiable — SP-only collapsed 46%→20% over 3 iterations).
+   Winner-only filtering as the dumb-baseline ablation. Exit: 55-60%+ vs the
+   teacher over 400 local games.
+4. **Gauntlet + ladder A/B each meaningful checkpoint** (`training/gauntlet.py`
+   with a distinct `--name` per checkpoint). Real ladder is the only honest
+   evaluator; gElo is the cheap ranking proxy being calibrated against it.
+5. **Every run gets a `docs/report-log.md` entry the same day.**
+
+---
+
+## Value Targets: n-step Monte Carlo with Bootstrapping
+
+Full-game binary win/loss targets are high-variance in 100+ decision games, and
+full playouts inside search are expensive. Instead:
+
+- **Training value target:** n-step TD — `G_t = Σ_{k<n} γ^k r_{t+k} + γ^n V(s_{t+n})`
+  with shaped intermediate rewards r (prizes taken/conceded, threshold progress —
+  see training-setup.md) mixed toward the terminal outcome:
+  `target = 0.7 * outcome + 0.3 * G_t^(n)`, n ≈ 8-12 decisions, γ ≈ 0.997.
+- **Search evaluation:** truncated rollouts — expand ~n steps with the policy net,
+  evaluate the leaf with the value head instead of playing to termination
+  (exactly the AlphaZero leaf-evaluation trick, applied to determinized rollouts).
+  This is what makes 10-20 sims/decision affordable under the 10-minute clock.
+- **Ablation for the report:** binary-terminal vs n-step-bootstrapped value targets
+  on the same BC base — variance reduction is measurable and write-up-worthy.
+
+`search_begin(..., manual_coin=True)` lets the search control coin flips —
+determinize per-rollout (sample) rather than letting hidden randomness leak variance.
 
 ---
 
@@ -53,72 +183,41 @@ num_words_encoder = 24
 
 ---
 
-## BC Warm-Start (Phase 0 — Complete)
+## BC Warm-Start Design
 
-**Teacher:** v11 agent (83% vs random)  
-**Games collected:** 700 teacher-vs-teacher  
-**Samples:** 113,119 BCStep objects → `/kaggle/working/bc_data.pkl`  
+**Teacher:** v21 agent (current best heuristic)  
+**Collection:** v21 vs v21 self-play, 700+ games  
 **Each BCStep:** `sv_enc, sv_dec, n_actions, chosen_idx, outcome`  
 **~158 decisions/game** (Alakazam has high branching due to search/evolve sub-selections)
 
-**Training run 1** (200 games, 5 epochs, LR 3e-4, from scratch):
-- Policy loss: 0.84 → 0.62 (-27%)
-- Eval (30 games): 66% vs random, 43% vs teacher
+**Training config:**
+- 10 epochs, LR 1e-4, batch 128
+- Policy loss target: converge to ~0.50 range
+- Eval after each epoch: net vs random (want 65%+), net vs teacher (want ~50%)
 
-**Training run 2** (113k samples, 10 epochs, LR 1e-4, resumed):
-- Policy loss: 0.62 → 0.48 (-23% further)
-- Eval (100 games): 65% vs random | 68% teacher vs random | **52% net vs teacher**
-- Conclusion: BC plateau. Self-play required to exceed teacher.
-
----
-
-## Self-Play Phase (Phase 1 — Active)
-
-### Design
-- Net plays vs itself using MCTS (10 sims per decision)
-- `search_begin` fills hidden zones: own deck/prizes sampled from DECK; opponent hand/deck/prizes filled with placeholder `[1072]*n` (Snorlax) — belief model replaces this in Phase 2
-- Policy targets = advantage-based (child Q - root Q, clamped to [-1, 1])
-- Value target = game outcome (1.0 win, -1.0 loss, 0.0 draw)
-- UCB: `q + 0.4 * sqrt(parent_visit) * prior / (1 + child_visit)`
-- Loss: HuberLoss for value (delta=0.2) + HuberLoss for policy (delta=0.1, masked to valid actions)
-
-### Attempt 1 — Collapsed (do not repeat)
-- Config: 3 iters, 100 games each, 5 epochs/iter, LR 1e-4, NO BC mixing
-- Results: iter1=46%, iter2=46%, iter3=20% vs teacher
-- Cause: small SP dataset (~17k) + too many epochs → catastrophic forgetting
-- **Lesson: always mix BC data into SP training batches**
-
-### Attempt 2 — Current (recovering from sp_iter1.pth)
-- Config: 5 iters, 100 games each, 2 epochs/iter, LR 3e-5, **40% BC / 60% SP batch mixing**
-- SP buffer grows across iterations; BC buffer = full 113k samples always present
-- Checkpoints: `/kaggle/working/checkpoints/sp2_iter*.pth`
-- **Best so far: sp2_iter2.pth at ~55% vs v11 teacher**
-
-### Exit criterion for Phase 1
-Net wins **55-60%+ vs teacher** over 100 games → proceed to Phase 2.
-
-When attempt 2 completes:
-1. Run full eval: net vs random, net vs teacher, net vs sp_iter1
-2. If improving: run 3 more iterations with SEARCH_COUNT=20
-3. If plateau: debug MCTS (check search_begin is called, policy targets have variance, value head learning)
-4. Commit best checkpoint to Kaggle dataset for persistence
-
----
-
-## Critical: Decoder Padding Rule
-
-**SP samples (SPStep):** `sv_dec` is pre-padded to 64 words INSIDE `eval_node` before storing.  
-**BC samples (BCStep):** `sv_dec` is NOT pre-padded — must pad in training batch builder:
+**Decoder padding rule (critical — violating this crashes training):**  
+BC samples (`BCStep`): `sv_dec` is NOT pre-padded — must pad in training batch builder:
 ```python
 if not hasattr(s, 'policy_targets'):  # BC sample
     for _ in range(64 - s.n_actions):
         dec.offset.append(len(dec.index))
 ```
-**Violating this causes:** `RuntimeError: shape '[128, -1, 128]' is invalid`
+SP samples (`SPStep`): `sv_dec` IS pre-padded to 64 words inside `eval_node` before storing.  
+Violating this causes: `RuntimeError: shape '[128, -1, 128]' is invalid`
 
 ---
 
-## MCTS Implementation Notes
+## Self-Play Phase Design (Phase 1)
+
+- Net plays vs itself using MCTS (10 sims per decision; increase to 20 in later iters)
+- `search_begin` fills hidden zones: own deck/prizes sampled from DECK; opponent
+  hand/deck/prizes filled with placeholder `[1072]*n` (belief model replaces this in Phase 2)
+- Policy targets = advantage-based (child Q - root Q, clamped to [-1, 1])
+- Value target = game outcome (1.0 win, -1.0 loss, 0.0 draw)
+- UCB: `q + 0.4 * sqrt(parent_visit) * prior / (1 + child_visit)`
+- Loss: HuberLoss for value (delta=0.2) + HuberLoss for policy (delta=0.1, masked to valid actions)
+- **Batch mix: 40% BC / 60% SP — non-negotiable.** BC buffer = full warmup dataset always
+  present. SP buffer grows across iterations.
 
 ```python
 # search_begin kwargs (confirmed)
@@ -151,19 +250,18 @@ return list(actions[best])
 
 ---
 
-## Phase 2: League/PFSP Hardening (Next)
+## Phase 2: League/PFSP Hardening
 
-**Trigger:** net consistently beats teacher (~55%+ over 100 games)
+**Trigger:** net consistently beats v21 teacher (~55%+ over 100 games)
 
 Actions:
-- Get legal 60-card IDs for meta opponents: Mega Starmie ex, Dragapult ex, Bellibolt ex, Crustle
-- Run net vs each meta deck (random pilot first; rule-based from wmh/ptcg-abc if available)
+- Run net vs each meta opponent (Lucario, Dragapult, Abomasnow, Starmie agents in `opponents/`)
 - Hall-of-fame: keep past checkpoints as sparring partners
 - PFSP weighting: prioritize opponents the net is currently losing to
 
 **Originality contribution — opponent belief model:**  
-Replace `search_begin`'s `[1072]*n` placeholder with a real belief distribution:
-- Parse `obs["logs"]` to infer opponent archetype (Starmie vs Dragapult vs Crustle etc.)
+Replace `search_begin`'s placeholder with a real belief distribution:
+- Parse `obs["logs"]` to infer opponent archetype (Starmie vs Dragapult vs Lucario etc.)
 - Sample opponent hidden zones consistent with inferred archetype
 - This is the standout contribution for the 70% report axis
 
@@ -174,17 +272,18 @@ Replace `search_begin`'s `[1072]*n` placeholder with a real belief distribution:
 ```
 Engine: Add Input → kiyotah/cg-lib
 GPU: Session → Accelerator → GPU T4 x1 (for training)
-CPU: for data collection
+CPU: for data collection (no GPU needed)
 Weekly GPU quota: ~30 hrs (resets weekly)
 Save Version (Save & Run All) → commits /kaggle/working/ outputs
 ```
 
+Consider using the Kaggle MCP server (docs.kaggle.com/docs/mcp) to run
+notebook cells directly from Claude Code without manual copy-paste.
+
 ---
 
-## Heuristic vs NN Track Decision — Resolved
+## Heuristic vs NN Track
 
-The heuristic ladder track (now v21) has diverged significantly from v11 (the fixed
-BC teacher). **Decided: Option B** — keep v11 as the BC teacher permanently, treat
-the heuristic and NN as independent, parallel tracks rather than recollecting BC
-data every time the heuristic improves. See "Resume Here" at the top of this file
-for the reasoning.
+The heuristic (v21+) and NN are independent parallel tracks. The heuristic serves
+as the live ladder submission and the BC teacher for the NN warmup. They don't share
+checkpoints or training data — each optimizes on its own axis.

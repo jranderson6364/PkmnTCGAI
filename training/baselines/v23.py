@@ -44,12 +44,8 @@ PIVOT_FREE_RETREAT_IDS = {SHAYMIN}
 TOOL_IDS               = {HANDHELD_FAN}
 PH_DMG_PER_CARD = 20
 
-# v24 deck: Psyduck + Genesect out (deck audit: ~0 plays/game, pure hand fuel),
-# 4th Alakazam + 4th Dunsparce in (win-condition + draw-engine consistency; both
-# fully covered by existing heuristic logic). Genesect/Psyduck code paths below
-# stay but are dead — they only fire if the card is seen in play/hand.
-DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*4+[DUNSPARCE]*4+[DUDUNSPARCE]*3+
-        [SHAYMIN]+[FEZ]+
+DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*3+[DUNSPARCE]*3+[DUDUNSPARCE]*3+
+        [GENESECT]+[SHAYMIN]+[PSYDUCK]+[FEZ]+
         [POFFIN]*4+[POKE_PAD]*4+[HANDHELD_FAN]*2+[BOSS]*3+[LANA]+
         [BATTLE_CAGE]*4+[DAWN]*4+[WONDROUS_PATCH]+[SACRED_ASH]+[HILDA]*3+
         [ENHANCED_HAMMER]*2+[RARE_CANDY]*3+[BASIC_P]*2+[ENRICHING]+[TELEPATH_P]*4)

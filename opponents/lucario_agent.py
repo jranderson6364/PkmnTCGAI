@@ -1,158 +1,395 @@
 """
-Mega Lucario ex training opponent for self-play pool.
-Archetype: Fighting aggro + Rocky Energy lock. Stage 1 megaEx (340 HP, 3 prizes).
-  Fighting Fury: ~190 vs ex targets with Korrina + Arena of Antiquity buffs.
-  Rocky Fighting Energy (ID=20) on Lucario ex → blocks Powerful Hand effects → Alakazam deals 0.
+Mega Lucario ex training opponent — official Kaggle sample agent.
+Source: kiyotah/a-sample-rule-based-agent-mega-lucario-ex-deck
 
-TODO: Fill DECK with real card IDs.
-  In a Kaggle notebook: {c.cardId: c.name for c in all_card_data()}
-  Key known ID: ROCK_ENERGY = 20 (Rocky Fighting Energy, ACE SPEC).
-
-Strategy encoded here:
-  - Bench Riolu ASAP, evolve to Lucario ex
-  - ATTACH Rocky Energy (20) to Lucario ex as top priority — this is the win condition
-    (once attached, Alakazam's Powerful Hand places 0 damage counters)
-  - Attack every turn
-  - Never retreat Lucario ex — Rocky Energy stays attached, keep pressure on
-  - Play Korrina + Arena of Antiquity before attacking for max damage buff
-  - Do NOT bench Fezandipiti ex (2-prize target that hurts us vs single-prize Alakazam)
+Archetype: Fighting aggro, multi-attacker (Mega Lucario ex / Hariyama / Solrock).
+Mega Lucario ex: 340 HP, Stage 1 megaEx, 3 prizes.
+  Aura Jab {F} 130 + attach 3 Fighting from discard to bench.
+  Mega Brave {F}{F} 270 (can't reuse next turn).
 """
 import sys, glob
+from collections import defaultdict
 
 for _p in ['/kaggle/input/**/cg-lib', '/kaggle/input/cg-lib']:
     _m = glob.glob(_p, recursive=True)
     if _m: sys.path.insert(0, _m[0]); break
 
 try:
-    from cg.api import all_attack
-    _ATK = {a.attackId: getattr(a, 'damage', 0) or 0 for a in all_attack()}
+    from cg.api import AreaType, CardType, EnergyType, Observation, SelectContext, OptionType, Card, Pokemon, all_card_data, to_observation_class
+    all_card = all_card_data()
+    card_table = {c.cardId: c for c in all_card}
 except Exception:
-    _ATK = {}
+    card_table = {}
+    # Stub classes so the module imports cleanly without cg-lib
+    class _Stub:
+        def __getattr__(self, n): return None
+    AreaType = SelectContext = OptionType = EnergyType = CardType = _Stub()
+    to_observation_class = lambda x: x
 
-NUMBER, YES, NO, CARD, TOOL_CARD, ENERGY_CARD, ENERGY, PLAY, ATTACH, EVOLVE, \
-    ABILITY, DISCARD, RETREAT, ATTACK, END, SKILL, SPECIAL_CONDITION = range(17)
-CTX_SETUP_ACTIVE = 1
-CTX_SETUP_BENCH  = 2
+# ── Deck (60 cards, embedded) ─────────────────────────────────────────────────
+Makuhita           = 673   # ×2
+Hariyama           = 674   # ×2
+Lunatone           = 675   # ×2
+Solrock            = 676   # ×3
+Riolu              = 677   # ×3
+Mega_Lucario_ex    = 678   # ×4
+Dusk_Ball          = 1102  # ×4
+Switch             = 1123  # ×2
+Premium_Power_Pro  = 1141  # ×4
+Fighting_Gong      = 1142  # ×4
+Poke_Pad           = 1152  # ×4
+Hero_Cape          = 1159  # ×1
+Boss_Orders        = 1182  # ×2
+Carmine            = 1192  # ×4
+Lillie_Determination = 1227  # ×4
+Gravity_Mountain   = 1252  # ×2
+Basic_Fighting_Energy = 6  # ×13
 
-# ── Card IDs ─────────────────────────────────────────────────────────────────
-ROCK_ENERGY = 20   # Rocky Fighting Energy — CONFIRMED ID; blocks Powerful Hand
+DECK = (
+    [Makuhita] * 2 + [Hariyama] * 2 + [Lunatone] * 2 + [Solrock] * 3 +
+    [Riolu] * 3 + [Mega_Lucario_ex] * 4 +
+    [Dusk_Ball] * 4 + [Switch] * 2 + [Premium_Power_Pro] * 4 +
+    [Fighting_Gong] * 4 + [Poke_Pad] * 4 + [Hero_Cape] +
+    [Boss_Orders] * 2 + [Carmine] * 4 + [Lillie_Determination] * 4 +
+    [Gravity_Mountain] * 2 + [Basic_Fighting_Energy] * 13
+)
+assert len(DECK) == 60, f"Lucario deck has {len(DECK)} cards, expected 60"
 
-# TODO: replace 0 with real IDs
-RIOLU      = 0   # Basic Fighting, ~60-80 HP
-LUCARIO_EX = 0   # Stage 1 megaEx, 340 HP, 3 prizes
 
-# Build a real 60-card Lucario ex deck once IDs are known.
-# Typical: 4 Riolu + 3 Lucario ex + ROCK_ENERGY + fighting energy + Korrina + Arena
-DECK = [0] * 60   # TODO: 60 real card IDs
+class AttackPlan:
+    attacker = -1
+    target = -1
+    attack_index = -1
+    remain_hp = -1
+    energy = False
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-def _pk_id(pk):  return (pk or {}).get('id', -1)
-def _active(p):  a = p.get('active'); return a[0] if a and a[0] else None
-def _bench(p):   return p.get('bench') or []
-def _hand(p):    return p.get('hand') or []
 
-def _prize_val(pk):
-    if not pk: return 0
-    if pk.get('megaEx'): return 3
-    if pk.get('ex'):     return 2
-    return 1
+plan = AttackPlan()
+pre_turn = 0
+ability_used = False
 
-def _has_rocky(pk):
-    return ROCK_ENERGY in ((pk or {}).get('energies') or [])
 
-def _clamp(idxs, sel):
-    mn = sel.get('minCount', 0) or 0
-    mx = sel.get('maxCount', 1) or 1
-    n  = len(sel.get('option', []))
-    out = []
-    for i in idxs:
-        if 0 <= i < n and i not in out: out.append(i)
-        if len(out) >= mx: break
-    j = 0
-    while len(out) < mn and j < n:
-        if j not in out: out.append(j)
-        j += 1
-    return out
+def get_card(obs, area, index, player_index):
+    ps = obs.current.players[player_index]
+    match area:
+        case AreaType.DECK:    return obs.select.deck[index]
+        case AreaType.HAND:    return ps.hand[index]
+        case AreaType.DISCARD: return ps.discard[index]
+        case AreaType.ACTIVE:  return ps.active[index]
+        case AreaType.BENCH:   return ps.bench[index]
+        case AreaType.PRIZE:   return ps.prize[index]
+        case AreaType.STADIUM: return obs.current.stadium[index]
+        case AreaType.LOOKING: return obs.current.looking[index]
+        case _:                return None
 
-def _players(obs):
-    cur = obs.get('current') or {}
-    me  = cur.get('yourIndex', 0)
-    pl  = cur.get('players', [])
-    my  = pl[me]   if len(pl) > me  else {}
-    opp = pl[1-me] if len(pl) == 2  else {}
-    return cur, me, my, opp
 
-# ── Main phase ────────────────────────────────────────────────────────────────
-def _main_phase(obs, sel):
-    opts = sel['option']
-    n    = len(opts)
-    _, me, my, opp = _players(obs)
-    my_active = _active(my)
-    my_bench  = _bench(my)
-    hand      = _hand(my)
+def prize_count(pokemon):
+    data = card_table.get(pokemon.id)
+    if not data: return 1
+    count = 3 if data.megaEx else 2 if data.ex else 1
+    for card in pokemon.energyCards:
+        if card.id == 12:  # Legacy Energy
+            count -= 1
+    for card in pokemon.tools:
+        if card.id == 1172 and "Lillie" in data.name:
+            count -= 1
+    return max(0, count)
 
-    active_is_mega = (my_active or {}).get('megaEx', False)
-    rocky_on_active = _has_rocky(my_active)
 
-    def score(o):
-        ot = o.get('type')
-        if ot == ATTACK: return 100.0
-        if ot == EVOLVE: return 25.0   # always evolve toward Lucario ex ASAP
-        if ot == ATTACH:
-            ta  = o.get('inPlayArea', -1)
-            ti  = o.get('inPlayIndex', 0)
-            tgt = my_active if ta == 4 else (my_bench[ti] if ta == 5 and 0 <= ti < len(my_bench) else None)
-            idx = o.get('index', -1)
-            cid = (hand[idx] or {}).get('id', -1) if 0 <= idx < len(hand) else -1
-            pv  = _prize_val(tgt)
-            # Rocky Energy on Lucario ex is the win condition — top priority
-            if cid == ROCK_ENERGY and pv == 3:  return 35.0
-            if cid == ROCK_ENERGY:               return 20.0
-            return 10.0 + pv * 4.0
-        if ot == PLAY: return 5.0
-        if ot == RETREAT:
-            # Never retreat Lucario ex — Rocky Energy stays with it, forcing the lock
-            if active_is_mega: return -50.0
-            return 3.0
-        if ot == END: return 0.5
-        return 1.0
+def pokemon_score(pokemon):
+    data = card_table.get(pokemon.id)
+    if not data: return 0
+    score = prize_count(pokemon) * 1000
+    score += len(pokemon.energies) * 150
+    score += len(pokemon.tools) * 100
+    if data.stage2:  score += 250
+    elif data.stage1: score += 130
+    pid = pokemon.id
+    if pid in (173, 174, 190, 1071):  # Noctowl, Fan Rotom, Archaludon ex, Meowth ex
+        score -= 200
+    if pid == 112 and len(pokemon.energies) >= 1:  # Munkidori
+        score += 300
+    score += pokemon.hp
+    return score
 
-    return [max(range(n), key=lambda i: score(opts[i]))]
 
-# ── Agent entry point ─────────────────────────────────────────────────────────
-def agent(obs_dict: dict) -> list:
-    try:
-        sel  = obs_dict.get('select')
-        if sel is None: return DECK
-        opts = sel.get('option', [])
-        n    = len(opts)
-        if n == 0: return []
-        stype = sel.get('type')
-        ctx   = sel.get('context', 0)
-        mn    = sel.get('minCount', 0) or 0
-        mx    = sel.get('maxCount', 1) or 1
+def agent(obs_dict: dict) -> list[int]:
+    obs = to_observation_class(obs_dict)
+    if obs.select is None:
+        return DECK
 
-        if stype == 0: return _main_phase(obs_dict, sel)
-        if stype == 1:
-            if ctx == CTX_SETUP_ACTIVE:
-                for i, o in enumerate(opts):
-                    if o.get('cardId', o.get('id', -1)) == RIOLU: return [i]
-                return [0]
-            if ctx == CTX_SETUP_BENCH: return list(range(n))
-            yes_i = [i for i, o in enumerate(opts) if o.get('type') == YES]
-            return yes_i if yes_i else [0]
-        if stype in (2, 3, 4, 7): return _clamp(list(range(n)), sel)
-        if stype == 5:             return [0]
-        if stype == 6:
-            return [max(range(n), key=lambda i: _ATK.get(opts[i].get('attackId'), 0))]
-        if stype == 9:
-            for i, o in enumerate(opts):
-                if o.get('type') == YES: return [i]
-            return [0]
-        k = mn if mn > 0 else (1 if mx >= 1 else 0)
-        return _clamp(list(range(n))[:k] if k else [], sel)
-    except Exception:
-        sel = obs_dict.get('select')
-        if not sel: return DECK
-        n = len(sel.get('option', [])); mn = sel.get('minCount', 0) or 0
-        return list(range(min(max(mn, 1), n))) if n else []
+    state = obs.current
+    select = obs.select
+    context = select.context
+    my_index = state.yourIndex
+    my_state = state.players[my_index]
+    op_state = state.players[1 - my_index]
+    my_prize = len(my_state.prize)
+
+    global plan, pre_turn, ability_used
+    if pre_turn != state.turn:
+        pre_turn = state.turn
+        plan = AttackPlan()
+        ability_used = False
+
+    field_counts = defaultdict(int)
+    hand_counts = defaultdict(int)
+    discard_counts = defaultdict(int)
+
+    attacker1 = False
+    attacker2 = False
+    for card in my_state.active + my_state.bench:
+        if card is None: continue
+        field_counts[card.id] += 1
+        if card.id in (Makuhita, Hariyama):
+            if len(card.energies) >= 3: attacker2 = True
+        elif card.id in (Riolu, Mega_Lucario_ex):
+            if len(card.energies) >= 2: attacker1 = True
+
+    for card in my_state.hand:
+        hand_counts[card.id] += 1
+
+    for card in my_state.discard:
+        discard_counts[card.id] += 1
+
+    stadium_id = 0
+    for card in state.stadium:
+        stadium_id = card.id
+
+    can_attack = False
+    if context == SelectContext.MAIN:
+        can_switch = False
+        can_op_switch = False
+        can_use_mega_brave = False
+        for o in select.option:
+            if o.type == OptionType.PLAY:
+                card = get_card(obs, AreaType.HAND, o.index, my_index)
+                if card.id == Switch:         can_switch = True
+                elif card.id == Boss_Orders:  can_op_switch = True
+            elif o.type == OptionType.EVOLVE:
+                card = get_card(obs, AreaType.HAND, o.index, my_index)
+                if card.id == Hariyama: can_op_switch = True
+            elif o.type == OptionType.RETREAT:
+                can_switch = True
+            elif o.type == OptionType.ATTACK:
+                can_attack = True
+                if o.attackId == 983:  # Mega Brave
+                    can_use_mega_brave = True
+
+        my_cards = [my_state.active[0]] + list(my_state.bench)
+        op_cards = [op_state.active[0]] + list(op_state.bench)
+
+        if state.turn >= 2:
+            best_score = -1
+            for i, my_pokemon in enumerate(my_cards):
+                if i != 0 and not can_switch: break
+                for a in range(2):
+                    energy_required = 0
+                    base_damage = 0
+                    base_score = 0
+                    if my_pokemon.id == Mega_Lucario_ex:
+                        if a == 0:
+                            energy_required = 1
+                            base_damage = 130
+                            base_score += 60 * min(3, discard_counts[Basic_Fighting_Energy])
+                        else:
+                            energy_required = 2
+                            base_damage = 270
+                        if my_prize in (2, 3): base_score -= 500
+                    elif a == 1:
+                        break
+                    elif my_pokemon.id == Hariyama:
+                        energy_required = 3
+                        base_damage = 210
+                    elif my_pokemon.id == Makuhita:
+                        for o in select.option:
+                            if o.type == OptionType.EVOLVE:
+                                index = o.inPlayIndex
+                                if o.inPlayArea == AreaType.BENCH: index += 1
+                                if index == i: break
+                        else:
+                            break
+                        base_score -= 100
+                        energy_required = 3
+                        base_damage = 210
+                    elif my_pokemon.id == Solrock:
+                        if field_counts[Lunatone] >= 1:
+                            energy_required = 1
+                            base_damage = 70
+                    if base_damage <= 0: continue
+
+                    more_energy = False
+                    energy_count = len(my_pokemon.energies)
+                    if a == 1 and i == 0 and energy_count >= 2 and not can_use_mega_brave:
+                        break
+                    if energy_count < energy_required:
+                        if hand_counts[Basic_Fighting_Energy] >= 1 and not state.energyAttached:
+                            energy_count += 1
+                            if energy_count < energy_required: continue
+                            else: more_energy = True
+                        else:
+                            continue
+
+                    for j, op_pokemon in enumerate(op_cards):
+                        if j != 0 and not can_op_switch: break
+                        damage = base_damage
+                        data = card_table.get(op_pokemon.id)
+                        if data:
+                            if data.weakness == EnergyType.FIGHTING:   damage *= 2
+                            elif data.resistance == EnergyType.FIGHTING: damage -= 30
+                        prize = 0
+                        score = pokemon_score(op_pokemon)
+                        if op_pokemon.hp <= damage:
+                            prize = prize_count(op_pokemon)
+                        else:
+                            score *= damage / op_pokemon.hp
+                        score += base_score
+                        if len(op_state.prize) <= prize: score = 50000
+                        if i == 0: score += 220
+                        if j == 0: score += 300
+                        score += energy_count
+                        if best_score < score:
+                            best_score = score
+                            plan.attacker = i
+                            plan.target = j
+                            plan.attack_index = a
+                            plan.remain_hp = op_pokemon.hp - damage
+                            plan.energy = more_energy
+
+    def energy_score(pokemon, active):
+        energy_count = len(pokemon.energies)
+        score = 8000
+        if active: score += 10
+        if pokemon.id in (Makuhita, Hariyama):
+            if pokemon.id == Hariyama: score += 1
+            if energy_count < 3:  score += 100
+            if attacker2:         score -= 50
+        elif pokemon.id == Lunatone:
+            score -= 100
+        elif pokemon.id == Solrock:
+            if energy_count < 1: score += 20
+            else:                score -= 100
+        elif pokemon.id in (Riolu, Mega_Lucario_ex):
+            if pokemon.id == Mega_Lucario_ex: score += 1
+            if energy_count < 2: score += 100
+            if attacker1:        score -= 50
+        return score
+
+    scores = []
+    for o in select.option:
+        score = 0
+        if o.type == OptionType.NUMBER:
+            score = o.number
+        elif o.type == OptionType.YES:
+            score = 1
+        elif o.type == OptionType.CARD:
+            card = get_card(obs, o.area, o.index, o.playerIndex)
+            if card is not None:
+                energy_count = 0
+                if isinstance(card, Pokemon): energy_count = len(card.energies)
+                if context in (SelectContext.SWITCH, SelectContext.TO_ACTIVE):
+                    if o.playerIndex == my_index:
+                        score += energy_count * 2
+                        if o.index == plan.attacker - 1: score += 100
+                        if card.id == Mega_Lucario_ex:
+                            score += 8 if my_prize in (2, 3) else 20
+                        elif card.id == Hariyama and energy_count >= 2: score += 15
+                        elif card.id == Makuhita and energy_count >= 2: score += 10
+                        elif card.id == Solrock: score += 5
+                        elif card.id == Riolu:   score += 4
+                    else:
+                        if o.index == plan.target - 1: score += 100
+                elif context == SelectContext.SETUP_ACTIVE_POKEMON:
+                    if card.id == Solrock:
+                        score = 2 if state.firstPlayer == my_index else 4
+                    elif card.id == Riolu:   score = 3
+                    elif card.id == Makuhita: score = 1
+                elif context == SelectContext.TO_HAND:
+                    score = 200 - hand_counts[card.id] * 100
+                    if card.id == Makuhita:
+                        score += 10 if field_counts[card.id] < 1 else -10
+                    elif card.id == Hariyama:
+                        score += 20 if field_counts[Makuhita] >= 1 else -20
+                    elif card.id == Lunatone:
+                        score += -250 if field_counts[card.id] >= 1 else 60
+                    elif card.id == Solrock:
+                        score += -250 if field_counts[card.id] >= 1 else 50
+                    elif card.id == Riolu:
+                        n_line = field_counts[Riolu] + field_counts[Mega_Lucario_ex]
+                        if n_line >= 2:   score -= 150
+                        elif n_line >= 1: score -= 3
+                        else:             score += 40
+                    elif card.id == Mega_Lucario_ex:
+                        score += 40 if field_counts[Riolu] >= 1 else -15
+                    elif card.id == Basic_Fighting_Energy:
+                        if not ability_used or not state.energyAttached: score += 30
+                        else:                                              score -= 1
+                elif context == SelectContext.ATTACH_FROM:
+                    score = energy_score(card, o.area == AreaType.ACTIVE)
+        elif o.type == OptionType.PLAY:
+            card = get_card(obs, AreaType.HAND, o.index, my_index)
+            data = card_table.get(card.id)
+            if data and data.cardType == CardType.POKEMON:
+                score = 20000
+                if card.id in (Lunatone, Solrock):
+                    if field_counts[card.id] >= 1: score = -1
+                elif card.id == Riolu:
+                    if field_counts[Riolu] + field_counts[Mega_Lucario_ex] >= 2: score = -1
+            else:
+                score = 10000
+                if card.id == Switch:
+                    score = 6000 if plan.attacker > 0 else -1
+                elif card.id == Premium_Power_Pro:
+                    if state.supporterPlayed and plan.remain_hp <= 0: score = -1
+                    elif not can_attack:
+                        if not state.supporterPlayed and hand_counts[Carmine] > 0 and hand_counts[Lillie_Determination] == 0:
+                            score = 3050
+                        else: score = -1
+                    else: score = 5000
+                elif card.id == Boss_Orders:
+                    score = 3200 if plan.target >= 1 else -1
+                elif card.id == Carmine:           score = 3000
+                elif card.id == Lillie_Determination: score = 3100
+                elif card.id == Gravity_Mountain:
+                    if stadium_id == 0: score = -1
+        elif o.type == OptionType.ATTACH:
+            card = get_card(obs, AreaType.HAND, o.index, my_index)
+            pokemon = get_card(obs, o.inPlayArea, o.inPlayIndex, my_index)
+            if card.id == Hero_Cape:
+                score = 7000
+                if pokemon.id == Riolu:         score += 100
+                elif pokemon.id == Mega_Lucario_ex: score += 200
+            else:
+                score = energy_score(pokemon, o.inPlayArea == AreaType.ACTIVE)
+                if o.inPlayArea == AreaType.ACTIVE:
+                    if plan.attacker == 0 and plan.energy: score += 200
+                else:
+                    if plan.attacker == 1 + o.inPlayIndex and plan.energy: score += 200
+        elif o.type == OptionType.EVOLVE:
+            pokemon = get_card(obs, o.inPlayArea, o.inPlayIndex, my_index)
+            score = 9000 + len(pokemon.energies)
+            if pokemon.id == Makuhita and plan.target == 0: score = -1
+        elif o.type == OptionType.ABILITY:
+            card = get_card(obs, o.area, o.index, my_index)
+            if card.id == 1267:  # Lumiose City
+                score = 1
+            else:
+                score = 30000
+        elif o.type == OptionType.RETREAT:
+            score = 2000 if plan.attacker >= 1 else -1
+        elif o.type == OptionType.ATTACK:
+            score = 1000
+            if plan.attack_index == 1:
+                if o.attackId == 983: score += 100  # Mega Brave
+            else:
+                if o.attackId != 983: score += 100
+
+        scores.append(score)
+
+    desc_indices = [i for i, _ in sorted(enumerate(scores), key=lambda x: x[1], reverse=True)]
+    if context == SelectContext.MAIN:
+        o = select.option[desc_indices[0]]
+        if o.type == OptionType.ABILITY:
+            card = get_card(obs, o.area, o.index, my_index)
+            if card.id == Lunatone: ability_used = True
+    return desc_indices[:select.maxCount]

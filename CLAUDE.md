@@ -120,13 +120,15 @@ unconfirmed lead: `main.py` has no handling for the MULLIGAN select context.
 Open, unfixed pattern: "board-thinning" (ending up with 1-2 Pokémon in play
 and a bloated dead hand after the attacker line gets repeatedly KO'd).
 **Roadmap (canonical: `docs/competition-strategy.md` §Master Plan):**
-Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → Stage 1
-DAgger → Stage 2 advantage-weighted self-play → Stage 3 belief model (parallel) →
-Stage 4 hardening → Stage 5 search-at-inference (Kaggle-gated).
+Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → **Stage 0c
+deck bake-off (freeze re-opened) + method bake-off** → Stage 1 DAgger → Stage 2
+advantage-weighted self-play → Stage 3 belief model (parallel) → Stage 4
+hardening → Stage 5 search-at-inference (Kaggle-gated).
 **Engine runs locally:** `pip install kaggle_environments --no-deps` → ~0.5s/game.
 Rig + workflows: `training/README.md`.
-**NN track:** BC done on the OLD deck (22% vs teacher = compounding error →
-DAgger next). Re-collect after deck freeze. `docs/nn-training.md` §Resume Here.
+**NN track:** BC re-collected + retrained on v25c (17% vs teacher); DAgger r1-r2
+done — fidelity 73→82% but win-rate flat, **paused** pending Stage 2 AWR.
+`ptcg_dagger_r2.pth` is the best checkpoint. `docs/nn-training.md` §Resume Here.
 
 ---
 

@@ -74,8 +74,8 @@ no longer a hard blocker.
 **Governing principle — report-driven development.** The report is not the 10%
 axis; it is the *only channel through which the 70% "model approach" score is
 delivered*. Every stage below must produce a figure, an ablation row, or a
-finding, logged in `docs/report-log.md` the day it happens. The five target
-figures are listed at the top of that file.
+finding, logged in `docs/report-log.md` the day it happens. The seven target
+figures and Tables A/B are listed at the top of that file.
 
 **Method narrative the stages build** (each step motivated by a diagnosed
 failure of the previous one): BC from a strong scripted teacher → compounding
@@ -97,6 +97,8 @@ Deck changes invalidate collected teacher data, so the 60 gets settled first:
    1–3 swaps; likely outs are low-utilization passengers, likely ins are
    consistency/redundancy (e.g. 4th Alakazam). One decision point, then the 60
    is **frozen permanently** and `deck.csv` regenerated from `DECK`.
+   *(2026-07-03 update: the freeze is re-opened pending the Stage 0c deck
+   bake-off below — that section supersedes this one on deck-choice finality.)*
 3. **Gauntlet baseline:** `python training/gauntlet.py --candidate main.py
    --name v24-<deck> --games 200` — establishes the new agent's gElo against
    the fixed 8-anchor panel. All future candidates get gauntleted under a
@@ -287,7 +289,7 @@ says so explicitly.
 
 2,000 words ≈ 4 pages: a tight research note where **figures and tables carry
 the evidence and prose carries the argument**. Assembled from
-`docs/report-log.md` (which also holds the five target figures and the plain-
+`docs/report-log.md` (which also holds the seven target figures and the plain-
 English method glossary). Skeleton with word budget:
 
 | § | ~Words | Content |
@@ -299,10 +301,13 @@ English method glossary). Skeleton with word budget:
 | 5. Findings & honesty | 300 | Engine discoveries (positional options, non-blind searches, the setup-active bug), the SP-only collapse (46%→20%) as a negative result, limitations. Honest negative results are rare in competition reports and score disproportionately. |
 | 6. Compute statement | 100 | The "reasonableness standard" favors us: one consumer machine + free Kaggle T4 quota. State total GPU-hours and game counts; frame lean-ness as a design principle. |
 
-**The five figures** (logged continuously — see `docs/report-log.md` header):
+**The seven figures** (logged continuously — see `docs/report-log.md` header):
 archetype-inference accuracy by turn; gElo-vs-ladder-Elo calibration scatter;
 win-rate-vs-teacher across training stages with CIs; the ablation table;
-the latency budget curve.
+the latency budget curve; the robustness panel (matchup table, seat split,
+seed-to-seed variance, opening-hand conditional); the pro-metrics panel
+(consistency, prize-trade efficiency, setup speed, meta-weighted win rate).
+Plus **Table A** (deck bake-off) and **Table B** (method comparison).
 
 **Ablations to schedule (one table row each):** binary-terminal vs n-step value
 targets; BC/SP mix ratios (the 46%→20% collapse is already a data point);
@@ -317,7 +322,7 @@ placeholder vs belief determinization; DAgger on/off; prior-blend λ sweep.
 | Latency cliff (timeout = loss) | Hard wall-clock guard; guaranteed legal fallback in `_safe_return` |
 | Chasing offline numbers | Ladder-only evaluation discipline |
 | Sep 13 deadline vs other commitments | Front-load method by mid-Aug; writeup is not for the final week |
-| NN track not ready in time | Heuristic (v21+) is a credible standalone submission; NN is upside |
+| NN track not ready in time | Heuristic (v25c) is a credible standalone submission; NN is upside |
 | Team merger window closes Aug 9 | Actively seek partner with GPU/RL experience in July |
 
 ---
@@ -337,7 +342,10 @@ placeholder vs belief determinization; DAgger on/off; prior-blend λ sweep.
 | Mega ex boxes (incl. Lucario) | 3 ✗ | High + variance | Walled | 3.0 |
 | Stall / mill | varies | Subtle + clock risk | n/a | 2.0 |
 
-**Deck status: one sanctioned simplification pass, then frozen forever.** The 60
+**Deck status: freeze re-opened 2026-07-03 pending the Stage 0c bake-off** (see
+that section for the pre-registered decision rule). Original doctrine — one
+sanctioned simplification pass, then frozen forever — resumes once Stage 0c
+resolves. The 60
 started as the meta backbone (Cerys Jones, Indianapolis Regional 1st) — a list
 tuned for *human* pilots. Stage 0 adapts it for a machine pilot: instrumented
 per-card utilization (`tools/deck_audit.py`), at most 1–3 swaps validated by a

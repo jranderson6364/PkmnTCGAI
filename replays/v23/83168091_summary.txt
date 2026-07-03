@@ -1,86 +1,57 @@
 === 83168091.json ===
-Opponent: Tsuyoshi Chiba | Result: LOSS | Total steps: 154
+Opponent: Tsuyoshi Chiba | Result: LOSS | Terminal cause: OTHER | Total steps: 154
 
---- Decision log (46 main-phase actions) ---
-  step 10 | you_prizes=6 opp_prizes=6 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Abra(741) 50/50
-  step 12 | you_prizes=6 opp_prizes=6 | PLAY: Battle Cage(1264)
-  step 13 | you_prizes=6 opp_prizes=6 | END: END TURN
-  step 17 | you_prizes=6 opp_prizes=6 | EVOLVE: Kadabra(742) ACTIVE:Abra(741) 50/50
-  step 19 | you_prizes=6 opp_prizes=6 | ATTACH: Telepath Psychic Energy(19) BENCH[1]:Abra(741) 50/50
-  step 21 | you_prizes=6 opp_prizes=6 | END: END TURN
-  step 30 | you_prizes=6 opp_prizes=6 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80
-  step 32 | you_prizes=6 opp_prizes=6 | ATTACK: 1072
-  step 53 | you_prizes=5 opp_prizes=5 | PLAY: Hilda(1225)
-  step 56 | you_prizes=5 opp_prizes=5 | ABILITY: ACTIVE:Fezandipiti ex(140) 210/210
-  step 57 | you_prizes=5 opp_prizes=5 | PLAY: Buddy-Buddy Poffin(1086)
-  step 59 | you_prizes=5 opp_prizes=5 | EVOLVE: Kadabra(742) BENCH[0]:Abra(741) 50/50
-  step 61 | you_prizes=5 opp_prizes=5 | ATTACH: Basic {P} Energy(5) BENCH[1]:Abra(741) 50/50
-  step 62 | you_prizes=5 opp_prizes=5 | PLAY: Enhanced Hammer(1081)
-  step 64 | you_prizes=5 opp_prizes=5 | END: END TURN
-  step 82 | you_prizes=5 opp_prizes=5 | EVOLVE: Alakazam(743) BENCH[0]:Kadabra(742) 80/80
-  step 84 | you_prizes=5 opp_prizes=5 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Fezandipiti ex(140) 210/210
-  step 85 | you_prizes=5 opp_prizes=5 | RETREAT: Alakazam(743) 140/140
-  step 85 | you_prizes=5 opp_prizes=5 | RETREAT: RETREAT (target chosen in next select)
-  step 88 | you_prizes=5 opp_prizes=5 | ATTACK: 1072
-  step101 | you_prizes=4 opp_prizes=4 | PLAY: Hilda(1225)
-  step103 | you_prizes=4 opp_prizes=4 | EVOLVE: Kadabra(742) BENCH[0]:Abra(741) 50/50
-  step105 | you_prizes=4 opp_prizes=4 | PLAY: Pok� Pad(1152)
-  step107 | you_prizes=4 opp_prizes=4 | PLAY: Pok� Pad(1152)
-  step108 | you_prizes=4 opp_prizes=4 | EVOLVE: Kadabra(742) BENCH[1]:Abra(741) 50/50
-  step110 | you_prizes=4 opp_prizes=4 | EVOLVE: Dudunsparce(66) BENCH[2]:Dunsparce(305) 70/70
-  step111 | you_prizes=4 opp_prizes=4 | ATTACH: Enriching Energy(13) BENCH[2]:Dudunsparce(66) 140/140
-  step112 | you_prizes=4 opp_prizes=4 | PLAY: Buddy-Buddy Poffin(1086)
-  step113 | you_prizes=4 opp_prizes=4 | PLAY: Buddy-Buddy Poffin(1086)
-  step114 | you_prizes=4 opp_prizes=4 | PLAY: Pok� Pad(1152)
-  step115 | you_prizes=4 opp_prizes=4 | EVOLVE: Dudunsparce(66) BENCH[3]:Dunsparce(305) 70/70
-  step116 | you_prizes=4 opp_prizes=4 | PLAY: Genesect(142)
-  step117 | you_prizes=4 opp_prizes=4 | ATTACH: Handheld Fan(1161) BENCH[4]:Genesect(142) 110/110
-  step118 | you_prizes=4 opp_prizes=4 | ABILITY: ACTIVE:Fezandipiti ex(140) 210/210
-  step119 | you_prizes=4 opp_prizes=4 | PLAY: Sacred Ash(1129)
-  step121 | you_prizes=4 opp_prizes=4 | ABILITY: BENCH[2]:Dudunsparce(66) 140/140
-  step122 | you_prizes=4 opp_prizes=4 | PLAY: Dunsparce(305)
-  step123 | you_prizes=4 opp_prizes=4 | ABILITY: BENCH[2]:Dudunsparce(66) 140/140
-  step124 | you_prizes=4 opp_prizes=4 | PLAY: Abra(741)
-  step125 | you_prizes=4 opp_prizes=4 | END: END TURN
-  step131 | you_prizes=4 opp_prizes=2 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80
-  step133 | you_prizes=4 opp_prizes=2 | ATTACK: 1072
-  step143 | you_prizes=3 opp_prizes=1 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80
-  step145 | you_prizes=3 opp_prizes=1 | PLAY: Boss�s Orders(1182)
-  step147 | you_prizes=3 opp_prizes=1 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Alakazam(743) 140/140
-  step148 | you_prizes=3 opp_prizes=1 | ATTACK: 1072
+--- Decision log (76 real decisions) ---
+step 10 turn2 | you_prizes=6 opp_prizes=6 | hand=7[Wondrous Patch,Telepath Psychic Energy,Telepath Psychic Energy,Battle Cage,Battle Cage,Kadabra,Alakazam] deck=45 | my_active=Abra(741) 50/50 opp_active=Dunsparce(305) 70/70 cards_needed=4 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Abra(741) 50/50
+step 12 turn2 | you_prizes=6 opp_prizes=6 | hand=6[Wondrous Patch,Telepath Psychic Energy,Battle Cage,Battle Cage,Kadabra,Alakazam] deck=43 | my_active=Abra(741) 50/50 E=[5] opp_active=Dunsparce(305) 70/70 cards_needed=4 | PLAY: Battle Cage(1264)
+step 13 turn2 | you_prizes=6 opp_prizes=6 | hand=5[Wondrous Patch,Telepath Psychic Energy,Battle Cage,Kadabra,Alakazam] deck=43 | my_active=Abra(741) 50/50 E=[5] opp_active=Dunsparce(305) 70/70 cards_needed=4 | END: END TURN
+step 17 turn4 | you_prizes=6 opp_prizes=6 | hand=6[Wondrous Patch,Telepath Psychic Energy,Battle Cage,Kadabra,Alakazam,Battle Cage] deck=42 | my_active=Abra(741) 50/50 E=[5] opp_active=Dudunsparce(66) 140/140 cards_needed=7 | EVOLVE: Kadabra(742) ACTIVE:Abra(741) 50/50 E=[5]
+step 19 turn4 | you_prizes=6 opp_prizes=6 | hand=7[Wondrous Patch,Telepath Psychic Energy,Battle Cage,Alakazam,Battle Cage,Battle Cage,Boss’s Orders] deck=40 | my_active=Kadabra(742) 80/80 E=[5] opp_active=Dudunsparce(66) 140/140 cards_needed=7 | ATTACH: Telepath Psychic Energy(19) BENCH[1]:Abra(741) 50/50
+step 21 turn4 | you_prizes=6 opp_prizes=6 | hand=6[Wondrous Patch,Battle Cage,Alakazam,Battle Cage,Battle Cage,Boss’s Orders] deck=39 | my_active=Kadabra(742) 80/80 E=[5] opp_active=Dudunsparce(66) 140/140 cards_needed=7 | END: END TURN
+step 30 turn6 | you_prizes=6 opp_prizes=6 | hand=7[Wondrous Patch,Battle Cage,Alakazam,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy] deck=38 | my_active=Kadabra(742) 80/80 E=[5] opp_active=Abra(741) 50/50 cards_needed=3 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80 E=[5]
+step 32 turn6 | you_prizes=6 opp_prizes=6 | hand=9[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy,Shaymin,Dudunsparce,Enriching Energy] deck=35 | my_active=Alakazam(743) 140/140 E=[5] opp_active=Abra(741) 50/50 cards_needed=3 | ATTACK: 1072
+step 53 turn8 | you_prizes=5 opp_prizes=5 | hand=11[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy,Shaymin,Dudunsparce,Enriching Energy,Hilda,Hilda] deck=34 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Hilda(1225)
+step 56 turn8 | you_prizes=5 opp_prizes=5 | hand=12[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy] deck=32 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ABILITY:  ACTIVE:Fezandipiti ex(140) 210/210
+step 57 turn8 | you_prizes=5 opp_prizes=5 | hand=15[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy,Buddy-Buddy Poffin,Alakazam,Kadabra] deck=29 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Buddy-Buddy Poffin(1086)
+step 59 turn8 | you_prizes=5 opp_prizes=5 | hand=14[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy,Alakazam,Kadabra] deck=27 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Kadabra(742) BENCH[0]:Abra(741) 50/50 E=[5]
+step 61 turn8 | you_prizes=5 opp_prizes=5 | hand=15[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Basic {P} Energy,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy,Alakazam,Enhanced Hammer,Psyduck] deck=25 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ATTACH: Basic {P} Energy(5) BENCH[1]:Abra(741) 50/50
+step 62 turn8 | you_prizes=5 opp_prizes=5 | hand=14[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy,Alakazam,Enhanced Hammer,Psyduck] deck=25 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Enhanced Hammer(1081)
+step 64 turn8 | you_prizes=5 opp_prizes=5 | hand=13[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy,Alakazam,Psyduck] deck=25 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 cards_needed=7 | END: END TURN
+step 82 turn10 | you_prizes=5 opp_prizes=5 | hand=14[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Telepath Psychic Energy,Alakazam,Psyduck,Poké Pad] deck=24 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[0] cards_needed=7 | EVOLVE: Alakazam(743) BENCH[0]:Kadabra(742) 80/80 E=[5]
+step 84 turn10 | you_prizes=5 opp_prizes=5 | hand=16[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Telepath Psychic Energy,Alakazam,Psyduck,Poké Pad,Lana’s Aid,Kadabra,Dudunsparce] deck=21 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[0] cards_needed=7 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Fezandipiti ex(140) 210/210
+step 85 turn10 | you_prizes=5 opp_prizes=5 | hand=15[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Psyduck,Poké Pad,Lana’s Aid,Kadabra,Dudunsparce] deck=21 | my_active=Fezandipiti ex(140) 210/210 E=[5] opp_active=Alakazam(743) 140/140 E=[0] cards_needed=7 | RETREAT: RETREAT (target chosen in next select)
+step 88 turn10 | you_prizes=5 opp_prizes=5 | hand=15[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Psyduck,Poké Pad,Lana’s Aid,Kadabra,Dudunsparce] deck=21 | my_active=Alakazam(743) 140/140 E=[5] opp_active=Alakazam(743) 140/140 E=[0] cards_needed=7 | ATTACK: 1072
+step101 turn12 | you_prizes=4 opp_prizes=4 | hand=17[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Hilda,Alakazam,Psyduck,Poké Pad,Lana’s Aid,Kadabra,Dudunsparce,Telepath Psychic Energy,Poké Pad] deck=20 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Hilda(1225)
+step103 turn12 | you_prizes=4 opp_prizes=4 | hand=17[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Alakazam,Psyduck,Poké Pad,Lana’s Aid,Kadabra,Dudunsparce,Telepath Psychic Energy,Poké Pad,Dudunsparce] deck=19 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Kadabra(742) BENCH[0]:Abra(741) 50/50 E=[5]
+step105 turn12 | you_prizes=4 opp_prizes=4 | hand=18[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Alakazam,Psyduck,Poké Pad,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Poké Pad,Dudunsparce,Genesect,Dunsparce] deck=17 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Poké Pad(1152)
+step107 turn12 | you_prizes=4 opp_prizes=4 | hand=18[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Poké Pad,Dudunsparce,Genesect,Dunsparce,Kadabra] deck=16 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Poké Pad(1152)
+step108 turn12 | you_prizes=4 opp_prizes=4 | hand=17[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Kadabra] deck=16 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Kadabra(742) BENCH[1]:Abra(741) 50/50
+step110 turn12 | you_prizes=4 opp_prizes=4 | hand=18[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Dudunsparce,Enriching Energy,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy] deck=14 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Dudunsparce(66) BENCH[2]:Dunsparce(305) 70/70
+step111 turn12 | you_prizes=4 opp_prizes=4 | hand=17[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Enriching Energy,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy] deck=14 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ATTACH: Enriching Energy(13) BENCH[2]:Dudunsparce(66) 140/140
+step112 turn12 | you_prizes=4 opp_prizes=4 | hand=20[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy,Buddy-Buddy Poffin,Handheld Fan,Poké Pad,Buddy-Buddy Poffin] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Buddy-Buddy Poffin(1086)
+step113 turn12 | you_prizes=4 opp_prizes=4 | hand=19[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy,Handheld Fan,Poké Pad,Buddy-Buddy Poffin] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Buddy-Buddy Poffin(1086)
+step114 turn12 | you_prizes=4 opp_prizes=4 | hand=18[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy,Handheld Fan,Poké Pad] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Poké Pad(1152)
+step115 turn12 | you_prizes=4 opp_prizes=4 | hand=17[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Dudunsparce,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy,Handheld Fan] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Dudunsparce(66) BENCH[3]:Dunsparce(305) 70/70
+step116 turn12 | you_prizes=4 opp_prizes=4 | hand=16[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Genesect,Dunsparce,Dawn,Rare Candy,Handheld Fan] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Genesect(142)
+step117 turn12 | you_prizes=4 opp_prizes=4 | hand=15[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dunsparce,Dawn,Rare Candy,Handheld Fan] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ATTACH: Handheld Fan(1161) BENCH[4]:Genesect(142) 110/110
+step118 turn12 | you_prizes=4 opp_prizes=4 | hand=14[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dunsparce,Dawn,Rare Candy] deck=10 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ABILITY:  ACTIVE:Fezandipiti ex(140) 210/210
+step119 turn12 | you_prizes=4 opp_prizes=4 | hand=17[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dunsparce,Dawn,Rare Candy,Dawn,Dawn,Sacred Ash] deck=7 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Sacred Ash(1129)
+step121 turn12 | you_prizes=4 opp_prizes=4 | hand=16[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dunsparce,Dawn,Rare Candy,Dawn,Dawn] deck=12 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ABILITY:  BENCH[2]:Dudunsparce(66) 140/140 E=[0]
+step122 turn12 | you_prizes=4 opp_prizes=4 | hand=19[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra] deck=12 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Dunsparce(305)
+step123 turn12 | you_prizes=4 opp_prizes=4 | hand=18[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra] deck=12 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ABILITY:  BENCH[2]:Dudunsparce(66) 140/140
+step124 turn12 | you_prizes=4 opp_prizes=4 | hand=21[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra,Boss’s Orders,Abra,Dunsparce] deck=11 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Abra(741)
+step125 turn12 | you_prizes=4 opp_prizes=4 | hand=20[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra,Boss’s Orders,Dunsparce] deck=11 | my_active=Fezandipiti ex(140) 210/210 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | END: END TURN
+step131 turn14 | you_prizes=4 opp_prizes=2 | hand=21[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Alakazam,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra,Boss’s Orders,Dunsparce,Rare Candy] deck=10 | my_active=Kadabra(742) 80/80 E=[5] opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80 E=[5]
+step133 turn14 | you_prizes=4 opp_prizes=2 | hand=23[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra,Boss’s Orders,Dunsparce,Rare Candy,Poké Pad,Dudunsparce,Alakazam] deck=7 | my_active=Alakazam(743) 140/140 E=[5] opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | ATTACK: 1072
+step143 turn16 | you_prizes=3 opp_prizes=1 | hand=25[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Alakazam,Kadabra,Boss’s Orders,Dunsparce,Rare Candy,Poké Pad,Dudunsparce,Alakazam,Basic {P} Energy,Dudunsparce] deck=6 | my_active=Kadabra(742) 80/80 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | EVOLVE: Alakazam(743) ACTIVE:Kadabra(742) 80/80
+step145 turn16 | you_prizes=3 opp_prizes=1 | hand=27[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Boss’s Orders,Shaymin,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Kadabra,Boss’s Orders,Dunsparce,Rare Candy,Poké Pad,Dudunsparce,Alakazam,Basic {P} Energy,Dudunsparce,Dawn,Dunsparce,Enriching Energy] deck=3 | my_active=Alakazam(743) 140/140 opp_active=Alakazam(743) 140/140 E=[5] cards_needed=7 | PLAY: Boss’s Orders(1182)
+step147 turn16 | you_prizes=3 opp_prizes=1 | hand=26[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Shaymin,Psyduck,Lana’s Aid,Telepath Psychic Energy,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Kadabra,Boss’s Orders,Dunsparce,Rare Candy,Poké Pad,Dudunsparce,Alakazam,Basic {P} Energy,Dudunsparce,Dawn,Dunsparce,Enriching Energy] deck=3 | my_active=Alakazam(743) 140/140 opp_active=Dudunsparce(66) 140/140 cards_needed=7 | ATTACH: Telepath Psychic Energy(19) ACTIVE:Alakazam(743) 140/140
+step148 turn16 | you_prizes=3 opp_prizes=1 | hand=25[Wondrous Patch,Battle Cage,Battle Cage,Battle Cage,Shaymin,Psyduck,Lana’s Aid,Dudunsparce,Dawn,Rare Candy,Dawn,Dawn,Hilda,Kadabra,Boss’s Orders,Dunsparce,Rare Candy,Poké Pad,Dudunsparce,Alakazam,Basic {P} Energy,Dudunsparce,Dawn,Dunsparce,Enriching Energy] deck=3 | my_active=Alakazam(743) 140/140 E=[5] opp_active=Dudunsparce(66) 140/140 cards_needed=7 | ATTACK: 1072
 
---- FLAGS ---
-Timeouts/empty-or-OOB actions: 75
-  step4: stype=1 n_opts=2 
-  step7: stype=1 n_opts=1 
-  step8: stype=1 n_opts=1 
-  step9: stype=1 n_opts=1 
-  step14: stype=0 n_opts=3 
-  step15: stype=0 n_opts=3 
-  step16: stype=0 n_opts=3 
-  step22: stype=0 n_opts=3 
-  step23: stype=0 n_opts=3 
-  step24: stype=0 n_opts=3 
-  step25: stype=0 n_opts=3 
-  step26: stype=0 n_opts=3 
-  step27: stype=0 n_opts=3 
-  step28: stype=0 n_opts=3 
-  step29: stype=0 n_opts=3 
-  step34: stype=1 n_opts=6 
-  step35: stype=1 n_opts=6 
-  step36: stype=1 n_opts=6 
-  step37: stype=1 n_opts=6 
-  step38: stype=1 n_opts=6 
-Missed lethal attacks: 0
-Bad retreats (promoted non-attacker while ready Alakazam on bench): 0
-Wasted/preemptive Psychic energy attaches: 0
-Boss's Orders plays: 1
-  step145: prizes you=3 opp=1 | opp_active_was=Alakazam(743) 140/140 | gusted_target=Dudunsparce(66) 140/140
-
-Final state check (last few steps):
-  step148: you=Alakazam(743) 140/140 prizes=3 deck=3 | opp=NONE prizes=1 deck=8
-  step149: you=Alakazam(743) 140/140 prizes=3 deck=3 | opp=NONE prizes=1 deck=8
-  step150: you=Alakazam(743) 140/140 prizes=3 deck=3 | opp=NONE prizes=1 deck=8
-  step151: you=Alakazam(743) 140/140 prizes=3 deck=3 | opp=NONE prizes=1 deck=8
-  step152: you=Alakazam(743) 140/140 prizes=3 deck=3 | opp=NONE prizes=1 deck=8
-  step153: you=Alakazam(743) 140/140 prizes=3 deck=3 | opp=NONE prizes=1 deck=8
+--- Final state check (last few steps) ---
+  step148: you=Alakazam(743) 140/140 E=[5] prizes=3 deck=3 | opp=NONE prizes=1 deck=8
+  step149: you=Alakazam(743) 140/140 E=[5] prizes=3 deck=3 | opp=NONE prizes=1 deck=8
+  step150: you=Alakazam(743) 140/140 E=[5] prizes=3 deck=3 | opp=NONE prizes=1 deck=8
+  step151: you=Alakazam(743) 140/140 E=[5] prizes=3 deck=3 | opp=NONE prizes=1 deck=8
+  step152: you=Alakazam(743) 140/140 E=[5] prizes=3 deck=3 | opp=NONE prizes=1 deck=8
+  step153: you=Alakazam(743) 140/140 E=[5] prizes=3 deck=3 | opp=NONE prizes=1 deck=8

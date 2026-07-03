@@ -6,7 +6,7 @@ meta lists, TCGplayer/Cardsrealm/Deltia guides) and cross-checked against our ow
 ladder replay losses. Section 13 maps every principle to the `main.py` heuristic
 that encodes it, and flags the gaps.*
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-03
 
 ---
 
@@ -326,16 +326,31 @@ data; the win comes from piloting it better.**
 | Deck-out brakes (§10) | `deck_critical`/`deck_danger` floors; Sacred Ash 35/25 | ✅ |
 | Free a stranded Active (§8,10) | `active_immobile` → energy-to-Active = 55/65, energy cards only | ✅ (v16-v18) |
 | Energy routing (§8) | Psychic→Alakazam, Enriching→Dudunsparce | ✅ |
-| Manual evolve > Rare Candy (§3) | evolve scores ≥ candy when not racing | ⚠️ approximate |
+| Manual evolve > Rare Candy (§3) | `racing_for_alakazam` gate: Candy wins only when behind-and-hurt or opponent ≤2 prizes, else manual evolve wins | ✅ fixed 2026-07-03 |
 | Battle Cage / Shaymin vs spread (§5,11) | reactive scoring on `bench_dmg_received` | ✅ |
 | Enhanced Hammer vs Mist/Rocky (§2,11) | `opp_mist` → 45 | ✅ |
 | Never promote Abra/Kadabra (§5) | `_pick_bench_target` Abra/Kadabra ≤ 3 | ✅ |
 | **Iono play-around (§9)** | — | ❌ gap (needs deck modelling) |
 | **Threshold vs overfill nuance (§4)** | coarse (`hand_surplus` is binary) | ⚠️ partial |
 | **Prize-selection engine stall (v18)** | `_resolve_stalled_or` rotation hedge | ⚠️ unconfirmed root cause |
+| Ability-prompt (stype==9) deck-out (v25) | declines when `deck_count<5` and `hand_n>=cards_needed+3` | ✅ fixed 2026-07-03 |
+| Retreat out of stuck Kadabra active (v25) | `KADABRA` added to `NON_ATTACKER_IDS` | ✅ fixed 2026-07-03 |
+| Wondrous Patch energy-recipient targeting (v25) | `_score_wondrous_patch_target`, routed via `sel['effect']['id']==WONDROUS_PATCH` | ✅ fixed 2026-07-03 |
+| Enriching draw-4 deck-out risk (v25) | `if deck_critical and not emergency_draw: return -6.0` in the ATTACH branch | ✅ fixed 2026-07-03 |
 
 The remaining true gaps — Iono play-around and fine-grained threshold/overfill — are
-exactly the spots a learned policy should later beat the rules. The prize-selection
-stall (v18) is a different kind of gap: a reproducible engine-adjacent freeze,
-identified by prize-value cross-checking across multiple replays, that our own
-selection logic looks correct for — hedged defensively rather than root-caused.
+exactly the spots a learned policy should later beat the rules. **Calibration:** Iono
+rotated out of the current Standard format (the reason Alakazam became viable at all —
+confirmed via web research 2026-07-03); the remaining hand-disruption threat is Unfair
+Stamp, already blanked by Genesect, so §9 is lower priority than its prominence here
+suggests. The prize-selection stall (v18) is a different kind of gap: a reproducible
+engine-adjacent freeze, identified by prize-value cross-checking across multiple
+replays, that our own selection logic looks correct for — hedged defensively rather
+than root-caused. Fresh, recurring evidence 2026-07-03 (rebuilt
+`tools/analyze_replay.py`): **2 of the first 3** `OTHER`-triaged losses spot-checked
+(`83166796`, `83168738`) show the same pattern — a healthy full-HP board, opponent
+having taken only 2-4 of their 6 prizes, the game stalling in `INACTIVE` for 7-14
+steps, then an abrupt `DONE` loss with an empty action. Still unconfirmed root cause
+(looks engine-side), and the remaining ~11 `OTHER` losses are unread — this needs a
+dedicated triage pass (stall detector + full read-through) before it can be closed;
+see `docs/report-log.md` 2026-07-03.

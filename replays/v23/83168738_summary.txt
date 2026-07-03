@@ -1,55 +1,26 @@
 === 83168738.json ===
-Opponent: Thazzeus | Result: LOSS | Total steps: 90
+Opponent: Thazzeus | Result: LOSS | Terminal cause: OTHER | Total steps: 90
 
---- Decision log (17 main-phase actions) ---
-  step  7 | you_prizes=6 opp_prizes=6 | PLAY: Dunsparce(305)
-  step  8 | you_prizes=6 opp_prizes=6 | PLAY: Battle Cage(1264)
-  step  9 | you_prizes=6 opp_prizes=6 | ATTACH: Handheld Fan(1161) ACTIVE:Shaymin(343) 80/80
-  step 10 | you_prizes=6 opp_prizes=6 | END: END TURN
-  step 28 | you_prizes=6 opp_prizes=5 | EVOLVE: Dudunsparce(66) ACTIVE:Dunsparce(305) 70/70
-  step 29 | you_prizes=6 opp_prizes=5 | PLAY: Boss�s Orders(1182)
-  step 31 | you_prizes=6 opp_prizes=5 | PLAY: Sacred Ash(1129)
-  step 33 | you_prizes=6 opp_prizes=5 | END: END TURN
-  step 44 | you_prizes=6 opp_prizes=5 | PLAY: Pok� Pad(1152)
-  step 46 | you_prizes=6 opp_prizes=5 | PLAY: Abra(741)
-  step 47 | you_prizes=6 opp_prizes=5 | ABILITY: ACTIVE:Dudunsparce(66) 140/140
-  step 49 | you_prizes=6 opp_prizes=5 | PLAY: Hilda(1225)
-  step 52 | you_prizes=6 opp_prizes=5 | ATTACH: Basic {P} Energy(5) ACTIVE:Abra(741) 50/50
-  step 53 | you_prizes=6 opp_prizes=5 | PLAY: Genesect(142)
-  step 54 | you_prizes=6 opp_prizes=5 | END: END TURN
-  step 73 | you_prizes=6 opp_prizes=4 | PLAY: Boss�s Orders(1182)
-  step 75 | you_prizes=6 opp_prizes=4 | END: END TURN
+--- Decision log (31 real decisions) ---
+step  7 turn1 | you_prizes=6 opp_prizes=6 | hand=11[Alakazam,Alakazam,Handheld Fan,Basic {P} Energy,Dudunsparce,Boss’s Orders,Sacred Ash,Kadabra,Battle Cage,Telepath Psychic Energy,Dunsparce] deck=42 | my_active=Shaymin(343) 80/80 opp_active=Riolu(677) 80/80 cards_needed=4 | PLAY: Dunsparce(305)
+step  8 turn1 | you_prizes=6 opp_prizes=6 | hand=10[Alakazam,Alakazam,Handheld Fan,Basic {P} Energy,Dudunsparce,Boss’s Orders,Sacred Ash,Kadabra,Battle Cage,Telepath Psychic Energy] deck=42 | my_active=Shaymin(343) 80/80 opp_active=Riolu(677) 80/80 cards_needed=4 | PLAY: Battle Cage(1264)
+step  9 turn1 | you_prizes=6 opp_prizes=6 | hand=9[Alakazam,Alakazam,Handheld Fan,Basic {P} Energy,Dudunsparce,Boss’s Orders,Sacred Ash,Kadabra,Telepath Psychic Energy] deck=42 | my_active=Shaymin(343) 80/80 opp_active=Riolu(677) 80/80 cards_needed=4 | ATTACH: Handheld Fan(1161) ACTIVE:Shaymin(343) 80/80
+step 10 turn1 | you_prizes=6 opp_prizes=6 | hand=8[Alakazam,Alakazam,Basic {P} Energy,Dudunsparce,Boss’s Orders,Sacred Ash,Kadabra,Telepath Psychic Energy] deck=42 | my_active=Shaymin(343) 80/80 opp_active=Riolu(677) 80/80 cards_needed=4 | END: END TURN
+step 28 turn3 | you_prizes=6 opp_prizes=5 | hand=9[Alakazam,Alakazam,Basic {P} Energy,Dudunsparce,Boss’s Orders,Sacred Ash,Kadabra,Telepath Psychic Energy,Boss’s Orders] deck=41 | my_active=Dunsparce(305) 70/70 opp_active=Solrock(676) 110/110 cards_needed=6 | EVOLVE: Dudunsparce(66) ACTIVE:Dunsparce(305) 70/70
+step 29 turn3 | you_prizes=6 opp_prizes=5 | hand=8[Alakazam,Alakazam,Basic {P} Energy,Boss’s Orders,Sacred Ash,Kadabra,Telepath Psychic Energy,Boss’s Orders] deck=41 | my_active=Dudunsparce(66) 140/140 opp_active=Solrock(676) 110/110 cards_needed=6 | PLAY: Boss’s Orders(1182)
+step 31 turn3 | you_prizes=6 opp_prizes=5 | hand=7[Alakazam,Alakazam,Basic {P} Energy,Sacred Ash,Kadabra,Telepath Psychic Energy,Boss’s Orders] deck=41 | my_active=Dudunsparce(66) 140/140 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | PLAY: Sacred Ash(1129)
+step 33 turn3 | you_prizes=6 opp_prizes=5 | hand=6[Alakazam,Alakazam,Basic {P} Energy,Kadabra,Telepath Psychic Energy,Boss’s Orders] deck=42 | my_active=Dudunsparce(66) 140/140 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | END: END TURN
+step 44 turn5 | you_prizes=6 opp_prizes=5 | hand=7[Alakazam,Alakazam,Basic {P} Energy,Kadabra,Telepath Psychic Energy,Boss’s Orders,Poké Pad] deck=41 | my_active=Dudunsparce(66) 140/140 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | PLAY: Poké Pad(1152)
+step 46 turn5 | you_prizes=6 opp_prizes=5 | hand=7[Alakazam,Alakazam,Basic {P} Energy,Kadabra,Telepath Psychic Energy,Boss’s Orders,Abra] deck=40 | my_active=Dudunsparce(66) 140/140 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | PLAY: Abra(741)
+step 47 turn5 | you_prizes=6 opp_prizes=5 | hand=6[Alakazam,Alakazam,Basic {P} Energy,Kadabra,Telepath Psychic Energy,Boss’s Orders] deck=40 | my_active=Dudunsparce(66) 140/140 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | ABILITY:  ACTIVE:Dudunsparce(66) 140/140
+step 49 turn5 | you_prizes=6 opp_prizes=5 | hand=9[Alakazam,Alakazam,Basic {P} Energy,Kadabra,Telepath Psychic Energy,Boss’s Orders,Telepath Psychic Energy,Hilda,Genesect] deck=39 | my_active=Abra(741) 50/50 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | PLAY: Hilda(1225)
+step 52 turn5 | you_prizes=6 opp_prizes=5 | hand=10[Alakazam,Alakazam,Basic {P} Energy,Kadabra,Telepath Psychic Energy,Boss’s Orders,Telepath Psychic Energy,Genesect,Alakazam,Telepath Psychic Energy] deck=37 | my_active=Abra(741) 50/50 opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | ATTACH: Basic {P} Energy(5) ACTIVE:Abra(741) 50/50
+step 53 turn5 | you_prizes=6 opp_prizes=5 | hand=9[Alakazam,Alakazam,Kadabra,Telepath Psychic Energy,Boss’s Orders,Telepath Psychic Energy,Genesect,Alakazam,Telepath Psychic Energy] deck=37 | my_active=Abra(741) 50/50 E=[5] opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | PLAY: Genesect(142)
+step 54 turn5 | you_prizes=6 opp_prizes=5 | hand=8[Alakazam,Alakazam,Kadabra,Telepath Psychic Energy,Boss’s Orders,Telepath Psychic Energy,Alakazam,Telepath Psychic Energy] deck=37 | my_active=Abra(741) 50/50 E=[5] opp_active=Lunatone(675) 110/110 E=[6] cards_needed=6 | END: END TURN
+step 73 turn7 | you_prizes=6 opp_prizes=4 | hand=9[Alakazam,Alakazam,Kadabra,Telepath Psychic Energy,Boss’s Orders,Telepath Psychic Energy,Alakazam,Telepath Psychic Energy,Boss’s Orders] deck=36 | my_active=Genesect(142) 110/110 opp_active=Mega Lucario ex(678) 340/340 E=[6] cards_needed=17 | PLAY: Boss’s Orders(1182)
+step 75 turn7 | you_prizes=6 opp_prizes=4 | hand=8[Alakazam,Alakazam,Kadabra,Telepath Psychic Energy,Telepath Psychic Energy,Alakazam,Telepath Psychic Energy,Boss’s Orders] deck=36 | my_active=Genesect(142) 110/110 opp_active=Solrock(676) 110/110 cards_needed=6 | END: END TURN
 
---- FLAGS ---
-Timeouts/empty-or-OOB actions: 57
-  step4: stype=1 n_opts=1 
-  step6: stype=8 n_opts=5 
-  step11: stype=0 n_opts=5 
-  step12: stype=0 n_opts=5 
-  step13: stype=0 n_opts=5 
-  step14: stype=0 n_opts=5 
-  step15: stype=0 n_opts=5 
-  step16: stype=0 n_opts=5 
-  step17: stype=0 n_opts=5 
-  step18: stype=0 n_opts=5 
-  step19: stype=0 n_opts=5 
-  step20: stype=0 n_opts=5 
-  step21: stype=0 n_opts=5 
-  step22: stype=0 n_opts=5 
-  step23: stype=0 n_opts=5 
-  step26: stype=1 n_opts=4 
-  step34: stype=0 n_opts=4 
-  step35: stype=0 n_opts=4 
-  step36: stype=0 n_opts=4 
-  step37: stype=0 n_opts=4 
-Missed lethal attacks: 0
-Bad retreats (promoted non-attacker while ready Alakazam on bench): 0
-Wasted/preemptive Psychic energy attaches: 0
-Boss's Orders plays: 2
-  step29: prizes you=6 opp=5 | opp_active_was=Solrock(676) 110/110 | gusted_target=Lunatone(675) 110/110
-  step73: prizes you=6 opp=4 | opp_active_was=Mega Lucario ex(678) 340/340 | gusted_target=Solrock(676) 110/110
-
-Final state check (last few steps):
+--- Final state check (last few steps) ---
   step84: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
   step85: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25
   step86: you=Genesect(142) 110/110 prizes=6 deck=36 | opp=Solrock(676) 110/110 prizes=4 deck=25

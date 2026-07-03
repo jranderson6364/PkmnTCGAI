@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03 (v25c Gauntlet baseline + BC re-collect; entries added 2026-07-02, see below)
 
 ---
 
@@ -42,6 +42,566 @@ material for these continuously, don't reconstruct later):
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-03 — BC retrain on v25c corpus + dagger_collect.py built
+
+**Hypothesis:** the BC corpus collected overnight (`bc_data_v25c*.pkl`, 579,169
+samples) can be retrained locally without a Kaggle GPU session, since
+`encode.py`/`model.py` were rebuilt cg-lib-free (see "RESTARTED" note in
+`docs/nn-training.md`); and DAgger's collector (`training/nn/dagger_collect.py`,
+previously just a TODO in the roadmap) is a small enough delta over
+`bc_collect.py` to build and smoke-test now rather than waiting.
+
+**Method:**
+- Timed the retrain before committing to a full run: single-shard
+  (114k-sample) load + 1 epoch took ~50s; loading all 5 v25c shards at once
+  (what the full run needs) peaked at ~24GB RSS (system has 39.6GB, so
+  workable but sizable — worth knowing before running anything else
+  memory-heavy in parallel). Extrapolated full 579k-sample/10-epoch retrain to
+  ~75-90 min CPU. Launched `python training/nn/train_bc.py --data
+  "training/bc_data_v25c*.pkl" --epochs 10 --out training/ptcg_bc_v2.pth`,
+  log at `training/overnight_logs/bc_retrain_v2.log`.
+- Built `training/nn/dagger_collect.py`: mirrors `bc_collect.py`'s
+  shard/writer structure exactly, but both seats are piloted by
+  `selfplay_agent.py` (temperature-sampled net, for exploration) instead of
+  the heuristic, and every recorded decision is *relabeled* with
+  `main.score_options(obs, sel)`'s argmax rather than the action the net
+  actually took — the core DAgger mechanism (train on the net's own state
+  distribution, but with teacher labels). Verified end-to-end against the
+  existing `ptcg_bc_v1.pth`: 4-game and 2-game smoke runs, 0 relabel errors,
+  and the resulting samples round-tripped cleanly through
+  `BCDataset`/`collate`/`PTCGNet.forward` with no shape errors.
+
+**Result:** Retrain finished — took ~106 min wall (longer than the ~75-90 min
+smoke-test extrapolation; CPU-time deltas confirmed steady, never-stalled
+compute throughout, so the gap is just real per-epoch cost at 579k samples ×
+10 epochs, not a hang). `training/ptcg_bc_v2.pth`, 10 epochs, val_top1_acc
+0.8397 → 0.8750 (epoch 8, best) → 0.8740 (epoch 9, saved). Real-game gates
+(`training/ab_test.py`, `NET_CKPT=training/ptcg_bc_v2.pth`, 100 games each,
+same recipe as the original `ptcg_bc_v1.pth` gate):
+- vs random: **86% (86W-14L, 0 errors)** — matches v1's 86% almost exactly.
+- vs v25c heuristic (the new, stronger teacher): **17% (17W-83L, 0 errors)** —
+  even lower than v1's 22% vs v22, consistent with v25c being a meaningfully
+  stronger teacher than v22 was (gElo 589 vs whatever v22 scored back then).
+  This is the expected BC-plateau/compounding-error signature the whole
+  DAgger stage exists to fix, not a red flag.
+
+`dagger_collect.py` (built earlier this session) is verified mechanically
+correct end-to-end but not yet run at scale.
+
+**Decision:** `ptcg_bc_v2.pth` is a healthy BC seed (clears the vs-random gate,
+plateaus vs teacher exactly as the architecture predicts) — proceed to DAgger
+round 1.
+
+**DAgger round 1 collection (same day, following this decision):** ran
+`python training/nn/dagger_collect.py --games 1000 --ckpt training/ptcg_bc_v2.pth
+--out training/dagger_data_r1.pkl` — 1000 net-piloted mirror games, 326,240
+samples (3 shards), 0 relabel errors, net_p0_winrate 0.502 (expected ~50% for
+a mirror match). Discovered `training/nn/dataset.py::load_shards` only took a
+single glob pattern, not a combinable list — added comma-separated pattern
+support (small, needed now and for every future DAgger round that pools
+multiple rounds' data) rather than routing around it.
+
+Retrained via `training/nn/train_sp.py` (built for exactly this: warm-start
+from a checkpoint + BC/SP mixed batches — DAgger-round data is the same
+`{obs, action, outcome}` schema as SP data, so it drops straight in as
+`--sp-data`), 40% BC / 60% DAgger-round mix (non-negotiable ratio per this
+file — SP-only collapsed the prior project's attempt 46%→20% vs teacher in 3
+iterations).
+
+**Infra snag, fixed:** the first two attempts at this retrain died silently
+with no error (Windows killed the process outright, no Python traceback
+possible) — root cause: `train_sp.py` loaded the FULL BC corpus (579k
+samples) AND the full DAgger corpus (326k samples) into RAM simultaneously,
+pushing free system memory to ~1.9GB out of 39.6GB. Since the training loop
+only resamples ~768k times with replacement from these pools anyway, a full
+corpus in RAM bought nothing but memory pressure. Added `--bc-limit`/
+`--sp-limit` to `train_sp.py` (mirrors `train_bc.py`'s existing `--limit`
+pattern) and reran with `--bc-limit 100000` (kept the full 326k-sample DAgger
+corpus, capped only the much-larger BC pool) — comfortably stable.
+
+**Result — round 1, first pass (3 epochs, lr 5e-5, `ptcg_dagger_r1.pth`):**
+vs random 85% (85W-15L, matches BC), vs v25c heuristic teacher **12%
+(12W-88L)** — nominally *worse* than plain BC's 17%, not better.
+
+**Diagnosis (per advisor consult before assuming a regression or spinning up
+round 2 blind):** 12% vs 17% at n=100 is not a statistically meaningful
+difference (~±7% CI on each, fully overlapping) — the honest read is "round 1
+moved nothing measurable," not "DAgger made it worse." The discriminating
+check: does the DAgger label (`argmax(main.score_options(obs,sel))`) actually
+agree with what `main.agent` (the real teacher we gate against) would pick on
+the same states? Sampled 3000 `dagger_data_r1.pkl` observations and compared
+— **96.8% agreement (2903/3000)**, with mismatches concentrated in select
+types `score_options` documents as flat/uniform-prior by design (bench
+placement etc.) — not a label bug. That points to **undertraining**, not bad
+labels: the fine-tune pass was only 6000 steps at lr 5e-5, roughly 1/40th the
+gradient work of the original 10-epoch BC warmup.
+
+**Decision:** retrain harder on the SAME round-1 data before collecting
+another (expensive) DAgger round — `--epochs 10 --steps-per-epoch 4000 --lr
+2e-4` (`training/ptcg_dagger_r1b.pth`, comparable total step count to the BC
+warmup), log at `training/overnight_logs/dagger_r1b_retrain.log`.
+
+**Infra snag #2, fixed at the root:** this retrain also died silently, twice,
+even with `--bc-limit`/`--sp-limit` caps in place (RSS ballooned to ~31GB
+regardless of how small the final capped sample count was — even a
+30k-sample cap reproduced it). Root cause, found via an isolated instrumented
+repro (`psutil`-tracked RSS every 200 training steps on a tiny 10k-sample
+set — training-loop RSS growth was modest and bounded, ruling out a
+per-step leak): `training/nn/dataset.py::load_shards` always read every
+glob-matched shard FULLY into memory first, and only *then* did the caller
+slice it down to the limit — so a "capped" load still momentarily
+materialized the entire ~579k+326k corpus (~37GB) before ever trimming it.
+Fixed `load_shards` to accept a `limit` param and stop reading further shards
+once enough samples are collected (shuffling shard READ ORDER for
+randomness, instead of shuffling samples after a full load — avoids ever
+needing the full corpus in memory). Verified: a 30k-sample capped load
+against the full 5-shard glob dropped from ~24GB peak to ~2GB. Also removed
+the now-redundant post-load shuffle+slice in `train_bc.py`/`train_sp.py`
+(dead code after routing the limit into `load_shards`) and their now-unused
+`random` imports.
+
+**Result — round 1, retrained hard (10 epochs, lr 2e-4, `ptcg_dagger_r1b.pth`,
+memory stable throughout, ~150 min wall — longer than estimated but steady
+CPU throughout, no stalls):** vs random 85% (matches BC/first attempt), vs
+v25c heuristic teacher **15% (15W-85L)** — statistically indistinguishable
+from BC's 17% and the first (undertrained) attempt's 12%. Heavy retraining
+did NOT move the win-rate gate.
+
+**Paranoia check (per advisor, given this session's infra gremlins):**
+confirmed `ptcg_bc_v2.pth` and `ptcg_dagger_r1b.pth` load as genuinely
+distinct model weights (max abs diff 0.144 on the card-embedding table) —
+the three near-identical win rates are not a silent-fallback bug.
+
+**The decisive measurement (per advisor — a 100-game win-rate physically
+cannot resolve what DAgger targets; measure teacher-agreement on FRESH
+deployment-realistic states instead of the training states):** collected 60
+argmax (temp≈0, matching real deployment) mirror games with
+`ptcg_dagger_r1b.pth` via `net_agent.py`, yielding 18,374 decision states
+never seen in training. Sampled 3000, compared `main.score_options` argmax
+(teacher) against both checkpoints' argmax on these SAME fresh states:
+- `ptcg_bc_v2.pth`: **74.9% agreement** (2246/3000)
+- `ptcg_dagger_r1b.pth`: **79.7% agreement** (2390/3000)
+
+**A real +4.8pp improvement.** DAgger round 1 IS working — it moved the
+metric it actually targets (fidelity on states the deployed net reaches).
+The flat 100-game win-rate gate was a resolution problem, not evidence of a
+broken pipeline: a single-decision accuracy gain compounds over ~150
+decisions/game, but converting that into a detectable head-to-head win-rate
+delta needs either more rounds (compounding the accuracy gain further) or a
+much larger n than 100 games to clear the ~±7% noise floor.
+
+**Decision:** per the advisor's stop-loss framing — imitation (BC/DAgger)
+asymptotes toward parity with the teacher (~50%), never above; that requires
+the later improvement-operator stages (AWR/search). The "50%+ vs teacher"
+ship gate is really "match the heuristic exactly on a hard single-prize
+combo deck," not a milestone DAgger breezes past, and each round costs
+~2.5h wall-clock. This round's finding (real fidelity gain, not yet
+detectable in win-rate) is itself report-worthy for the compounding-error
+narrative regardless of what happens next. Presented this tradeoff to the
+user directly (round 2 at lower temperature vs. banking the finding and
+moving on) — **user chose round 2.**
+
+**DAgger round 2 (same day, following user decision):** collecting at
+temperature 0.2 instead of round 1's 1.0 — the advisor's flagged-but-untested
+lever: round 1's temp-1.0 collection teaches the teacher's moves on
+near-random exploration states a temp≈0 deployed net rarely actually visits,
+which may be exactly what capped how much round 1's fidelity gain (74.9%→
+79.7%) transferred into win-rate. Piloted by `ptcg_dagger_r1b.pth` (the best
+checkpoint so far, not the original BC net) via `python
+training/nn/dagger_collect.py --games 1000 --ckpt training/ptcg_dagger_r1b.pth
+--temp 0.2 --out training/dagger_data_r2.pkl` — 1000 games, 314,081 samples,
+0 relabel errors, net_p0_winrate 0.535.
+
+Retrained on BC + round-1 + round-2 data combined (`--bc-data
+"training/bc_data_v25c*.pkl" --sp-data "training/dagger_data_r1*.pkl,
+training/dagger_data_r2*.pkl" --bc-limit 100000 --sp-limit 300000 --init
+training/ptcg_bc_v2.pth --epochs 10 --steps-per-epoch 4000 --lr 2e-4` — the
+comma-separated multi-pattern `load_shards` support added earlier this
+session made this a one-line change) → `training/ptcg_dagger_r2.pth`, ~130
+min wall, memory stable throughout (the root-cause fix holds under a bigger
+combined corpus too). Gated: 81% vs random, **16% vs teacher — still flat**,
+consistent with the same ~12-17% range every checkpoint has landed in.
+
+**Fidelity re-check (fresh states, collected via `ptcg_dagger_r2`-piloted
+argmax rollouts this time — same method as round 1's decisive check):**
+- `ptcg_bc_v2.pth`: 73.1% (2192/3000 — consistent with the earlier
+  measurement's 74.9% on a different fresh sample, as expected)
+- `ptcg_dagger_r1b.pth`: 81.1% (2433/3000)
+- `ptcg_dagger_r2.pth`: **81.9%** (2457/3000)
+
+**Round 1 gave a real ~8pp fidelity jump (BC→r1b); round 2 (lower
+temperature) added only +0.8pp on top (r1b→r2) — diminishing returns, not
+the hoped-for unlock.** The temperature lever helped a little but wasn't the
+dominant factor capping win-rate transfer; the fidelity curve looks like it's
+flattening near 80-82%, not accelerating. Two rounds of evidence now point
+the same direction: further DAgger rounds are unlikely to produce a large
+additional jump, and per the advisor's original framing, imitation learning
+asymptotes toward — never above — teacher parity regardless. This is a
+natural stopping point for the DAgger track rather than a case for a round 3
+on the same premise.
+
+**Report relevance:** Directly builds the win-rate-vs-teacher-across-stages
+figure (#3) — this is the BC anchor point the DAgger rounds will be compared
+against.
+
+---
+
+## 2026-07-03 — v25c ladder result, full Gauntlet baseline (top of table), BC re-collect on frozen deck
+
+**Hypothesis:** v25c's desperation-mode + lone-active-opportunity heuristics (see
+2026-07-02 entry below) should beat v25b both on the ladder and in the Gauntlet,
+and the frozen v23 deck means the stale old-deck BC corpus can finally be
+replaced with real v25c self-play data for Stage 1 (DAgger).
+
+**Method:** Ran two unattended overnight jobs, detached from the Claude session
+(Windows `Start-Process` + `.bat`, logs in `training/overnight_logs/`) so they'd
+survive the session ending:
+1. `python training/gauntlet.py --candidate main.py --name v25c --panel
+   random,lucario,abomasnow,starmie,v21,v22,v23 --games 200` (dragapult excluded
+   — it crashes 100% of local games, per the 2026-07-03 harness-bug entry below;
+   the anchor itself is still unfixed).
+2. `python training/bc_collect.py --games 2000 --out bc_data_v25c.pkl` — v25c
+   mirror self-play on the current frozen (v23) deck, replacing the old-deck
+   corpus flagged stale in `docs/nn-training.md` §Resume Here.
+
+**Result:**
+- User-reported ladder: v25c peaked ~900, settled ~880 (submission 54282648),
+  up from v25b's 861.8 publicScore.
+- Gauntlet: v25c gElo **589**, now top of the whole table (v25b 559, v24 516,
+  v23 499, v25 490, v22 479, v21 414). Record win rates: 98.5%/random,
+  96.0%/lucario, 97.0%/abomasnow, 96.5%/starmie, 68.5%/v21, 63.0%/v22, 63.0%/v23
+  — all 0 errors. The offline gElo gain (589 vs 559) points the same direction
+  as the realized ladder gain (880 vs 861.8): another offline/online calibration
+  data point for the report figure.
+- BC re-collect: 2000 self-play games, 579,169 samples (5 shards, ~3.1GB
+  uncompressed — larger/slower than the old `.pkl.gz` corpus since this run
+  wasn't gzipped; files moved from repo root to `training/bc_data_v25c*.pkl`
+  after the fact, script writes relative to cwd not to its own directory),
+  self-play win rate 0.551 (near-50% as expected for a mirror match). Total
+  wall time for both jobs: ~25 minutes, far under the 6h budget — done in one
+  session, not by morning as anticipated.
+
+**Decision:** Both feed direct next steps: fill the v25c gElo cell in
+`training/ladder_history.csv` (done) with this table; `training/bc_data_v25c*.pkl`
+is the new BC corpus to retrain the warmup net on (same recipe as `ptcg_bc_v1.pth`)
+before building `training/nn/dagger_collect.py` for Stage 1. Full 6-8h overnight
+window remains available for a heavier job (e.g. `weight_search.py` SPSA re-tune,
+or a bigger BC/DAgger pass) since this one finished in minutes.
+
+**Report relevance:** Gauntlet gElo vs. ladder Elo scatter (target figure #2);
+BC corpus is the input for the win-rate-vs-teacher-across-stages figure (#3)
+once DAgger exists.
+
+---
+
+## 2026-07-02 — Desperation phase, deck-search Alakazam-priority bug, Boss's Orders PHASE_CLOSING bug (v25.2)
+
+- **Hypothesis 1 (user-reported):** replay `83429870` — at 1-1 prizes (sudden
+  death), retreated a mist-walled Alakazam into a squishy Kadabra (80 HP)
+  instead of a 210-HP Fezandipiti ex on the bench; Kadabra got one-shot next
+  turn and we lost the game.
+- **Method:** traced the replay's final turns via raw JSON (`energyCards` id
+  11 = Mist Energy, confirmed attached to the opponent's Snorlax the entire
+  endgame). Confirmed the retreat destination picker (`_score_bench_target`)
+  scores purely by attack-readiness with no HP/survivability term.
+- **Result/decision:** per user direction, did NOT add HP-survivability
+  weighting to retreat targeting — even the tankiest bench option wouldn't
+  have survived the actual lethal hit, so out-surviving wasn't the real fix.
+  Instead added a `desperation` flag (opponent needs ≤1 more prize, or ≤2 with
+  one of our ex Pokémon exposed) that overrides the normal deck-out/threshold-
+  discipline guards: once desperate, keep drawing past the normal KO threshold
+  (Poffin/Dawn/Hilda/Poké Pad/Dudunsparce's Run Away Draw/Enriching all keep
+  firing), force `racing_for_alakazam` (Candy straight to Alakazam over the
+  slower manual climb), and stop declining draw abilities on the stype==9
+  "may use ability?" prompt. Boss's Orders targeting already preferred
+  highest-prize-value-among-KOable, so no change needed there for this case.
+- **Hypothesis 2 (user-reported):** replay `83458785` — Poké Pad fetched
+  Alakazam from the deck on turn 1 with zero Abra anywhere (play or hand).
+- **Method:** read `_score_deck_search`'s `card_score()` — used by every deck
+  search (Poké Pad, Dawn, Hilda, Lana's Aid, Sacred Ash).
+- **Result:** confirmed, and it's a real bug, not bad luck. Alakazam scored a
+  flat 95 (top priority) whenever `not has_alakazam`, with zero check for
+  whether an Abra/Kadabra existed anywhere to evolve it from — Abra itself
+  only scored 90. Fixed: Alakazam only keeps the 95 priority if a line piece
+  exists in play or hand (`have_line_piece`); otherwise it drops to 20, well
+  under Abra's 90.
+- **Hypothesis 3 (user-reported):** same replay, step 94 — ready to KO a
+  110/430-HP Mega Starmie ex (already damaged, best target on the opponent's
+  board) but instead played Boss's Orders and gusted in a fresh 70-HP Staryu
+  for a 1-prize KO, undoing our own damage progress.
+- **Method:** loaded `steps[93]` directly — confirmed our Alakazam had 0
+  energy that turn (`attack_available` False, so `can_ko`/`boss_target_exists`
+  were both False), and the only branch that could have fired was the
+  standalone `phase==PHASE_CLOSING: return 199.0` line, which had no target-
+  quality gate at all.
+- **Result:** confirmed. `PHASE_CLOSING` (opponent ≤2 prizes) gave Boss's
+  Orders a flat 199 regardless of whether a target existed or whether the
+  current active was already the best one to leave alone — directly violates
+  `docs/piloting-guide.md` §7's own rule ("Never Boss when you already have
+  lethal on the Active for the same prize count"). Folded the phase bump into
+  `boss_target_exists` (which already verifies a real, worthwhile bench target
+  and that we can act this turn) instead of firing unconditionally.
+- **Feature (user-requested, scoped down from full simulation):** added
+  `lone_active_opportunity` — a rough (not simulated) headroom estimate
+  (current hand + untapped Dudunsparce Run Away Draws + best unplayed
+  supporter + unattached Enriching) compared against the KO threshold, when
+  the opponent's bench is completely empty. When it clears the threshold,
+  same override behavior as `desperation` (stop banking draw sources, go for
+  the kill this turn) rather than reserving cards for a hypothetical future
+  hand-disruption effect.
+- **Open lead, not yet confirmed or fixed:** `main.py` has zero handling for
+  `sel['context']==42` (MULLIGAN per `docs/engine-api.md`) — one raw-JSON
+  example found it arrives as a `stype==9` YES/NO prompt, which currently
+  falls through to logic written entirely for the unrelated "may use ability?"
+  draw prompt (checks deck count / cards needed, not hand contents). Found
+  zero examples of OUR agent actually facing this prompt across the 6 replays
+  checked this session, so this is unconfirmed as a cause of any real loss —
+  but if it ever fires, the current code answers it with logic that has
+  nothing to do with "does this hand have a Basic Pokémon," which could
+  silently invert keep/mulligan. Needs a confirmed firing example before
+  writing a fix (same lesson as hypothesis 2 in the prior 07-03 entry: don't
+  guess at select semantics without a real replay showing them).
+- **Hypothesis 4 (user-reported):** replay `83461698` — turn 3, played Hilda
+  instead of Dawn with zero Abra anywhere (active was a non-attacker
+  Genesect, no bench); Hilda's search fetched an unplayable Alakazam.
+- **Method:** dumped the raw `sel['deck']`/`sel['option']` for both of
+  Hilda's search picks. `docs/piloting-guide.md` line 149 already documents
+  Dawn as "Basic + Stage 1 + Stage 2" vs Hilda's narrower pool.
+- **Result:** confirmed on two levels. (1) Hilda's search options in this
+  exact state were only {Alakazam, Kadabra, Dudunsparce} — Abra was never a
+  legal choice, confirming Hilda's pool structurally excludes Basics. (2) The
+  hypothesis-2 fix's `have_line_piece` check incorrectly counted a Kadabra
+  *card sitting in hand* as "having a line piece" — but a Kadabra in hand with
+  no Abra anywhere can't be played at all (it isn't a Basic, and Rare Candy
+  also needs a Basic already in play), so it's exactly as dead as an
+  Alakazam. Removed `kadabra_in_hand` from `have_line_piece`. Separately, Dawn
+  vs Hilda's flat ESTABLISH-phase weights (22 vs 24) don't know about this
+  context — Hilda's is tuned slightly higher and wins by default even when it
+  structurally can't fix the actual problem. Added `need_basic_abra` (no line
+  pieces in play, no Abra in hand) that drops Hilda to 3.0 in that state,
+  letting Dawn's unaffected 22 win instead.
+- **Hypothesis 5 (user-reported):** replay `83462350` — Boss's Orders gusted
+  a 340-HP Mega Lucario ex away for a 1-prize Solrock/Lunatone KO, "when we
+  could have done ~440 damage to the Lucario directly."
+- **Method:** replayed the exact game state (raw step 131, our side down to
+  a lone Abra + Dunsparce after our Alakazam line got repeatedly KO'd, 24-card
+  hand, deck at 11) through `score_options_main` directly, pre- and post-fix.
+- **Result:** same root cause as hypothesis 3, confirmed via direct replay
+  rather than inference this time — pre-fix this state hits the exact
+  unconditional `PHASE_CLOSING: 199.0` branch (active was Abra, so
+  `active_can_attack` was False and the 440-damage attack the user describes
+  was never actually available no matter what we played — Powerful Hand only
+  works from Alakazam). Post-fix, Boss's Orders scores 4.0 in this state, well
+  below Dawn/Poffin/Poké Pad's desperation-override 30.0. Rare Candy/manual
+  evolve weren't legal options here either (the Abra had `appearThisTurn` —
+  can't evolve the same turn it entered play), so this specific turn was
+  likely lost regardless once we were down to Abra+Dunsparce against a
+  repeat-KOing Lucario ex; the fix stops the wasted Boss's Orders play but
+  doesn't address the deeper pattern (see report relevance below).
+- **Report relevance:** five replay-verified correctness fixes (retreat
+  desperation logic, deck-search priority x2, Boss's Orders phase override,
+  Hilda-vs-Dawn context) plus one new scoped heuristic feature for the
+  heuristic-agent section; the mulligan gap is worth a mention in the "known
+  limitations" framing even unconfirmed, since paper-TCG mulligan handling is
+  a natural reviewer question for a heuristic Pokémon TCG agent. Also worth
+  flagging as a limitation: hypothesis 5's replay shows a "board-thinning"
+  pattern not fixed this session — ending up with only 1-2 Pokémon in play
+  and a bloated, mostly-dead hand after our attacker line gets repeatedly
+  KO'd by a hard-hitting opponent. Card-search/draw sequencing fixes can't
+  address this; it's a bench-development-under-pressure question (do we
+  over-invest in card advantage relative to board presence when facing a
+  attacker that keeps trading through our line?) worth a dedicated look.
+- **Shipped 2026-07-03 as v25c, submission `54282648`** (status PENDING at
+  ship time). See `docs/version-history.md` v25c entry and
+  `training/ladder_history.csv` for the ladder result once it converges.
+
+---
+
+## 2026-07-03 — v10 "fluke" check + full gauntlet baseline for v10/v25/v25b
+
+- **Hypothesis (user-reported):** Kaggle kernel `notebook9655c0145f` version 10
+  scored 680.7 on the ladder on 2026-06-24, a big same-day jump from version
+  9's 499.7 — was this a fluke (ladder noise) or a real strength jump?
+- **Method:** `kaggle kernels pull` 403'd on a specific historical version for
+  this kernel; `kaggle kernels output jander6364/notebook9655c0145f/10` worked
+  instead (fetches the notebook's saved `/kaggle/working` files — i.e. the
+  actual built `main.py`+`deck.csv` submission, not just source). Copied to
+  `training/baselines/v10_kaggle.py`, gauntleted 200 games/anchor. Also took
+  the opportunity to gauntlet the current `main.py` fresh (200/anchor, name
+  `v25b`) now that `training/harness.py::summarize()` is fixed.
+- **Result:** not a fluke, and not a strength outlier either — v10 is the
+  **weakest** agent in the whole gauntlet table (gElo 292, below v21's 402),
+  losing 22.5%/29.0%/25.0% to v21/v22/v23 while beating the simple sample bots
+  solidly (69-94.5%). The same-day jump has a mundane explanation sitting in
+  the pulled code's own docstring: "v6 critical fix: REMOVED false-positive
+  wall detection that was suppressing attacks against ALL Fighting/Colorless
+  decks" — v9 was very plausibly barely attacking at all; v10 fixed that. A
+  real bug fix producing a real jump, not ladder noise. Side note: the
+  project's internal `vN` docstring counter and Kaggle's autoincrementing
+  kernel "Version N" counter are two different numbering schemes that don't
+  correspond 1:1 (confirmed by diffing this pull against the notebook's
+  current/latest version, which is internally labeled "v6" despite being a
+  much later kernel version) — don't conflate them when reading old
+  submission history.
+- **Bonus finding:** `v25b`'s fresh gauntlet gElo is **551 — top of the whole
+  table**, above `v24` (507) for the first time offline, and the real ladder
+  score confirms the same direction: submission `54279766` (v25b) scored
+  **861.8**, up from `54277762`'s (v25) 732.0 and above v24's 698.1. First
+  time this session's fixes show a clear, non-noisy signal rather than a
+  within-CI wobble.
+- **Report relevance:** methodology note (kernel-version retrieval quirk,
+  internal-vs-platform version numbering mismatch) plus a genuinely positive
+  result for the heuristic-fixes section — worth leading with 861.8 over the
+  more equivocal local A/B percentages.
+
+---
+
+## 2026-07-03 — Mist-wall retreat + Candy-racing fixes; Dragapult ties were a harness bug, not the game (v25b)
+
+- **Hypothesis 1 (user-reported):** watching the first v25 replay live, a fully
+  fueled, full-HP Alakazam retreated into a Kadabra with no attack available —
+  looked like a bad heuristic call.
+- **Method:** traced replay `83429870.json` turn 20 by hand (raw step/option
+  indexing — the option list an action applies to is `steps[i-1]`, not
+  `steps[i]`, easy to get off-by-one on). Reproduced the exact game state
+  through `score_options_main` directly.
+- **Result:** confirmed. `main.py`'s RETREAT scoring had `if opp_mist and
+  active_is_alak: return 9.0` — an unconditional bonus for retreating Alakazam
+  whenever the opponent's active carries Mist/Rocky Energy, with no check for
+  whether we actually had Hammer/Boss in hand to exploit the escape, or any
+  better bench target to promote into. In this deck (single-attacker,
+  Genesect/Fez/Dudunsparce are all non-attackers), retreating a mist-walled
+  Alakazam never helps — Hammer and Boss both target the *opponent's* side and
+  work regardless of who's active, and re-promoting Alakazam later costs a
+  second wasted retreat. Removed the branch; falls through to the existing
+  `active_can_attack: return -2.0`, which discourages the retreat correctly.
+- **Hypothesis 2 (user-reported):** Boss's Orders skipped a lethal fueled
+  Trevenant to gust in a weak unevolved Pokémon "with no wall present."
+- **Method:** traced all 3 Boss's Orders plays in the same replay, checking
+  energy card IDs (not just displayed energy type — Mist Energy shows as
+  colorless type but carries card id 11).
+- **Result:** could not reproduce. All 3 plays targeted an active that
+  genuinely held Mist Energy (verified by id), so Powerful Hand was actually
+  blocked each time and Boss was the only legal way to progress; the bench
+  target chosen was the best legal one (highest-HP guaranteed KO among
+  non-walled targets). No fix applied — need a specific replay ID if this
+  shows up again, since the one available game doesn't support the report.
+- **Hypothesis 3 (user-reported):** Rare Candy is too slow to rush Alakazam
+  online early, costing free KOs on undeveloped opponent attackers.
+- **Method:** traced Candy timing in the same replay (no delay found — fired
+  the first legal turn both times) and read `racing_for_alakazam`'s gate.
+- **Result:** no bug in this replay, but a real, independent design gap: the
+  gate only fires on defense (`active_below_half`) or late phase — it has no
+  notion of "Candying now sets up a near-term KO," so it can't rush Alakazam
+  purely for tempo/damage reasons early game. Added `candy_lethal_soon`
+  (`active_abra_can_evolve and not has_alakazam and hand_n*20>=opp_hp and not
+  opp_mist`) as a third OR-branch.
+- **Hypothesis 4 (user-reported):** "there shouldn't be any way to tie a
+  game" — re: the 50/100-one-seat-direction Dragapult ties noted in
+  `CLAUDE.md` Outstanding Items.
+- **Method:** reproduced `opponents/dragapult_agent.py` directly via
+  `training/harness.py`, both seats, with `debug=True` to surface the
+  traceback instead of swallowing it.
+- **Result:** confirmed — and it's not the game. `dragapult_agent.py` (the
+  Kaggle sample bot used as a local gauntlet anchor) imports `cg.api` for
+  rich dataclasses; that library only exists in the Kaggle-hosted
+  `kiyotah/cg-lib` dataset, not locally. The `try/except Exception` fallback
+  stubs `AreaType`/`SelectContext`/`OptionType`/`CardType`/`LogType` but never
+  defines `Pokemon`, so `isinstance(card, Pokemon)` throws `NameError` almost
+  immediately — **100% of local games vs this anchor crash, in both seats.**
+  Separately, `training/harness.py::summarize()` only ever read
+  `rewards[0]` to classify win/loss/tie; when the crash landed in slot 0
+  (reward `None`), it fell through to the tie branch instead of recognizing
+  slot 1's reward of `1` as a win. Same event (opponent crash), miscounted
+  as a tie in one seat and correctly counted as a win in the other — exactly
+  the "ties in one seat direction" symptom. Fixed `summarize()` to check both
+  reward slots. Verified: post-fix, 20/20 games in both seat orders vs
+  `dragapult_agent.py` now correctly show `errors=0, ties=0`, 100% win.
+  `lucario`/`abomasnow`/`starmie` anchors do NOT have this crash (0/15 each
+  spot-checked) — this is specific to `dragapult_agent.py`. Left the anchor's
+  underlying crash unfixed (would require vendoring `cg/api.py` from the
+  Kaggle dataset — confirmed downloadable, plain ~26KB Python, not urgent);
+  flagging that the entire `dragapult` column in `gauntlet_results.csv`
+  across every prior version has never reflected real play, only "does the
+  sample bot crash."
+- **Decision:** shipped both `main.py` fixes as submission `54279766`. 400-game
+  A/B vs frozen v23: 53.0% ± 4.9% (up from 52.0% pre-fix, CIs overlap — not a
+  confident signal). Gauntlet gElo 767 (200 games/anchor, post-harness-fix):
+  below v24 (791), above v23 (753)/v22/v21.
+- **Report relevance:** two more replay-verified correctness fixes for the
+  heuristic-agent section, plus a methodology note worth keeping: a
+  measurement-harness bug can look exactly like a game-engine anomaly
+  ("impossible" ties) — always reproduce anchor crashes with `debug=True`
+  before trusting an aggregate stat.
+
+---
+
+## 2026-07-03 — Replay analyzer rebuild + confirmed deck-out root cause (v25)
+
+- **Hypothesis:** `tools/analyze_replay.py`'s existing flags (missed-lethal, bad
+  retreat, wasted energy) were reading 0 across all prior forensics passes because
+  the underlying leaks are in categories the predicates don't check — not because
+  the tool's decision extraction was wrong.
+- **Method:** Cross-checked the tool's output against raw replay JSON by hand for
+  two games. Found the tool never gates on each step's `status` field: the `select`
+  object echoes into the opponent's INACTIVE steps (where we correctly return
+  `[]`), and the tool read every echo as a fresh "timeout" — 28 phantom timeouts on
+  a 40-step game, 102 on a 169-step game. Rebuilt the decision extraction (real
+  decision = `steps[i-1][you].status=='ACTIVE'` + a `select`; action read from
+  `steps[i]` regardless of that step's own status), added a terminal-cause triage
+  classifier, and enriched each logged decision with hand/deck/active context.
+  Verified decision counts now equal true ACTIVE-select counts (8 and 63 on the
+  two spot-checked games, vs. 4 and 0-useful-signal before). Re-ran on all 17
+  banked loss replays (`replays/v22/`, `replays/v23/`) and triaged by terminal
+  cause before reading any turn-by-turn.
+- **Result:** Triage: 1 `NO_POKEMON_IN_PLAY`, 2 `DECK_OUT`, 14 `OTHER` (mostly
+  ordinary prize-race losses; one, `83166796`, is a suspected engine stall — see
+  below). Turn-by-turn read of `DECK_OUT` replay `83348630` found a confirmed,
+  fixable root cause: evolving a bench Kadabra into Alakazam triggers a separate
+  Yes/No "use this Ability?" prompt for Psychic Draw (select `stype==9`), and
+  `_choose`'s handler for it answered YES unconditionally — no deck-count check,
+  unlike every other draw source in `main.py`. It fired at deck=3 with hand
+  already at 17 (`cards_needed`=7) and a 5-2 prize lead, drew 3 more cards, and
+  emptied the deck the same turn — losing a game that was otherwise winning.
+- **Decision:** Shipped as v25: stype==9 now declines when `deck_count<5` and
+  `hand_n >= cards_needed+3`. Verified end-to-end by replaying the exact obs from
+  `83348630` step 160 through the patched `main._choose` directly (not just the
+  aggregate A/B, which is a null result — 52.2% ± 4.9% only shows the fix didn't
+  break the common case, it can't show the fix fires): confirmed `deck_count=3`,
+  `hand_n=16`, `cards_needed=7` (opp HP correctly populated, not the 99999
+  default) and the patched function returns `[1]` (NO), where the old code
+  returned `[0]` (YES) unconditionally. This prevents *one* deck-out path in that
+  game — a separate leak (sitting on non-attacking Dudunsparce with the Psychic
+  energy misrouted there instead of onto the developing Alakazam/Kadabra line,
+  so the `hand_surplus` stop-drawing gate's `ready_attacker_exists` precondition
+  never engaged) means 83348630 was mislost several ways, not fixed outright by
+  this change alone.
+- **Triage is incomplete — flag, don't overclaim:** of 17 banked losses, only 3
+  were read turn-by-turn (the confirmed `DECK_OUT` fix above, plus two spot
+  checks). Both spot checks (`83166796`, `83168738`) turned up the **same**
+  anomaly: healthy full-HP boards, opponent having taken only 2-4 of their 6
+  prizes, the game stalling in `INACTIVE` for 7-14 steps, then an abrupt `DONE`
+  loss with an empty action — i.e. **2 of the first 3 `OTHER`-bucketed losses
+  inspected are this stall, not a normal prize race.** This is fresh, recurring
+  evidence for the previously-unconfirmed "prize-selection engine stall" gap in
+  `docs/piloting-guide.md` §13, but with only 2 data points it's not yet
+  root-caused, and the remaining ~11 `OTHER` losses are still unread — the triage
+  classifier itself may be under-detecting this stall pattern (it only catches
+  `NO_POKEMON_IN_PLAY`/`DECK_OUT`/`PRIZED_OUT`==6, not "stalled with a healthy
+  board"). Next session: add a stall detector to the triage classifier (last N
+  steps have unchanged board state + empty/near-empty action) and read the
+  remaining `OTHER` games before considering the loss-mining pass complete.
+  `83344386` (`NO_POKEMON_IN_PLAY`) is a bad-opening-hand instant loss, consistent
+  with the already-documented mulligan gap; no new fix.
+- **Report relevance:** A concrete case study for the methods section on why
+  tooling correctness must be verified against ground truth before trusting its
+  output for analysis — the old tool's predicates looked like "no bugs found"
+  when the actual defect was in the tool's own event extraction. Also a clean
+  before/after pair (heuristic ceiling vs. DAgger teacher quality) for the
+  ablation table.
 
 ---
 
@@ -148,6 +708,105 @@ material for these continuously, don't reconstruct later):
   teacher labels), not more BC epochs.
 - **Report relevance:** This exact pair of numbers, plus the explanation of why
   they coexist, is the opening of the method section's failure→fix narrative.
+
+---
+
+## 2026-07-03 — Full retreat/energy/evolution logic audit (v25, second fix)
+
+- **Hypothesis:** requested directly — a systematic, player's-eye read through
+  every RETREAT/ATTACH/EVOLVE/ABILITY branch of `main.py`'s `score()` would turn
+  up additional bugs beyond the stype==9 deck-out fix already shipped today.
+- **Method:** Manual branch-by-branch read of `score()`, cross-checked against
+  `docs/piloting-guide.md` §4-10 and the real card text (`docs/EN_Card_Data.csv`).
+  Every hypothesis was checked against either replay evidence or a direct call
+  into the real scoring function on a constructed state — not left as code-
+  reading speculation.
+- **Result:** One confirmed, high-confidence bug: `KADABRA` was absent from
+  `NON_ATTACKER_IDS`, so a stuck Kadabra active (Super Psy Bolt is permanently
+  suppressed to -5 elsewhere in the same file, making Kadabra a de facto
+  non-attacker) fell through every retreat-priority tier. Verified directly:
+  constructing a Kadabra-active/fueled-bench-Alakazam state and calling
+  `score_options_main`, RETREAT scored 0.5 — *below* END TURN's 1.0 — before the
+  fix, and 22.0 (correctly dominant) after. Two more findings surfaced at lower
+  confidence, held for a decision rather than auto-fixed: (a) Wondrous Patch's
+  energy-recipient select is routed through `_score_bench_target`, whose
+  fuel-status tiebreak is correct for retreat/promotion but backwards for
+  "who should receive this energy" — confirmed reachable via replay (same
+  `area==5` option shape), not yet observed to misfire since the one instance
+  checked had no already-fueled candidate; (b) Enriching Energy attached to a
+  non-Dudunsparce support mon scores a mild +1.0 instead of a discouraging
+  score, inconsistent with the Alakazam case's -8.0 for an equally wasteful
+  attach.
+- **Decision:** Shipped the Kadabra fix (400-game A/B vs frozen v23: 53.2% ±
+  4.9%, CI includes parity as expected for a narrow-state fix, 0 errors, no
+  regression) bundled with the stype==9 fix — same v25, not yet on the ladder.
+  User said to keep auditing and fixing rather than pause for review; the two
+  follow-up findings got a second look before touching more code: the Enriching
+  "target preference" framing was wrong on closer reading (the draw-4 fires
+  regardless of target, so a support-mon attach is real value, not waste — the
+  actual bug was a *missing deck-safety gate*, fixed instead, and traced to a
+  real contributing factor in the other `DECK_OUT` replay, `83156504`: attach at
+  deck=5/hand=18 dropped the deck to 1 in one action). The Wondrous Patch fix
+  was verified feasible before writing it — checked the actual select object
+  across replays and found `effect.id==1146` cleanly distinguishes it from
+  plain retreat/promotion selects, so it's a clean dispatch branch, not a
+  design compromise. Both fixed, both verified against the real functions on
+  reconstructed/constructed failure states, both A/B-gated (0 errors each,
+  53.2% and 54.0%, both parity-range as expected for rare-state fixes). All
+  four v25 fixes now: stype==9 deck-out, Kadabra retreat, Wondrous Patch
+  targeting, Enriching deck-safety gate.
+- **Report relevance:** A second, cleaner instance of the same methodological
+  point as the first v25 entry (fix, then verify against the real function on
+  the real failure state — not just an aggregate A/B, which is often a null
+  result for narrow-state fixes). Also good ablation-table material: two
+  distinct, root-caused heuristic bugs found and fixed in one audit pass before
+  any DAgger data collection, directly raising the teacher's ceiling.
+
+**Follow-up same day — closed the evolution gap, caught two bugs in the fix
+itself by testing:** user asked to fix the manual-evolve-vs-Rare-Candy gap
+(`piloting-guide.md` §13's long-standing "⚠️ approximate") rather than leave it
+open. Added `racing_for_alakazam` (no Alakazam yet + (behind-and-hurt or
+opponent ≤2 prizes)) to gate the Candy-vs-manual scores. First draft was wrong
+twice, both caught by direct synthetic testing before trusting it: (1) reused
+`active_vulnerable`, whose `active_hp<60` absolute clause is always true for
+Abra (50 max HP) — made the gate a permanent no-op; switched to relative
+`active_below_half`. (2) included `emergency_draw` (hand≤4), spuriously true
+turn 1-2 before any drawing has happened — exactly when there's the *most* time
+to climb manually; dropped it. Final version verified correct on three
+synthetic states (neutral → manual, hurt-and-behind → Candy, opponent-closing →
+Candy). 400-game A/B vs frozen v23: 52.7% ± 4.9%, 0 errors. This is the
+methodological throughline for the whole day: every fix, including this one's
+own two false starts, was checked against the real scoring function on a
+concrete state before being trusted — code that "looks right" was wrong twice
+in a row here.
+- **Shipped 2026-07-03** — bundled all five `main.py` logic fixes with the other
+  agent's v23-deck revert into one Kaggle submission. See
+  `training/ladder_history.csv`.
+
+---
+
+## 2026-07-03 — v24 deck reverted to v23 on early ladder trend
+
+- **Hypothesis:** v24's deck swap (4th Alakazam + 4th Dunsparce in, Genesect +
+  Psyduck out) would hold or improve on v23's ladder rating, per the 200-game
+  local A/B (60.0% ± 6.8% favoring v24).
+- **Method:** Watched `training/ladder_history.csv`-tracked public Elo across
+  the first day of v24 live: 680 at ~7h, 780 at ~24h.
+- **Result:** User judgment call to revert to v23 now, ahead of the documented
+  48h/50-point decision-rule checkpoint (`CLAUDE.md` Outstanding Items #1).
+  Note for the record: v23 itself had decayed to 773 by its own day-2 reading,
+  so v24's 780-at-24h is not obviously a regression on an apples-to-apples
+  basis — the local A/B result favoring v24 stands unexplained by this data.
+  Reverted anyway per explicit user instruction.
+- **Decision:** `main.py`'s `DECK` list and `deck.csv` reverted to the v23
+  composition (3× Alakazam, 3× Dunsparce, Genesect + Psyduck back in). No
+  scoring-logic changes — v24's change was deck-list-only, so this is a clean
+  revert. Ship via Kaggle CLI as a new submission.
+- **Report relevance:** Honest negative/inconclusive result for the deck
+  simplification experiment — local A/B favored the change, live ladder data
+  was ambiguous, and the team chose to revert on a provisional read rather than
+  wait out the full evaluation window. Useful methodology-section material on
+  the tension between fast local A/B and slow, noisy ladder confirmation.
 
 ---
 

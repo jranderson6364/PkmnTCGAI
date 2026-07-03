@@ -5,7 +5,6 @@ Usage:
   python train_bc.py --data "../bc_data*.pkl.gz" --epochs 10 --out ptcg_bc.pth
 """
 import argparse
-import random
 import sys
 import os
 
@@ -50,10 +49,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}")
 
-    raw = load_shards(args.data)
-    random.Random(0).shuffle(raw)
-    if args.limit:
-        raw = raw[: args.limit]
+    raw = load_shards(args.data, limit=args.limit)
     print(f"loaded {len(raw)} samples")
 
     ds = BCDataset(raw)

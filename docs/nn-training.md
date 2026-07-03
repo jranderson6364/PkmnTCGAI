@@ -3,10 +3,18 @@
 *Running log of NN architecture, training status, and the phased roadmap for the
 learned-piloting agent (the 70%-weighted "model approach" axis).*
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 **Status:** RESTARTED. All prior training data was lost, but the engine now runs
 **fully locally** (`training/README.md`) — data collection no longer needs Kaggle
-or even the Vivobook (the Vivobook multiplies throughput). Teacher is v22.
+or even the Vivobook (the Vivobook multiplies throughput). Teacher is now v25c
+(was v22). `ptcg_bc_v2.pth` (frozen-deck BC retrain) is done and gated.
+DAgger rounds 1 and 2 are done: both work (fidelity 73%→81%→82% across BC→
+r1→r2) but win-rate vs teacher stayed flat (~12-17%) throughout, and round 2
+(testing a lower collection temperature) showed the fidelity gain itself
+diminishing (+8pp then +0.8pp) — two rounds of evidence that further DAgger
+rounds won't move the needle much more. **DAgger paused here**; `ptcg_dagger_r2.pth`
+is the best checkpoint but not ship-ready (needs Stage 2 AWR/search to exceed
+the teacher, not more imitation). See "Resume Here" below.
 
 ---
 
@@ -111,19 +119,98 @@ better-than-expected actions harder) → optionally MCTS expert iteration
 
 Concrete next steps, in order:
 
-0. **WAIT for the Stage 0 deck freeze** (`docs/competition-strategy.md`). Deck
-   changes invalidate teacher data — the existing `bc_data*.pkl.gz` /
-   `ptcg_bc_v1.pth` were collected on the old 60 and must be re-collected /
-   re-trained once the simplified deck is frozen. Cheap locally (~hours).
-1. **Re-run BC warmup on the frozen deck** — `python training/bc_collect.py
-   --games 2000`, retrain on Kaggle T4 (same recipe as `ptcg_bc_v1.pth`,
-   which hit 85.9% action match / 86% vs random / 22% vs teacher).
-2. **DAgger rounds (Stage 1).** New collector (`training/nn/dagger_collect.py`,
-   to build): the *net* pilots mirror games; at every decision, query
-   `main.score_options(obs, sel)` and record the teacher's argmax as the label.
-   Retrain on BC data + all DAgger rounds; iterate 2–3 rounds. This trains the
-   net exactly on the states it actually reaches — the direct cure for the
-   85.9%-action-match-but-22%-head-to-head compounding-error gap.
+0. ~~WAIT for the Stage 0 deck freeze~~ DONE — deck frozen at v23 (see
+   `CLAUDE.md` Deck Essentials); old-deck `bc_data*.pkl.gz` / `ptcg_bc_v1.pth`
+   superseded (kept for reference, no longer the active corpus/checkpoint).
+1. ~~Re-run BC warmup on the frozen deck~~ DONE 2026-07-03: `python
+   training/bc_collect.py --games 2000` on v25c → 2000 games, 579,169 samples,
+   `training/bc_data_v25c*.pkl` (5 shards, uncompressed, ~3.1GB — note for next
+   collection: gzip or `--out` with a `.gz` suffix keeps this smaller). Retrain
+   **runs locally now** (`encode.py`/`model.py` were rebuilt cg-lib-free per the
+   "RESTARTED" note above, no Kaggle GPU needed) — `python training/nn/train_bc.py
+   --data "training/bc_data_v25c*.pkl" --epochs 10 --out training/ptcg_bc_v2.pth`.
+   Took ~106 min wall (longer than the ~75-90 min smoke-test extrapolation, but
+   CPU-time deltas confirmed steady never-stalled compute throughout — just
+   real per-epoch cost at this sample count, not a hang; peak ~24GB RSS,
+   comfortably within this machine's 39.6GB). `training/ptcg_bc_v2.pth`,
+   val_top1_acc 0.8397 → 0.8750 (epoch 8, best) → 0.8740 (epoch 9, saved).
+   **Real-game gates** (`training/ab_test.py`, 100 games each): vs random
+   **86% (86W-14L)** — matches `ptcg_bc_v1.pth`'s 86% almost exactly; vs the
+   v25c heuristic teacher **17% (17W-83L)** — even below v1's 22% vs v22,
+   consistent with v25c (gElo 589) being meaningfully stronger than v22 was.
+   This is the expected BC-plateau/compounding-error signature, not a red
+   flag — it's the reason DAgger exists. See `docs/report-log.md` 2026-07-03
+   entry for full numbers.
+2. **DAgger rounds (Stage 1) — round 1 done: confirmed working, win-rate gate
+   just can't see it yet.** `training/nn/dagger_collect.py` — BUILT
+   2026-07-03: the *net* (`selfplay_agent.py`, temperature-sampled for
+   exploration) pilots mirror games; at every decision, `main.score_options(obs,
+   sel)`'s argmax is recorded as the label (not the net's own action) — same
+   shard/writer format as `bc_collect.py`. Round 1 collected: 1000 games,
+   `training/dagger_data_r1*.pkl`, 326,240 samples, 0 relabel errors.
+
+   Retrained via `training/nn/train_sp.py` (warm-start + BC/DAgger mixed
+   batches, 40/60 ratio). First pass (`ptcg_dagger_r1.pth`, 3 epochs/lr 5e-5)
+   gated at 12% vs teacher (nominally below BC's 17%, but not statistically
+   distinct at n=100) — diagnosed via a 96.8% label-agreement check as
+   undertraining, not bad labels. Retrained harder (`ptcg_dagger_r1b.pth`, 10
+   epochs, lr 2e-4, comparable total steps to the BC warmup) — gated at
+   **15% vs teacher, still statistically flat.**
+
+   **The decisive measurement (100-game win-rate can't resolve what DAgger
+   targets — per-decision fidelity, not aggregate outcome):** collected 60
+   fresh argmax/temp≈0 deployment-realistic games (not training states) and
+   compared BOTH checkpoints' argmax against the teacher's on the SAME 3000
+   sampled states: `ptcg_bc_v2.pth` **74.9%** agreement vs
+   `ptcg_dagger_r1b.pth` **79.7%** — a real +4.8pp gain. **DAgger round 1 IS
+   working**; the flat win-rate is a measurement-resolution problem (a
+   single-decision accuracy gain compounds over ~150 decisions/game, but
+   detecting that in head-to-head win-rate needs more rounds or a much
+   larger n than 100 to clear the ~±7% noise floor), not a broken pipeline.
+   Paranoia-checked first (per advisor, given this session's infra
+   gremlins): confirmed the two checkpoints load as genuinely distinct
+   weights (max abs diff 0.144), ruling out a silent-fallback bug.
+
+   **Infra bug found + fixed at the root (not just papered over):**
+   `--bc-limit`/`--sp-limit` alone didn't prevent the earlier OOM kills
+   because `training/nn/dataset.py::load_shards` always read every
+   glob-matched shard FULLY before any caller-side slicing — a "capped" load
+   still momentarily needed the entire ~37GB combined corpus in RAM. Fixed
+   `load_shards` to accept a `limit` param and stop reading shards once
+   enough samples accumulate (shuffles shard READ ORDER for randomness
+   instead of shuffling post-load). Verified: 30k-sample capped load against
+   the full 5-shard glob dropped from ~24GB peak to ~2GB. Removed the
+   now-redundant post-load shuffle+slice (and unused `random` imports) from
+   `train_bc.py`/`train_sp.py`.
+
+   **Round 2 — DONE, diminishing returns confirmed, DAgger track paused.**
+   User chose to spend a round 2 testing the temperature lever: collected
+   1000 games at temp 0.2 (vs round 1's 1.0) piloted by `ptcg_dagger_r1b.pth`
+   — `training/dagger_data_r2*.pkl`, 314,081 samples, 0 relabel errors.
+   Retrained on BC + round-1 + round-2 combined (the comma-separated
+   multi-pattern `load_shards` support added earlier made this trivial) →
+   `training/ptcg_dagger_r2.pth`. Gated: 81% vs random, **16% vs teacher —
+   still flat**, same ~12-17% range as every prior checkpoint.
+
+   Fresh-state fidelity re-check (same method as round 1, new rollout
+   states): `ptcg_bc_v2.pth` 73.1% → `ptcg_dagger_r1b.pth` 81.1% (round 1's
+   ~8pp jump, confirmed again on an independent sample) → `ptcg_dagger_r2.pth`
+   **81.9%** (round 2 added only +0.8pp). **The temperature lever helped a
+   little but wasn't the dominant factor — fidelity is flattening near
+   80-82%, not accelerating.** Two rounds of evidence now agree: further
+   DAgger rounds are unlikely to produce another large jump. Per the
+   advisor's original framing, imitation asymptotes toward — never above —
+   teacher parity regardless of rounds; this is a natural stopping point
+   for the DAgger track, not a case for a round 3 on the same premise.
+
+   **Status:** DAgger paused here. `ptcg_dagger_r2.pth` is the best net
+   checkpoint (81.9% teacher-fidelity on deployment states, still ~16%
+   head-to-head — not ship-ready, but the strongest evidence yet for the
+   report's compounding-error narrative: BC 73-75% fidelity / 12-17%
+   win-rate → DAgger 82% fidelity / still 12-17% win-rate shows *fidelity
+   gains alone don't linearly convert to win-rate* at this deck's difficulty,
+   a finding in itself). Advancing past ~50% vs teacher needs the Stage 2
+   improvement operator (AWR/search), not more imitation rounds.
    **Gate: ~50%+ vs the teacher (Gauntlet + 400-game A/B) → ship to ladder**
    (single forward pass, no timeout risk) and log its bracket results.
 3. **Advantage-weighted self-play (Stage 2).** `train_sp.py` gains per-sample

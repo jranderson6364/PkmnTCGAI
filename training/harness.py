@@ -95,10 +95,15 @@ def summarize(results, name0="A", name1="B"):
             err += 1
             continue
         total_wall += r["wall_s"]
-        r0 = r["rewards"][0]
-        if r0 == 1:
+        r0, r1 = r["rewards"][0], r["rewards"][1]
+        # A crashed agent gets reward None while its opponent gets 1 (kaggle_environments
+        # doesn't symmetrize this to -1/1) -- checking r0 alone silently miscounts those
+        # as ties whenever the crash lands in slot 0. Confirmed via opponents/dragapult_agent.py,
+        # which crashes on every local game (missing cg.api, Kaggle-dataset-only import) and
+        # was showing up as ~50% ties instead of the real ~100% win rate.
+        if r0 == 1 or r1 == -1:
             w += 1
-        elif r0 == -1:
+        elif r0 == -1 or r1 == 1:
             l += 1
         else:
             t += 1

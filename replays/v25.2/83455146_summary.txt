@@ -1,0 +1,22 @@
+=== 83455146.json ===
+Opponent: Praxel | Result: LOSS | Terminal cause: OTHER | Total steps: 49
+
+--- Decision log (20 real decisions) ---
+step  8 turn1 | you_prizes=6 opp_prizes=6 | hand=6[Sacred Ash,Basic {P} Energy,Dudunsparce,Rare Candy,Poké Pad,Shaymin] deck=46 | my_active=Dunsparce(305) 70/70 opp_active=Cinderace(666) 160/160 cards_needed=8 | PLAY: Poké Pad(1152)
+step 10 turn1 | you_prizes=6 opp_prizes=6 | hand=6[Sacred Ash,Basic {P} Energy,Dudunsparce,Rare Candy,Shaymin,Alakazam] deck=45 | my_active=Dunsparce(305) 70/70 opp_active=Cinderace(666) 160/160 cards_needed=8 | PLAY: Shaymin(343)
+step 11 turn1 | you_prizes=6 opp_prizes=6 | hand=5[Sacred Ash,Basic {P} Energy,Dudunsparce,Rare Candy,Alakazam] deck=45 | my_active=Dunsparce(305) 70/70 opp_active=Cinderace(666) 160/160 cards_needed=8 | END: END TURN
+step 22 turn3 | you_prizes=6 opp_prizes=6 | hand=6[Sacred Ash,Basic {P} Energy,Dudunsparce,Rare Candy,Alakazam,Boss’s Orders] deck=44 | my_active=Dunsparce(305) 20/70 opp_active=Cinderace(666) 160/160 E=[8] cards_needed=8 | EVOLVE: Dudunsparce(66) ACTIVE:Dunsparce(305) 20/70
+step 23 turn3 | you_prizes=6 opp_prizes=6 | hand=5[Sacred Ash,Basic {P} Energy,Rare Candy,Alakazam,Boss’s Orders] deck=44 | my_active=Dudunsparce(66) 90/140 opp_active=Cinderace(666) 160/160 E=[8] cards_needed=8 | ABILITY:  ACTIVE:Dudunsparce(66) 90/140
+step 25 turn3 | you_prizes=6 opp_prizes=6 | hand=8[Sacred Ash,Basic {P} Energy,Rare Candy,Alakazam,Boss’s Orders,Boss’s Orders,Dudunsparce,Kadabra] deck=43 | my_active=Shaymin(343) 80/80 opp_active=Cinderace(666) 160/160 E=[8] cards_needed=8 | PLAY: Boss’s Orders(1182)
+step 27 turn3 | you_prizes=6 opp_prizes=6 | hand=7[Sacred Ash,Basic {P} Energy,Rare Candy,Alakazam,Boss’s Orders,Dudunsparce,Kadabra] deck=43 | my_active=Shaymin(343) 80/80 opp_active=Duraludon(169) 130/130 E=[8, 8, 8] cards_needed=7 | END: END TURN
+step 37 turn5 | you_prizes=6 opp_prizes=5 | hand=8[Sacred Ash,Basic {P} Energy,Rare Candy,Alakazam,Boss’s Orders,Dudunsparce,Kadabra,Hilda] deck=42 | my_active=Psyduck(858) 70/70 opp_active=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] cards_needed=20 | PLAY: Hilda(1225)
+step 40 turn5 | you_prizes=6 opp_prizes=5 | hand=9[Sacred Ash,Basic {P} Energy,Rare Candy,Alakazam,Boss’s Orders,Dudunsparce,Kadabra,Alakazam,Telepath Psychic Energy] deck=40 | my_active=Psyduck(858) 70/70 opp_active=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] cards_needed=20 | PLAY: Sacred Ash(1129)
+step 42 turn5 | you_prizes=6 opp_prizes=5 | hand=8[Basic {P} Energy,Rare Candy,Alakazam,Boss’s Orders,Dudunsparce,Kadabra,Alakazam,Telepath Psychic Energy] deck=41 | my_active=Psyduck(858) 70/70 opp_active=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] cards_needed=20 | END: END TURN
+
+--- Final state check (last few steps) ---
+  step43: you=Psyduck(858) 70/70 prizes=6 deck=41 | opp=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] prizes=5 deck=39
+  step44: you=Psyduck(858) 70/70 prizes=6 deck=41 | opp=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] prizes=5 deck=39
+  step45: you=Psyduck(858) 70/70 prizes=6 deck=41 | opp=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] prizes=5 deck=39
+  step46: you=Psyduck(858) 70/70 prizes=6 deck=41 | opp=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] prizes=5 deck=39
+  step47: you=Psyduck(858) 70/70 prizes=6 deck=41 | opp=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] prizes=5 deck=39
+  step48: you=Psyduck(858) 70/70 prizes=6 deck=41 | opp=Archaludon ex(190) 400/400 E=[8, 8, 8, 8] prizes=5 deck=39

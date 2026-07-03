@@ -7,6 +7,7 @@ imitation warmup. n-step bootstrapped value targets (docs/nn-training.md
 import glob
 import gzip
 import pickle
+import random
 
 import torch
 from torch.utils.data import Dataset
@@ -18,16 +19,34 @@ def _opener(path):
     return gzip.open if path.endswith(".gz") else open
 
 
-def load_shards(pattern):
+def load_shards(pattern, limit=None):
     """pattern e.g. '/kaggle/input/**/bc_data*.pkl' (recursive — Kaggle's exact
-    mount subdirectory name can differ from the dataset slug)."""
-    paths = sorted(glob.glob(pattern, recursive=True))
+    mount subdirectory name can differ from the dataset slug). Comma-separate
+    multiple patterns to combine sources, e.g. BC + DAgger-round shards.
+
+    `limit`, if given, stops reading further shards once enough samples are
+    loaded — capping AFTER a full glob-matched load (e.g. slicing the return
+    value) still momentarily materializes every shard at once, which is what
+    actually exhausted RAM (~37GB transient peak) even with a small final
+    sample count; this avoids ever reading past the limit."""
+    paths = []
+    for part in pattern.split(","):
+        paths.extend(glob.glob(part.strip(), recursive=True))
+    paths = sorted(set(paths))
     if not paths:
         raise FileNotFoundError(f"no shards matched {pattern}")
+    if limit:
+        # shuffle which shards get read (not the samples within — that would
+        # need everything in memory first, the exact problem `limit` avoids)
+        random.Random(0).shuffle(paths)
     samples = []
     for p in paths:
         with _opener(p)(p, "rb") as f:
             samples.extend(pickle.load(f))
+        if limit and len(samples) >= limit:
+            break
+    if limit:
+        samples = samples[:limit]
     return samples
 
 

@@ -8,7 +8,6 @@ Usage:
 """
 import argparse
 import os
-import random
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -46,13 +45,18 @@ def main():
     ap.add_argument("--lr", type=float, default=5e-5)  # lower than BC warmup — fine-tuning
     ap.add_argument("--bc-frac", type=float, default=0.4)
     ap.add_argument("--steps-per-epoch", type=int, default=2000)
+    ap.add_argument("--bc-limit", type=int, default=None,
+                     help="cap BC raw samples loaded into RAM (each source is "
+                          "resampled with replacement anyway, so a large corpus "
+                          "gains nothing but memory pressure over a capped one)")
+    ap.add_argument("--sp-limit", type=int, default=None)
     args = ap.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device={device}")
 
-    bc_raw = load_shards(args.bc_data)
-    sp_raw = load_shards(args.sp_data)
+    bc_raw = load_shards(args.bc_data, limit=args.bc_limit)
+    sp_raw = load_shards(args.sp_data, limit=args.sp_limit)
     print(f"bc_samples={len(bc_raw)} sp_samples={len(sp_raw)}")
 
     loader = build_mixed_loader(bc_raw, sp_raw, args.batch_size, args.bc_frac)

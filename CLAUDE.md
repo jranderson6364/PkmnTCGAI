@@ -75,10 +75,46 @@ logged same-day in `docs/report-log.md`.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting
 agent is the only path; the heuristic is the ladder placeholder and DAgger teacher.
 
-**Current agent:** v24 (`main.py` + `deck.csv`) — v23 logic on the simplified deck
-(Psyduck/Genesect → 4th Alakazam + 4th Dunsparce; 60% ± 6.8% vs frozen v23 over
-200 games). Shipped 2026-07-02, rating pending; v23 sits at ladder public score
-796.3. See `docs/version-history.md`.
+**Current agent:** v25c (`main.py` + `deck.csv`, submission 54282648, shipped
+2026-07-03, user-reported ladder Elo peaked ~900, settled ~880; gauntlet gElo
+589, top of the whole table) — see the v25c paragraph below. Previously
+v25b — v23 deck (reverted from v24 on
+2026-07-03; v24's ladder reading (680) prompted a user call to revert ahead of
+the 48h decision checkpoint) + 5 heuristic logic fixes from a full retreat/
+energy/evolution audit (stype==9 deck-out, Kadabra retreat, Wondrous Patch
+targeting, Enriching deck-safety gate, manual-evolve-vs-Candy racing gate,
+shipped as submission 54277762) + 2 more replay-verified fixes: retreat
+scoring no longer force-retreats a fully-fueled Alakazam whenever the
+opponent has a Mist/Rock wall regardless of whether we can exploit it, and
+Rare Candy racing gained an offensive trigger (races to Alakazam when it sets
+up a near-term KO, not just when already in danger). Shipped 2026-07-03,
+submission 54279766, **publicScore 861.8** — up from v25's 732.0 and above
+v24's 698.1, and gauntlet gElo 551 (top of the whole table, first version to
+clear v24 offline too). Also fixed a `training/harness.py` scoring bug that
+miscounted opponent-crash games as ties in one seat direction (root cause of
+the "Dragapult ties" item below — not a game anomaly). See
+`docs/version-history.md` and `docs/report-log.md` 2026-07-03 entries for the
+full data and caveats.
+**v25c (shipped 2026-07-03, submission 54282648):** replay-verified fixes from
+5 fresh ladder losses — a `desperation` mode (opponent ≤1-2 prizes from
+winning) that overrides deck-out caution and forces racing to Alakazam
+instead of trying to out-survive a lethal hit; a `lone_active_opportunity`
+heuristic (opponent's bench is empty + a rough max-hand estimate clears the
+KO threshold → stop banking draw and go for the kill); fixed `_score_deck_search`
+preferring a dead-weight Alakazam/Kadabra fetch over Abra when no line piece
+exists anywhere; fixed Hilda's search (Stage-1/2 + energy only, can't fetch
+Basics) beating Dawn (Basic+Stage1+Stage2) by raw weight even with zero Abra
+in play; and fixed Boss's Orders' `PHASE_CLOSING` branch firing an
+unconditional flat score regardless of target quality, confirmed wasting Boss
+plays in 2 separate replays. User-reported ladder Elo peaked ~900, settled
+~880 as of 2026-07-03 evening. Gauntlet re-run 2026-07-03 overnight (200
+games/anchor, dragapult excluded — crashes locally): gElo 589, top of the
+whole table (above v25b's 559, v24's 516, v23's 499). See
+`training/ladder_history.csv`, `docs/report-log.md` 2026-07-03 entry, and
+`docs/version-history.md` v25c entry for full replay evidence. Open,
+unconfirmed lead: `main.py` has no handling for the MULLIGAN select context.
+Open, unfixed pattern: "board-thinning" (ending up with 1-2 Pokémon in play
+and a bloated dead hand after the attacker line gets repeatedly KO'd).
 **Roadmap (canonical: `docs/competition-strategy.md` §Master Plan):**
 Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → Stage 1
 DAgger → Stage 2 advantage-weighted self-play → Stage 3 belief model (parallel) →
@@ -107,7 +143,7 @@ DAgger next). Re-collect after deck freeze. `docs/nn-training.md` §Resume Here.
 
 ## Deck Essentials (full tables: `docs/project-reference.md` §Deck)
 
-**Alakazam single-prize control (v24, 60 cards).** Win condition: **Powerful Hand**
+**Alakazam single-prize control (v23 deck, 60 cards).** Win condition: **Powerful Hand**
 (Alakazam 743, cost 1 Psychic) — `damage = 20 × hand_size`. Hand size IS the damage
 stat; never discard unnecessarily. KO threshold: `ceil(opp_active_hp / 20)` cards.
 **Blocked by** Mist Energy (#11) and Rock Fighting Energy (#20) on the opponent's
@@ -136,22 +172,74 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 
-1. **Ladder-confirm v24** (submission 54265639) → fill the
-   `training/ladder_history.csv` row → declare the 60 frozen. Day-one reading
-   (690 vs v23's 773) is provisional noise; decision rule: if v24 is still 50+
-   below v23 after ~48h of episodes, audit v24 loss replays (specifically: losses
-   to Rocky/Mist walls — Genesect's Nullifier is the one cut that could matter).
-   ~~Stage 0b weight tune~~ DONE 2026-07-02: gate not cleared (52.0% ± 4.0% over
-   600 games) → default `W` kept; see `docs/report-log.md`.
-2. **Stage 0: full Gauntlet baseline** — `python training/gauntlet.py
-   --candidate main.py --name v24 --games 200` (all 8 anchors).
-3. **Stage 1: BC re-collect + retrain on the frozen deck, then DAgger** — build
-   `training/nn/dagger_collect.py`; 2–3 rounds; gate 50%+ vs teacher → ship.
+1. ~~Ship the v23-deck revert + v25 logic fixes~~ DONE 2026-07-03: submission
+   54277762 (v23-deck revert + 5 heuristic fixes — stype==9 deck-out, Kadabra
+   retreat, Wondrous Patch targeting, Enriching deck-safety gate, manual-evolve-
+   vs-Candy racing gate); ~~ship v25b~~ DONE 2026-07-03: submission 54279766
+   (Mist-wall retreat fix + Candy-racing offensive trigger, publicScore 861.8,
+   gElo 551); ~~ship v25c~~ DONE 2026-07-03: submission 54282648 (desperation
+   mode + lone_active_opportunity + 3 replay-verified fixes, user-reported
+   ladder ~880 settled, gElo 589 — top of the table). v24 deck swap had been
+   reverted 2026-07-03 on early ladder trend, ahead of the documented 48h/50-point
+   decision rule — see `docs/report-log.md` 2026-07-03 entries (the local A/B
+   favoring v24 stands unexplained; revisit the deck-simplification question
+   with more ladder data before retrying it). ~~Stage 0b weight tune~~ DONE
+   2026-07-02: gate not cleared (52.0% ± 4.0% over 600 games) → default `W`
+   kept; see `docs/report-log.md`.
+2. ~~Stage 0: full Gauntlet baseline~~ DONE 2026-07-03 (overnight run): v25c
+   gElo 589 vs the 7 working anchors (dragapult excluded, see item 6), top of
+   the table. See `training/ladder_history.csv` and `docs/report-log.md`
+   2026-07-03 entry.
+3. **Stage 1: BC re-collect + retrain on the frozen deck, then DAgger.**
+   ~~BC re-collect~~ DONE 2026-07-03: `training/bc_data_v25c*.pkl`, 2000 v25c
+   self-play games, 579,169 samples. ~~Build `dagger_collect.py`~~ DONE
+   2026-07-03: `training/nn/dagger_collect.py`, smoke-tested end-to-end (0
+   relabel errors). ~~Retrain on frozen deck~~ DONE 2026-07-03:
+   `training/ptcg_bc_v2.pth`, 10 epochs (~106 min CPU, confirmed runs locally,
+   no Kaggle GPU needed), val_top1_acc 0.875 peak. Gated: 86% vs random
+   (matches v1), 17% vs v25c heuristic (expected BC-plateau signature — v25c
+   is a stronger teacher than v22 was). ~~DAgger round 1 collection~~ DONE:
+   1000 games, `training/dagger_data_r1*.pkl`, 326,240 samples, 0 relabel
+   errors. ~~Retrain + gate round 1~~ DONE: both a 3-epoch and a heavier
+   10-epoch retrain (`ptcg_dagger_r1.pth`/`ptcg_dagger_r1b.pth`) gated flat
+   at 12%/15% vs teacher (statistically tied with BC's 17% at n=100). **The
+   decisive check (per advisor): 100-game win-rate can't resolve DAgger's
+   actual target.** Measured teacher-agreement on 3000 FRESH deployment-
+   realistic (argmax) states instead: BC 74.9% → DAgger round 1 79.7% — a
+   real +4.8pp gain. **DAgger is confirmed working**; the flat win-rate is a
+   measurement-resolution artifact (single-decision gains compound over
+   ~150 decisions/game but need more rounds or larger n to show up in
+   head-to-head win-rate), not a broken pipeline. Also fixed the REAL root
+   cause of two silent OOM kills (not just papered over with `--bc-limit`):
+   `dataset.py::load_shards` always read every glob-matched shard fully
+   before slicing, so even a small final cap needed the whole ~37GB corpus
+   in RAM transiently — fixed to cap during read (shuffles shard order, not
+   post-load samples). See `docs/report-log.md` 2026-07-03 entries for the
+   full story. ~~DAgger round 2 (user-directed, testing lower collection
+   temperature)~~ DONE: collected 1000 games at temp 0.2 (vs round 1's 1.0),
+   retrained on BC+round-1+round-2 combined → `ptcg_dagger_r2.pth`, gated 81%
+   vs random, **16% vs teacher — still flat**. Fresh-state fidelity re-check:
+   BC 73.1% → r1b 81.1% (+8pp, confirmed) → r2 **81.9%** (only +0.8pp) —
+   **diminishing returns; the temperature lever helped a little but fidelity
+   is flattening near 80-82%, not accelerating.** Two rounds of evidence now
+   agree further DAgger rounds are unlikely to move the needle much more.
+   **DAgger paused here** — `ptcg_dagger_r2.pth` is the best checkpoint
+   (strongest report evidence yet: fidelity gains don't linearly convert to
+   win-rate on this deck) but not ship-ready. Gate 50%+ vs teacher → ship
+   (per advisor: imitation asymptotes to parity, never above — exceeding it
+   needs Stage 2 AWR/search, not more imitation rounds).
 4. **Stage 2: advantage-weighted self-play** — gate 55–60% vs teacher over 400 games.
 5. **Stage 3 (parallel): belief model** — archetype classifier + accuracy-by-turn
    figure; fixes `opp_likely_ace_spec` hardcoded to True.
-6. **Dragapult step-limit ties** — 50/100 local games tie in one seat direction;
-   diagnose if ladder Dragapults match (ties = half-losses).
+6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03: not step-limit draws at
+   all — `opponents/dragapult_agent.py` crashes 100% of local games (Kaggle-
+   only `cg.api` import unavailable locally), and `training/harness.py`'s
+   `summarize()` miscounted opponent-crash-as-P0 as a tie instead of a win.
+   Both are fixed except the anchor's underlying crash (optional follow-up:
+   vendor `cg/api.py` from the downloadable `kiyotah/cg-lib` Kaggle dataset —
+   confirmed it's plain ~26KB Python, not urgent). The `dragapult` column in
+   `training/gauntlet_results.csv` has never reflected real play for any prior
+   version; disregard it until the anchor itself is fixed.
 
 ---
 
@@ -161,7 +249,7 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 2. **Timeout = instant loss.** Every inference path needs a guaranteed fast fallback (`_safe_return`).
 3. **Single-prize + non-ex beats the meta.** Crustle immunity walls ex attackers; Alakazam hits it normally. Prize trade: give 1, take 2-3.
 4. **Hand size IS damage.** No Professor's Research, no Iono, no Ultra Ball.
-5. **Rule-based caps at ~0% on the 70% axis.** The NN track is the goal; the heuristic (v24) is placeholder + teacher.
+5. **Rule-based caps at ~0% on the 70% axis.** The NN track is the goal; the heuristic (v23) is placeholder + teacher.
 6. **5 submissions/day, latest 2 count.** The ladder is an A/B rig; ship via the Kaggle CLI without asking.
 
 ---

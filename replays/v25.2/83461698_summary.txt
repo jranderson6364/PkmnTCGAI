@@ -1,0 +1,16 @@
+=== 83461698.json ===
+Opponent: Pikachu, I choose you! | Result: LOSS | Terminal cause: OTHER | Total steps: 40
+
+--- Decision log (8 real decisions) ---
+step  6 turn1 | you_prizes=6 opp_prizes=6 | hand=7[Battle Cage,Hilda,Dudunsparce,Dawn,Rare Candy,Kadabra,Dudunsparce] deck=46 | my_active=Genesect(142) 110/110 opp_active=Solrock(676) 110/110 cards_needed=6 | PLAY: Battle Cage(1264)
+step  7 turn1 | you_prizes=6 opp_prizes=6 | hand=6[Hilda,Dudunsparce,Dawn,Rare Candy,Kadabra,Dudunsparce] deck=46 | my_active=Genesect(142) 110/110 opp_active=Solrock(676) 110/110 cards_needed=6 | END: END TURN
+step 24 turn3 | you_prizes=6 opp_prizes=6 | hand=7[Hilda,Dudunsparce,Dawn,Rare Candy,Kadabra,Dudunsparce,Wondrous Patch] deck=45 | my_active=Genesect(142) 110/110 opp_active=Solrock(676) 110/110 cards_needed=6 | PLAY: Hilda(1225)
+step 27 turn3 | you_prizes=6 opp_prizes=6 | hand=8[Dudunsparce,Dawn,Rare Candy,Kadabra,Dudunsparce,Wondrous Patch,Alakazam,Telepath Psychic Energy] deck=43 | my_active=Genesect(142) 110/110 opp_active=Solrock(676) 110/110 cards_needed=6 | END: END TURN
+
+--- Final state check (last few steps) ---
+  step34: you=Genesect(142) 110/110 prizes=6 deck=43 | opp=Solrock(676) 110/110 prizes=6 deck=36
+  step35: you=Genesect(142) 110/110 prizes=6 deck=43 | opp=Solrock(676) 110/110 prizes=6 deck=36
+  step36: you=Genesect(142) 110/110 prizes=6 deck=43 | opp=Solrock(676) 110/110 prizes=6 deck=36
+  step37: you=Genesect(142) 110/110 prizes=6 deck=43 | opp=Solrock(676) 110/110 prizes=6 deck=36
+  step38: you=Genesect(142) 110/110 prizes=6 deck=43 | opp=Solrock(676) 110/110 prizes=6 deck=36
+  step39: you=Genesect(142) 110/110 prizes=6 deck=43 | opp=Solrock(676) 110/110 prizes=6 deck=36

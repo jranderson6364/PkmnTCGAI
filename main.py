@@ -39,17 +39,24 @@ PSYCHIC_ENERGY_IDS     = {BASIC_P,TELEPATH_P}
 BENCHABLE_BASIC_IDS    = {ABRA,DUNSPARCE,DUNSPARCE2,PSYDUCK,SHAYMIN,GENESECT,FEZ}
 LINE_SEARCH_HAND_IDS   = {DAWN,HILDA}
 DRAW_ENGINE_IDS        = {DUNSPARCE,DUNSPARCE2,DUDUNSPARCE}
-NON_ATTACKER_IDS       = {DUNSPARCE,DUNSPARCE2,DUDUNSPARCE,GENESECT,SHAYMIN,PSYDUCK,FEZ,ABRA}
+NON_ATTACKER_IDS       = {DUNSPARCE,DUNSPARCE2,DUDUNSPARCE,GENESECT,SHAYMIN,PSYDUCK,FEZ,ABRA,KADABRA}
+# Kadabra has a real attack (Super Psy Bolt, {P}->30 flat dmg) but this deck's
+# ATTACK scoring only ever rewards Alakazam's Powerful Hand (active_can_attack
+# requires is_alak; any Kadabra attack scores -5 regardless of state) -- Kadabra
+# is functionally a non-attacker here. It was missing from this set, so a stuck
+# Kadabra active (no attack, e.g. no energy) with a ready, fully-fueled Alakazam
+# waiting on bench fell through every retreat-priority tier and scored a flat
+# 0.5 -- LOWER than just ending the turn (1.0). Verified via score_options_main
+# on a synthetic Kadabra-active/fueled-bench-Alakazam state before this fix.
 PIVOT_FREE_RETREAT_IDS = {SHAYMIN}
 TOOL_IDS               = {HANDHELD_FAN}
 PH_DMG_PER_CARD = 20
 
-# v24 deck: Psyduck + Genesect out (deck audit: ~0 plays/game, pure hand fuel),
-# 4th Alakazam + 4th Dunsparce in (win-condition + draw-engine consistency; both
-# fully covered by existing heuristic logic). Genesect/Psyduck code paths below
-# stay but are dead — they only fire if the card is seen in play/hand.
-DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*4+[DUNSPARCE]*4+[DUDUNSPARCE]*3+
-        [SHAYMIN]+[FEZ]+
+# v23 deck: reverted from v24 (Alakazam/Dunsparce 4th copies, Genesect/Psyduck cut)
+# 2026-07-03 — user call to revert on v24's early ladder trend (680 at 7h, 780
+# at 24h), ahead of the documented 48h decision-rule checkpoint.
+DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*3+[DUNSPARCE]*3+[DUDUNSPARCE]*3+
+        [GENESECT]+[SHAYMIN]+[PSYDUCK]+[FEZ]+
         [POFFIN]*4+[POKE_PAD]*4+[HANDHELD_FAN]*2+[BOSS]*3+[LANA]+
         [BATTLE_CAGE]*4+[DAWN]*4+[WONDROUS_PATCH]+[SACRED_ASH]+[HILDA]*3+
         [ENHANCED_HAMMER]*2+[RARE_CANDY]*3+[BASIC_P]*2+[ENRICHING]+[TELEPATH_P]*4)
@@ -70,7 +77,7 @@ W = {
     'pad_no_backup':13.0,'end_convert':4.0,
     'candy_ready':30.0,'candy_estab':25.0,'candy_active_abra':45.0,
     'attach_kadabra':9.0,'attach_abra':6.0,
-    'retreat_nonatk_ready':30.0,'retreat_alak_stuck':22.0,
+    'retreat_nonatk_ready':30.0,'retreat_alak_stuck':22.0,'desperation_draw':30.0,
     # MCTS heuristic-prior blend temperatures (training/nn/prior_blend.py).
     # score_options_main's scale spans ~4 (default) to 600 (KO) — prior_T_h_main
     # is tuned large enough that a softmax doesn't fully saturate on the KO/
@@ -295,9 +302,26 @@ def _score_deck_search(obs,sel):
     candy_in_hand=RARE_CANDY in hand_ids
     kadabra_in_hand=KADABRA in hand_ids
     alak_in_hand=ALAKAZAM in hand_ids
+    abra_in_hand=ABRA in hand_ids
+    # cen['line_count'] here is entirely Abra/Kadabra (has_alakazam is false in this
+    # branch) -- i.e. whether we have anything IN PLAY to promote into an Alakazam.
+    # Deliberately excludes kadabra_in_hand: a Kadabra card sitting in hand with no
+    # Abra in play (or hand) can't be played AT ALL -- it isn't a Basic, and Rare
+    # Candy also needs a Basic already in play to Candy from. It's just as dead as
+    # an Alakazam in that state, so it doesn't count as "having a line piece"
+    # either (confirmed via replay 83461698: Hilda's search offered Alakazam/
+    # Kadabra/Dudunsparce with zero Abra anywhere -- both evolution stages were
+    # equally unplayable that turn).
+    have_line_piece=cen['line_count']>0 or abra_in_hand
     def card_score(cid):
         if cid==ALAKAZAM:
-            if not cen['has_alakazam'] and not alak_in_hand: return 95.0
+            if not cen['has_alakazam'] and not alak_in_hand:
+                # Fetching Alakazam with no Abra/Kadabra anywhere (play or hand) to
+                # evolve it from is dead weight in hand -- grab the line piece
+                # instead (Abra scores 90 below when abra_count==0). Confirmed via
+                # replay: Poke Pad fetched Alakazam turn 1 with zero Abra in play
+                # or hand, leaving it stuck unplayable.
+                return 95.0 if have_line_piece else 20.0
             return 40.0
         if cid==KADABRA:
             if cen['abra_count']>0 and not kadabra_in_hand and not candy_in_hand: return 70.0
@@ -419,6 +443,37 @@ def _score_bench_target(obs,opts):
         scores[i]=s
     return scores
 
+def _score_wondrous_patch_target(obs,opts):
+    """Wondrous Patch attaches a recovered Basic {P} Energy to the selected benched
+    {P} Pokemon -- the OPPOSITE tiebreak from retreat/promotion targeting (which
+    wants whoever can ALREADY attack): here we want whoever NEEDS the energy.
+    Reusing _score_bench_target for this (both are stype==1, area==5 selects) would
+    prefer an already-fueled Alakazam over an unfueled Kadabra/Abra, wasting the
+    attach. Distinguished via sel['effect']['id']==WONDROUS_PATCH -- confirmed via
+    replay that this is unambiguous (plain retreat/promotion selects have effect=
+    None or a different card's id, e.g. Boss's Orders' 1182)."""
+    cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
+    players=cur.get('players',[]); me=players[me_idx] if players and len(players)>me_idx else{}
+    bench=me.get('bench') or[]
+    scores=[-1e9]*len(opts)
+    for i,o in enumerate(opts):
+        if o.get('area')!=5: continue
+        idx=o.get('index',i)
+        pk=bench[idx] if 0<=idx<len(bench) else None
+        pid=_pk_id(pk)
+        if _has_psychic(pk): s=-10.0  # already fueled -- this attach would be wasted
+        elif pid==ALAKAZAM: s=100.0
+        elif pid==KADABRA:  s=70.0
+        elif pid==ABRA:     s=40.0
+        else: s=0.0
+        scores[i]=s
+    return scores
+
+def _pick_wondrous_patch_target(obs,opts):
+    if not opts: return[0]
+    s=_score_wondrous_patch_target(obs,opts)
+    return[max(range(len(s)),key=lambda i:s[i])]
+
 def _pick_bench_target(obs,opts):
     if not opts: return[0]
     s=_score_bench_target(obs,opts)
@@ -539,6 +594,16 @@ def _main_phase_features(obs,sel):
     deck_critical=deck_count<10
     deck_danger  =deck_count<5
     prizes=len(my.get('prize') or[]); opp_prizes=len(opp.get('prize') or[])
+    # Desperation: opponent can end the game on their next KO -- either they only
+    # need 1 more prize, or they need 2 and we have an ex in play/bench (a single
+    # KO on it hands over both at once). Confirmed via replay 83429870: at 1-1
+    # prizes we lost trying to out-survive a lethal swing, when the actual winning
+    # line was maxing hand size and Boss-sniping for the last prize instead (see
+    # docs/report-log.md). Nothing here is about surviving longer -- if we can't
+    # close it out this turn, next turn is likely a loss anyway, so deck-out risk
+    # stops mattering relative to just building toward lethal.
+    we_have_ex=any((p or{}).get('ex',False) for p in([my_active]+bench) if p)
+    desperation=opp_prizes<=1 or(opp_prizes<=2 and we_have_ex)
     opp_played, bench_dmg_received, we_were_kod, opp_likely_ace = _analyze_logs(obs, me_idx)
     opp_mist=_opp_has_blocking_energy(opp_active)
     opp_hp=(opp_active or{}).get('hp',99999) or 99999
@@ -553,10 +618,40 @@ def _main_phase_features(obs,sel):
     my_dmg=(PH_DMG_PER_CARD*hand_n) if active_can_attack and not opp_mist else 0
     can_ko=active_can_attack and opp_active is not None and my_dmg>=opp_hp and not opp_mist
     opp_bench=opp.get('bench') or[]
+    opp_bench_empty=len([b for b in opp_bench if b])==0
+    # Cheap, rough lookahead (deliberately NOT a real turn simulation): if the
+    # opponent has nothing but their Active in play, a big enough hand ends
+    # their turn staring at an empty board, which is worth spending reserved
+    # draw sources on NOW rather than banking them for a hypothetical future
+    # hand-disruption effect (the piloting-guide's normal "bank surplus draw"
+    # advice) -- there's no bigger prize than winning the board back outright.
+    # Headroom estimate: current hand + each ready Dudunsparce's Run Away Draw
+    # (+3 each, piloting-guide §3) + the best not-yet-played supporter in hand
+    # (Hilda's fetch chain or Dawn) + an unattached Enriching Energy's draw 4.
+    _untapped_draw=3*cen['dudun_bench']
+    if not supporter_played:
+        if any(_pk_id(c)==HILDA for c in hand): _untapped_draw+=4
+        elif any(_pk_id(c)==DAWN for c in hand): _untapped_draw+=2
+    if any(_pk_id(c)==ENRICHING for c in hand): _untapped_draw+=3
+    max_hand_estimate=hand_n+_untapped_draw
+    lone_active_opportunity=(
+        opp_bench_empty and opp_active is not None and opp_hp<99999 and
+        not opp_mist and max_hand_estimate*PH_DMG_PER_CARD>=opp_hp)
     opp_active_pv=_prize_value_pk(opp_active)
     boss_in_hand=any(_pk_id(c)==BOSS for c in hand)
     hammer_in_hand=any(_pk_id(c)==ENHANCED_HAMMER for c in hand)
     tool_in_hand=any(_pk_id(c) in TOOL_IDS for c in hand)
+    # Hilda's own search pool is Stage-1/2 (Kadabra/Alakazam) + energy only --
+    # docs/piloting-guide.md confirms Dawn alone grabs "Basic + Stage 1 + Stage
+    # 2." With zero line pieces in play and no Abra in hand, Hilda cannot fetch
+    # the one card that actually unblocks us (confirmed via replay 83461698:
+    # Hilda's own deck-search options only ever offered Alakazam/Kadabra/
+    # Dudunsparce -- no Abra was even a legal choice). Dawn's flat ESTABLISH
+    # weight already narrowly beats Hilda's (22 vs 24) in the scoring below, so
+    # this needs to actively suppress Hilda here rather than rely on the
+    # existing weight gap.
+    abra_in_hand=any(_pk_id(c)==ABRA for c in hand)
+    need_basic_abra=cen['line_count']==0 and not abra_in_hand
     # Opponent's Active is permanently walling Powerful Hand (Mist/Rocky Energy) and we
     # have no way left to answer it this turn (no Hammer to strip the energy, no Boss
     # to gust a different, unwalled target) — more searching/drawing can't fix a wall
@@ -632,7 +727,8 @@ def _main_phase_features(obs,sel):
     ready_attacker_exists=active_can_attack or bench_has_alak_ready
     hand_surplus=(
         ready_attacker_exists and opp_hp<99999 and hand_n>=cards_needed and
-        not boss_snipe_plan and not emergency_draw)
+        not boss_snipe_plan and not emergency_draw and not desperation and
+        not lone_active_opportunity)
     # Down to a single Pokemon in play (no bench at all) is a distinct existential
     # risk regardless of prize lead or hand size: one KO on the Active with nothing
     # to promote is an instant loss. Confirmed losing exactly this way in a replay
@@ -640,6 +736,38 @@ def _main_phase_features(obs,sel):
     # a commanding prize lead otherwise) — surplus-hand and phase gating shouldn't
     # suppress rebuilding the bench once it's completely empty.
     bench_empty=cen['bench_count']==0
+    # Manual evolve (Abra->Kadabra->Alakazam) banks Kadabra's own +2 Psychic Draw
+    # that Rare Candy skips (Abra->Alakazam directly) -- +1 net card overall, per
+    # docs/piloting-guide.md §3, but costs a turn's tempo. "Racing" = we have no
+    # attacker in play at all AND either we're in danger, past the free-setup
+    # phase, or already low on cards -- exactly when the guide says Candy is
+    # worth its cost ("speed only... to land a turn-2 Alakazam, or to rebuild
+    # after a KO"). Otherwise we have time to bank the extra card.
+    # NOTE: deliberately uses active_below_half (relative), not active_vulnerable
+    # (which has an active_hp<60 absolute clause -- always true for Abra, whose
+    # max HP is 50, making it a false positive for exactly the Pokemon this
+    # check most needs to evaluate correctly). Also deliberately excludes
+    # emergency_draw (hand_n<=4) -- that's spuriously true turn 1-2 before the
+    # draw engine has run at all, which is exactly when we DO have time to
+    # climb manually, not an emergency. Both caught by direct testing before
+    # this was trusted. phase in(PRESSURE,CLOSING) mostly reduces to "opponent
+    # down to <=2 prizes" here, since _detect_phase forces ESTABLISH whenever
+    # we have no Alakazam yet (its own not_established gate) except for that
+    # opp_prizes_left<=2 short-circuit.
+    # Offensive racing trigger: the two conditions above are purely defensive/phase-
+    # based and blind to a simpler case -- Candying straight to Alakazam now sets up
+    # a next-turn KO on the opponent's CURRENT active (Candy disables attacking the
+    # turn it's played, so the actual attack happens next turn; current hand size is
+    # the lethal-capacity proxy since it can only grow by then). Worth rushing even
+    # turn 1-2, unlike the HP/phase triggers.
+    candy_lethal_soon=(
+        active_abra_can_evolve and not cen['has_alakazam'] and opp_active is not None and
+        not opp_mist and hand_n*PH_DMG_PER_CARD>=opp_hp)
+    racing_for_alakazam=(
+        desperation or
+        (not cen['has_alakazam'] and
+         ((active_below_half and opp_prizes<=3) or phase in(PHASE_PRESSURE,PHASE_CLOSING) or
+          candy_lethal_soon)))
 
     def score(o):
         ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
@@ -660,7 +788,6 @@ def _main_phase_features(obs,sel):
             if active_non_atk and bench_has_alak:
                 return 20.0 if active_below_half else 16.0
             if active_non_atk:                     return -3.0
-            if opp_mist and active_is_alak:        return 9.0
             if active_can_attack:                  return-2.0
             return 0.5
         if ot==ABILITY:
@@ -670,6 +797,7 @@ def _main_phase_features(obs,sel):
                 if can_ko: return 2.0
                 if cid==DUDUNSPARCE:
                     if hand_surplus: return 0.5
+                    if (desperation or lone_active_opportunity) and not emergency_draw: return W['desperation_draw']
                     if hopelessly_walled and not emergency_draw: return-6.0
                     if deck_danger and not emergency_draw:   return-8.0
                     if deck_critical and not emergency_draw: return-2.0
@@ -706,11 +834,17 @@ def _main_phase_features(obs,sel):
             if cid==KADABRA:
                 if can_ko: return 3.0
                 if evo_area==4 and active_abra_can_evolve and candy_playable:
-                    # Rare Candy can take THIS SAME active Abra straight to Alakazam
-                    # this turn — normal-evolving it to Kadabra first just burns the
-                    # turn's evolution on an intermediate stage and pushes Alakazam
-                    # a full turn later than necessary. Let Candy (scored below) win.
-                    return 2.0
+                    if racing_for_alakazam:
+                        # Rare Candy can take THIS SAME active Abra straight to
+                        # Alakazam this turn — normal-evolving to Kadabra first
+                        # burns the turn's evolution on an intermediate stage and
+                        # pushes Alakazam a full turn later. Worth it when we're
+                        # racing (no attacker yet + in danger/past-establish/low
+                        # on cards). Let Candy (scored below) win.
+                        return 2.0
+                    # Have time: bank Kadabra's own +2 Psychic Draw that Candy
+                    # skips (net +1 card over the 2-turn climb, piloting-guide §3).
+                    return 15.0
                 return 13.0
             if can_ko: return 2.0
             if active_non_atk: return 12.0
@@ -726,8 +860,21 @@ def _main_phase_features(obs,sel):
             if cid==BOSS:
                 if boss_ex_snipe:        return 600.0
                 if can_ko: return 1.0
-                if phase==PHASE_CLOSING: return 199.0
-                if boss_target_exists:   return W['boss_target']
+                # NOTE: phase==PHASE_CLOSING used to return a flat 199 here with NO
+                # target-quality check -- it fired even with an empty/useless bench,
+                # or (worse) when the CURRENT active was already our best KO target.
+                # Confirmed losing real value this way (replay 83458785, step94):
+                # active Alakazam had 0 energy (attack_available False that turn, so
+                # boss_target_exists below is also False), opponent's active was
+                # Mega Starmie ex at 110/430 (already the best target on their
+                # board) -- Boss's Orders still fired at 199, yanking it off active
+                # in favor of a fresh 70-HP Staryu, undoing our own damage progress
+                # for a 1-prize KO instead of the lined-up 2-3-prize one. Fold the
+                # phase bump INTO boss_target_exists (which already verifies a real,
+                # worthwhile bench target and that we can actually act this turn)
+                # instead of firing unconditionally.
+                if boss_target_exists:
+                    return 199.0 if phase==PHASE_CLOSING else W['boss_target']
                 if boss_can_damage_mega: return W['boss_mega_chip']
                 if opp_mist and ready_alak_exists: return W['boss_mist_escape']
                 return 4.0
@@ -768,12 +915,18 @@ def _main_phase_features(obs,sel):
                 return 3.0
             if cid==RARE_CANDY:
                 if active_abra_can_evolve:
-                    # Get the already-positioned Active online NOW. This is the
-                    # highest-priority Candy use — it avoids the wasted-tempo pattern
-                    # of normal-evolving the active Abra to Kadabra this turn and only
-                    # Candying a *different* (bench) Abra to Alakazam later, which
-                    # leaves the active stuck needing its own extra evolve turn.
-                    return W['candy_active_abra']
+                    if racing_for_alakazam:
+                        # Get the already-positioned Active online NOW. Worth the
+                        # skipped Kadabra +2 draw when racing (no attacker yet +
+                        # in danger/past-establish/low on cards) — it avoids the
+                        # wasted-tempo pattern of normal-evolving to Kadabra this
+                        # turn and only Candying a *different* (bench) Abra later,
+                        # which leaves the active stuck needing its own extra turn.
+                        return W['candy_active_abra']
+                    # Have time: manual evolve (scored above, 15.0) banks the
+                    # extra card instead — piloting-guide §3's "hold Candy when
+                    # you have time" principle. Still usable, just not dominant.
+                    return 10.0
                 if cen['kadabra_can_evolve']:
                     if at_threshold or phase in(PHASE_PRESSURE,PHASE_CLOSING): return W['candy_ready']
                     if phase==PHASE_ESTABLISH: return W['candy_estab']
@@ -782,6 +935,7 @@ def _main_phase_features(obs,sel):
                 if cen['need_line']:        return 14.0
                 return 4.0
             if cid==POFFIN:
+                if desperation or lone_active_opportunity: return W['desperation_draw']
                 if deck_danger: return-8.0
                 if hopelessly_walled: return-3.0
                 if bench_empty: return W['poffin_estab']
@@ -807,6 +961,7 @@ def _main_phase_features(obs,sel):
                 return 2.0
             if cid==DAWN:
                 if supporter_played: return-5.0
+                if desperation or lone_active_opportunity: return W['desperation_draw']
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
                 if hopelessly_walled: return-3.0
@@ -821,8 +976,10 @@ def _main_phase_features(obs,sel):
                 return 6.0
             if cid==HILDA:
                 if supporter_played: return-5.0
+                if desperation or lone_active_opportunity: return W['desperation_draw']
                 if deck_danger: return-8.0
                 if active_immobile: return W['hilda_immobile']
+                if need_basic_abra: return 3.0
                 if hopelessly_walled: return-3.0
                 if hand_surplus: return 2.0
                 if phase==PHASE_ESTABLISH and (cen['need_line'] or not cen['has_alakazam']): return W['hilda_estab']
@@ -835,6 +992,7 @@ def _main_phase_features(obs,sel):
                 if phase==PHASE_CONVERT: return 7.0
                 return 5.0
             if cid==POKE_PAD:
+                if desperation or lone_active_opportunity: return W['desperation_draw']
                 if deck_danger: return-8.0
                 if active_immobile: return-3.0
                 if hopelessly_walled: return-3.0
@@ -867,6 +1025,14 @@ def _main_phase_features(obs,sel):
                 if tid==GENESECT and not (tgt or{}).get('tools'): return 15.0
                 return 1.5
             if cid==ENRICHING:
+                # Enriching's "draw 4" fires unconditionally on attach (no may-use
+                # prompt, unlike Kadabra/Alakazam's Psychic Draw) -- unlike every
+                # other draw source in this file it had NO deck-safety gate at all.
+                # Confirmed contributing to a real deck-out loss (replay 83156504):
+                # attached at deck=5 with hand already at 18, dropping the deck to 1
+                # in one action. Bigger single draw than Dawn/Hilda (2) or Poffin, so
+                # gate on deck_critical (<10), not just deck_danger (<5).
+                if deck_critical and not emergency_draw and not desperation and not lone_active_opportunity: return -6.0
                 if tid==DUDUNSPARCE and cen['dudun_no_energy']: return 20.0
                 if tid==DUDUNSPARCE:                             return 13.0
                 # Enriching is Colorless — it can NEVER pay Powerful Hand's Psychic
@@ -943,6 +1109,8 @@ def _choose(obs):
         is_boss_target=(len(opts)>0
             and all(o.get('playerIndex')==(1-me) and o.get('area')==5 for o in opts))
         if is_boss_target: return _pick_boss_target(obs,sel)
+        if (sel.get('effect') or{}).get('id')==WONDROUS_PATCH and any(o.get('area')==5 for o in opts):
+            return _clamp(_pick_wondrous_patch_target(obs,opts),sel)
         if any(o.get('area')==5 for o in opts):
             return _clamp(_pick_bench_target(obs,opts),sel)
         yes_i=[i for i,o in enumerate(opts) if o.get('type')==YES]
@@ -962,6 +1130,43 @@ def _choose(obs):
     if stype==8:
         return[max(range(n),key=lambda i:opts[i].get('number',0) or 0)]
     if stype==9:
+        # "May use this Ability?" prompt (Psychic Draw, Run Away Draw, etc. when
+        # asked this way rather than as a main-phase ABILITY option) -- every OTHER
+        # draw source in this file (Dawn/Hilda/Poffin/Poke Pad/Dudunsparce-ability)
+        # is gated on deck_danger, but this prompt always said yes unconditionally.
+        # Confirmed root cause of a real ladder loss (replay 83348630): evolving a
+        # bench Kadabra into Alakazam at deck=3 auto-triggered this prompt, and the
+        # unconditional yes drew 3 more cards with a hand already at 17 (needing just
+        # 7 for lethal) and a 5-2 prize lead -- decked out the same turn in a winning
+        # game. Decline once the deck is already at the danger floor AND the hand is
+        # already well past the KO threshold, since more cards can't help a banked
+        # lethal and drawing is exactly how a winning position mills itself.
+        cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
+        players=cur.get('players',[])
+        me=players[me_idx] if len(players)>me_idx else{}
+        opp=players[1-me_idx] if len(players)==2 else{}
+        deck_count=me.get('deckCount',99) or 99
+        hand_n=_hand_size(cur,me_idx)
+        opp_hp=(_active(opp) or{}).get('hp',99999) or 99999
+        cards_needed=math.ceil(opp_hp/PH_DMG_PER_CARD) if opp_hp<99999 else 999
+        # Desperation (opponent one KO from winning, or two with an ex of ours in
+        # play/bench) overrides the deck-out guard below: if we can't close it out
+        # this turn, next turn is likely a loss anyway, so keep drawing toward the
+        # biggest possible hand instead of preserving deck count. See the matching
+        # `desperation` computation in _main_phase_features.
+        opp_prizes=len(opp.get('prize') or[])
+        bench=me.get('bench') or[]
+        we_have_ex=any((p or{}).get('ex',False) for p in([_active(me)]+bench) if p)
+        desperation=opp_prizes<=1 or(opp_prizes<=2 and we_have_ex)
+        # Matching lone_active_opportunity from _main_phase_features: opponent has
+        # nothing but their Active in play, so a big enough hand ends their turn
+        # with an empty board -- worth drawing past the normal deck-out guard.
+        opp_bench_empty=len([b for b in opp.get('bench') or[] if b])==0
+        lone_active_opportunity=(
+            opp_bench_empty and opp_hp<99999 and hand_n+3>=cards_needed)
+        if deck_count<5 and hand_n>=cards_needed+3 and not desperation and not lone_active_opportunity:
+            no_i=[i for i,o in enumerate(opts) if o.get('type')==NO]
+            if no_i: return no_i
         for i,o in enumerate(opts):
             if o.get('type')==YES: return[i]
         return[0]
@@ -990,6 +1195,8 @@ def score_options(obs,sel):
             return _score_deck_search(obs,sel)
         is_boss_target=(n>0 and all(o.get('playerIndex')==(1-me) and o.get('area')==5 for o in opts))
         if is_boss_target: return _score_boss_target(obs,sel)
+        if (sel.get('effect') or{}).get('id')==WONDROUS_PATCH and any(o.get('area')==5 for o in opts):
+            return _score_wondrous_patch_target(obs,opts)
         if any(o.get('area')==5 for o in opts):
             return _score_bench_target(obs,opts)
         return[0.0]*n

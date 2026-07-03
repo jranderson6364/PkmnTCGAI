@@ -1,0 +1,26 @@
+=== 83296936.json ===
+Opponent: tellusium | Result: LOSS | Terminal cause: OTHER | Total steps: 73
+
+--- Decision log (28 real decisions) ---
+step 13 turn2 | you_prizes=6 opp_prizes=6 | hand=6[Basic {P} Energy,Sacred Ash,Dawn,Battle Cage,Rare Candy,Enhanced Hammer] deck=46 | my_active=Abra(741) 50/50 opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | PLAY: Dawn(1231)
+step 17 turn2 | you_prizes=6 opp_prizes=6 | hand=8[Basic {P} Energy,Sacred Ash,Battle Cage,Rare Candy,Enhanced Hammer,Abra,Kadabra,Alakazam] deck=43 | my_active=Abra(741) 50/50 opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | PLAY: Abra(741)
+step 18 turn2 | you_prizes=6 opp_prizes=6 | hand=7[Basic {P} Energy,Sacred Ash,Battle Cage,Rare Candy,Enhanced Hammer,Kadabra,Alakazam] deck=43 | my_active=Abra(741) 50/50 opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | ATTACH: Basic {P} Energy(5) ACTIVE:Abra(741) 50/50
+step 19 turn2 | you_prizes=6 opp_prizes=6 | hand=6[Sacred Ash,Battle Cage,Rare Candy,Enhanced Hammer,Kadabra,Alakazam] deck=43 | my_active=Abra(741) 50/50 E=[5] opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | PLAY: Battle Cage(1264)
+step 20 turn2 | you_prizes=6 opp_prizes=6 | hand=5[Sacred Ash,Rare Candy,Enhanced Hammer,Kadabra,Alakazam] deck=43 | my_active=Abra(741) 50/50 E=[5] opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | END: END TURN
+step 31 turn4 | you_prizes=6 opp_prizes=6 | hand=6[Sacred Ash,Rare Candy,Enhanced Hammer,Kadabra,Alakazam,Telepath Psychic Energy] deck=42 | my_active=Abra(741) 50/50 E=[5] opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | PLAY: Rare Candy(1079)
+step 34 turn4 | you_prizes=6 opp_prizes=6 | hand=7[Sacred Ash,Enhanced Hammer,Kadabra,Telepath Psychic Energy,Handheld Fan,Battle Cage,Dunsparce] deck=39 | my_active=Alakazam(743) 140/140 E=[5] opp_active=Munkidori(112) 110/110 E=[7] cards_needed=6 | ATTACK: 1072
+step 50 turn6 | you_prizes=5 opp_prizes=5 | hand=9[Sacred Ash,Enhanced Hammer,Kadabra,Telepath Psychic Energy,Handheld Fan,Battle Cage,Dunsparce,Kadabra,Handheld Fan] deck=38 | my_active=Alakazam(743) 20/140 E=[5] opp_active=Mega Starmie ex(1031) 330/330 E=[3] cards_needed=17 | PLAY: Dunsparce(305)
+step 51 turn6 | you_prizes=5 opp_prizes=5 | hand=8[Sacred Ash,Enhanced Hammer,Kadabra,Telepath Psychic Energy,Handheld Fan,Battle Cage,Kadabra,Handheld Fan] deck=38 | my_active=Alakazam(743) 20/140 E=[5] opp_active=Mega Starmie ex(1031) 330/330 E=[3] cards_needed=17 | PLAY: Battle Cage(1264)
+step 52 turn6 | you_prizes=5 opp_prizes=5 | hand=7[Sacred Ash,Enhanced Hammer,Kadabra,Telepath Psychic Energy,Handheld Fan,Kadabra,Handheld Fan] deck=38 | my_active=Alakazam(743) 20/140 E=[5] opp_active=Mega Starmie ex(1031) 330/330 E=[3] cards_needed=17 | ATTACH: Handheld Fan(1161) BENCH[0]:Genesect(142) 110/110
+step 53 turn6 | you_prizes=5 opp_prizes=5 | hand=6[Sacred Ash,Enhanced Hammer,Kadabra,Telepath Psychic Energy,Kadabra,Handheld Fan] deck=38 | my_active=Alakazam(743) 20/140 E=[5] opp_active=Mega Starmie ex(1031) 330/330 E=[3] cards_needed=17 | ATTACK: 1072
+step 64 turn8 | you_prizes=5 opp_prizes=3 | hand=7[Sacred Ash,Enhanced Hammer,Kadabra,Telepath Psychic Energy,Kadabra,Handheld Fan,Alakazam] deck=37 | my_active=Dunsparce(305) 50/70 opp_active=Mega Starmie ex(1031) 210/330 cards_needed=11 | PLAY: Sacred Ash(1129)
+step 66 turn8 | you_prizes=5 opp_prizes=3 | hand=6[Enhanced Hammer,Kadabra,Telepath Psychic Energy,Kadabra,Handheld Fan,Alakazam] deck=41 | my_active=Dunsparce(305) 50/70 opp_active=Mega Starmie ex(1031) 210/330 cards_needed=11 | ATTACH: Handheld Fan(1161) ACTIVE:Dunsparce(305) 50/70
+step 67 turn8 | you_prizes=5 opp_prizes=3 | hand=5[Enhanced Hammer,Kadabra,Telepath Psychic Energy,Kadabra,Alakazam] deck=41 | my_active=Dunsparce(305) 50/70 opp_active=Mega Starmie ex(1031) 210/330 cards_needed=11 | END: END TURN
+
+--- Final state check (last few steps) ---
+  step67: you=Dunsparce(305) 50/70 prizes=5 deck=41 | opp=Mega Starmie ex(1031) 210/330 prizes=3 deck=23
+  step68: you=Dunsparce(305) 50/70 prizes=5 deck=41 | opp=Mega Starmie ex(1031) 210/330 prizes=3 deck=23
+  step69: you=Dunsparce(305) 0/70 prizes=5 deck=41 | opp=Mega Starmie ex(1031) 210/330 E=[0, 0, 0] prizes=3 deck=22
+  step70: you=Dunsparce(305) 0/70 prizes=5 deck=41 | opp=Mega Starmie ex(1031) 210/330 E=[0, 0, 0] prizes=3 deck=22
+  step71: you=Dunsparce(305) 0/70 prizes=5 deck=41 | opp=Mega Starmie ex(1031) 210/330 E=[0, 0, 0] prizes=3 deck=22
+  step72: you=Dunsparce(305) 0/70 prizes=5 deck=41 | opp=Mega Starmie ex(1031) 210/330 E=[0, 0, 0] prizes=3 deck=22

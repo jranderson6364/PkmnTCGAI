@@ -6,14 +6,14 @@ engine API, the deck list, `main.py` internals, packaging/shipping, or the NN
 architecture. Keep it in sync: any change to code, deck, or plans updates the
 matching section here in the same session.*
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 
 ---
 
 ## Repo Structure
 
 ```
-main.py          ← v24 Alakazam heuristic agent (active ladder submission)
+main.py          ← v23-deck Alakazam heuristic agent (active ladder submission)
 deck.csv         ← 60-card deck, one card ID per line (regenerated from main.DECK)
 CLAUDE.md        ← slim orientation layer (loaded every prompt)
 README.md        ← repo landing page (humans + fresh clones); points here and to CLAUDE.md
@@ -132,7 +132,7 @@ from cg.env import env
 
 ---
 
-## Deck — Alakazam Single-Prize Control/Combo (60 cards, v24)
+## Deck — Alakazam Single-Prize Control/Combo (60 cards, v23 — current after v24 revert)
 
 ### Win Condition
 **Powerful Hand** (Alakazam 743, attackId 1072, cost 1 Psychic): place 2 damage counters on the opponent's Active for each card **in your hand**. `damage = 20 × hand_size`. Ignores Weakness/Resistance/reduction.
@@ -141,19 +141,19 @@ from cg.env import env
 - Hand size IS the damage stat — never discard unnecessarily
 - Blocked by: **Mist Energy (#11)** and **Rock Fighting Energy (#20)** — both say "prevent all effects of attacks"
 
-### Card IDs (v24 list — Psyduck/Genesect removed 2026-07-02)
+### Card IDs (v23 list — current; v24's Psyduck/Genesect-out swap reverted 2026-07-03)
 
 | Constant | ID | Count | Role |
 |----------|----|-------|------|
 | ABRA | 741 | 4 | Evolution base |
 | KADABRA | 742 | 4 | Evolution middle (+2 draw on evolve) |
-| ALAKAZAM | 743 | 4 | Main attacker (+3 draw on evolve) — 4th added in v24 |
-| DUNSPARCE | 305 | 4 | Draw engine base — 4th added in v24 |
+| ALAKAZAM | 743 | 3 | Main attacker (+3 draw on evolve) |
+| DUNSPARCE | 305 | 3 | Draw engine base |
 | DUNSPARCE2 | 65 | — | (alt print, not in deck) |
 | DUDUNSPARCE | 66 | 3 | Run Away Draw: draw 3, shuffle back |
-| GENESECT | 142 | 0 | REMOVED in v24 (audit: ~0 plays/game) — constant + dead code paths remain |
+| GENESECT | 142 | 1 | ACE Nullifier (Bench + Fan) |
 | SHAYMIN | 343 | 1 | Flower Curtain: prevents bench damage |
-| PSYDUCK | 858 | 0 | REMOVED in v24 (audit: ~0 plays/game) — constant + dead code paths remain |
+| PSYDUCK | 858 | 1 | Reactive scoring vs opponent self-damage cards |
 | FEZ (Fezandipiti ex) | 140 | 1 | Flip the Script: draw 3 after KO |
 | POFFIN (Buddy-Buddy) | 1086 | 4 | Search 2 Basics ≤70 HP to bench |
 | POKE_PAD | 1152 | 4 | Search any non-Rule-Box pokemon to hand |
@@ -179,7 +179,7 @@ from cg.env import env
 **Energy routing rule:** Route Psychic (5, 19) → Alakazam **only if it doesn't already have one** (Powerful Hand costs exactly 1 Psychic; a 2nd does nothing). Once Alakazam is fueled, route further Psychic → Kadabra → Abra, in that order, so the line is pre-loaded before it evolves. **Never proactively attach Psychic to any other support mon** (Dudunsparce/Shaymin/Fez) — they don't attack, and the only legitimate exception is paying a real retreat cost on the Active to switch into an already-ready bench Alakazam. Route Enriching (13) → Dudunsparce (draw + recycle). Never attach Enriching to Alakazam.
 
 ### Poffin vs Poké Pad vs Dawn
-- **Poffin (1086):** benches Abra(50HP) / Dunsparce(70HP) — the full ≤70HP pool since v24 (Psyduck removed). Cannot grab Shaymin(80HP) or Fez(210HP).
+- **Poffin (1086):** benches Abra(50HP) / Dunsparce(70HP) / Psyduck(60HP) — the full ≤70HP pool in the deck. Cannot grab Shaymin(80HP) or Fez(210HP).
 - **Poké Pad (1152):** puts any non-Rule-Box pokemon into hand (includes Shaymin but NOT Fez ex).
 - **Dawn (1231):** grabs the full Abra+Kadabra+Alakazam line at once.
 
@@ -187,20 +187,23 @@ from cg.env import env
 
 ## Agent Architecture
 
-**File:** `main.py` — currently **v24** (v23 logic on the simplified deck).
+**File:** `main.py` — currently **v23 deck** (v24's deck-list swap reverted 2026-07-03).
 
 Full version-by-version change narrative (v1 → v24, every bug found, every fix, every
 verification run) lives in **`docs/version-history.md`** — that file is canonical;
 this section holds only durable reference material (constants, state machine, key
 functions) plus a short summary of the current and immediately-prior versions.
 
-### v24 — Deck Simplification (current)
-`DECK` list only: Psyduck + Genesect (deck audit: ~0 plays/game, pure hand fuel) →
-4th Alakazam + 4th Dunsparce. No logic changes; their code paths are play-conditional
-and dead. **Verified:** 200-game A/B vs frozen v23 (same logic, old deck):
-120W–80L, 60.0% ± 6.8%, 0 errors. Shipped 2026-07-02 (submission 54265639).
+### v24 REVERTED (2026-07-03) — back to v23 deck
+`DECK` list only: v24 swapped Psyduck + Genesect (deck audit: ~0 plays/game, pure
+hand fuel) → 4th Alakazam + 4th Dunsparce; 200-game local A/B favored it (120W–80L,
+60.0% ± 6.8%, 0 errors) but live ladder trend (680 Elo at ~7h, 780 at ~24h) prompted
+a user call to revert ahead of the documented 48h/50-point decision checkpoint. Note:
+v23 itself had decayed to 773 by its own day-2 reading, so this isn't an unambiguous
+regression — see `docs/report-log.md` 2026-07-03 entry. `main.py`/`deck.csv` are back
+to the exact v23 composition; no scoring-logic changes either direction.
 
-### v23 — Replay Forensics
+### v23 — Replay Forensics (current)
 5 fresh ladder losses reconstructed turn-by-turn from raw JSON board state. Three
 fixes: (1) `_score_bench_target` dedicated Kadabra/Abra promotion tiers (previously
 tied with support mons in one `-10` catch-all — confirmed losing move in a 1-1
@@ -221,7 +224,7 @@ v21: 56.3% ± 4.9%, 0 errors. Baselines: 94% Lucario, 94% Abomasnow, 79% Starmie
 ```python
 ABRA,KADABRA,ALAKAZAM = 741,742,743
 DUNSPARCE,DUNSPARCE2,DUDUNSPARCE = 305,65,66
-GENESECT,SHAYMIN,PSYDUCK,FEZ = 142,343,858,140   # Genesect/Psyduck not in v24 deck
+GENESECT,SHAYMIN,PSYDUCK,FEZ = 142,343,858,140
 POFFIN,POKE_PAD,HANDHELD_FAN = 1086,1152,1161
 BOSS,LANA,BATTLE_CAGE,DAWN = 1182,1184,1264,1231
 WONDROUS_PATCH,SACRED_ASH,HILDA = 1146,1129,1225
@@ -275,9 +278,11 @@ def prize_value(pokemon):
 
 See `docs/nn-training.md` for full details (§Resume Here has the current pipeline).
 
-**Status (as of 2026-07-02):** BC warmup complete **on the OLD deck** — re-collect
-after the v24 deck freeze is ladder-confirmed. Self-play Phase 1 built but
-superseded by the DAgger-first plan (direct self-play had no improvement operator).
+**Status (as of 2026-07-03):** BC warmup complete **on the pre-v24 deck** — since
+v24's deck swap was reverted 2026-07-03, this is now the same deck as the current
+`main.py`/`deck.csv`. Re-collect once the deck is ladder-confirmed frozen. Self-play
+Phase 1 built but superseded by the DAgger-first plan (direct self-play had no
+improvement operator).
 - Architecture: EmbeddingBag(22000) + Transformer(128d, 2-head) + actor-critic heads
 - Value targets: n-step Monte Carlo with value-head bootstrapping (truncated
   rollouts, not full binary playouts) — see nn-training.md §Value Targets
@@ -329,7 +334,7 @@ After every ship: add the row to `training/ladder_history.csv` and the entry to
 ## Kaggle File Locations
 
 ```
-/kaggle/working/main.py              ← v24 source (active submission)
+/kaggle/working/main.py              ← v23-deck source (active submission)
 /kaggle/working/deck.csv             ← 60-card deck
 /kaggle/working/submission.tar.gz    ← packaged submission
 /kaggle/working/bc_data.pkl          ← BC warmup data (collected — see training/bc_data*.pkl.gz)

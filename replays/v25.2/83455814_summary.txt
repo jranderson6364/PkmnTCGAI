@@ -1,0 +1,14 @@
+=== 83455814.json ===
+Opponent: Praxel | Result: LOSS | Terminal cause: OTHER | Total steps: 27
+
+--- Decision log (6 real decisions) ---
+step  6 turn1 | you_prizes=6 opp_prizes=6 | hand=7[Alakazam,Enhanced Hammer,Dawn,Sacred Ash,Handheld Fan,Rare Candy,Rare Candy] deck=46 | my_active=Shaymin(343) 80/80 opp_active=Cinderace(666) 160/160 cards_needed=8 | ATTACH: Handheld Fan(1161) ACTIVE:Shaymin(343) 80/80
+step  7 turn1 | you_prizes=6 opp_prizes=6 | hand=6[Alakazam,Enhanced Hammer,Dawn,Sacred Ash,Rare Candy,Rare Candy] deck=46 | my_active=Shaymin(343) 80/80 opp_active=Cinderace(666) 160/160 cards_needed=8 | END: END TURN
+
+--- Final state check (last few steps) ---
+  step21: you=Shaymin(343) 80/80 prizes=6 deck=46 | opp=Cinderace(666) 160/160 prizes=6 deck=47
+  step22: you=Shaymin(343) 80/80 prizes=6 deck=46 | opp=Cinderace(666) 160/160 prizes=6 deck=47
+  step23: you=Shaymin(343) 0/80 prizes=6 deck=46 | opp=Cinderace(666) 160/160 E=[8] prizes=6 deck=34
+  step24: you=Shaymin(343) 0/80 prizes=6 deck=46 | opp=Cinderace(666) 160/160 E=[8] prizes=6 deck=34
+  step25: you=Shaymin(343) 0/80 prizes=6 deck=46 | opp=Cinderace(666) 160/160 E=[8] prizes=6 deck=34
+  step26: you=Shaymin(343) 0/80 prizes=6 deck=46 | opp=Cinderace(666) 160/160 E=[8] prizes=6 deck=34

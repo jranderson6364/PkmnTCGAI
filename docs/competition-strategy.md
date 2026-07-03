@@ -2,7 +2,7 @@
 
 *Summary of the strategic analysis for the PTCG AI Battle Challenge.*
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-03
 
 ---
 
@@ -163,6 +163,50 @@ is a report figure either way.
 | **~Jul 20** | Merger decision point: solo if AWR shows a gradient; else recruit (GPU/RL partner) before Aug 9 |
 | **Aug 5–16** | Stage 4 hardening; freeze best 2 submissions; Stage 5 MCTS go/no-go via latency curve; no risky changes |
 | **Aug 16 – Sep 13** | Report assembly from `docs/report-log.md` (method section drafted during Stage 2, not after) |
+
+---
+
+## Official Strategy-Track Rubric (verbatim, retrieved 2026-07-03)
+
+From the Kaggle Strategy competition Overview → Evaluation. This is the exact
+text the judges score against.
+
+| Category | Criteria (verbatim) | Weight |
+|----------|--------------------|--------|
+| **Model Score** | • How clearly is the chosen approach articulated, and how well is the rationale for the model and methods explained? • How original and technically sound is the proposed approach? • How consistently does the model perform under repeated matches and stable conditions? • How well does the strategy avoid over-reliance on specific initial states, matchups, or situational advantages? • Performance within the competition track. | 70% |
+| **Deck Score** | • How clearly is the deck concept articulated, and how well does it align with the intended strategy? • How effectively are the key cards selected and utilized to support the deck's overall game plan? | 20% |
+| **Report Score** | • How logically and clearly is the report structured and written? • How effectively are figures, charts, tables, or other visual elements used to support the explanation? | 10% |
+
+**Submission format facts (from the same page):**
+- Deliverable is a **Kaggle Writeup** (title + subtitle + body), not a PDF; a
+  Track must be selected to submit; drafts left unsubmitted at the deadline
+  are not judged. Final deadline **Sep 13, 2026, 7:59 PM EDT**.
+- **"Your Writeup should not exceed 2000 words. Submissions over this limit
+  may be subject to penalty."**
+- Optional **Media Gallery** for images/video; other assets (code repos,
+  Kaggle notebooks, external links) may be attached. Private attached
+  resources are auto-made public after the deadline.
+- **"Submissions containing images that violate the license granted for
+  Pokémon Elements will not be evaluated and are subject to
+  disqualification."** → no card art / scans in figures; deck lists as text
+  tables, damage math as abstract charts.
+- Judges: shige (Data Scientist, Matsuo Institute), choya (Data Scientist,
+  MI), plus three The Pokémon Company judges — a **mixed ML + game-domain
+  panel**; the report must read for both.
+- Host framing (Description + shige's welcome post): "Why was a particular
+  strategy chosen? What hypotheses were tested?"; "creative approaches,
+  interesting findings, and lessons learned"; "decision-making when dealing
+  with unknowns"; explicitly: middle/lower ladder tiers "can still achieve
+  high overall scores through deep analysis, originality, and
+  well-structured reporting."
+
+**Rubric→plan gaps flagged 2026-07-03:** the two Model-Score robustness
+bullets (consistency under repeated matches; no over-reliance on initial
+states/matchups/situational advantages) had no dedicated report figure —
+added as target figure #6: a robustness panel (per-anchor matchup win-rate
+table, seat/going-first split, variance across repeated gauntlet runs,
+win-rate conditional on opening-hand quality). Data mostly already collected
+by the gauntlet; keep logging per-matchup splits every run.
 
 ---
 

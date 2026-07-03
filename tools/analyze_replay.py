@@ -2,11 +2,16 @@
 """
 Replay analyzer for PTCG AI Battle Challenge kaggle-env JSON logs.
 
-KEY INSIGHT (reverse-engineered): steps[i]['action'] is the action that was
-CHOSEN using steps[i-1]'s observation.select.option list. steps[i]['observation']
-is the RESULTING state after that action was applied. So to know "what did the
-agent pick at decision point i-1", read steps[i]['action'] and index into
-steps[i-1]'s option list.
+KEY INSIGHT (reverse-engineered, verified against raw JSON): each per-step record
+has a `status` field (ACTIVE/INACTIVE/DONE). The `select` object in a step's
+observation ECHOES into the opponent's INACTIVE steps (where we correctly have
+nothing to answer) as well as our own ACTIVE step. A real decision point is
+`steps[i-1][you]['status'] == 'ACTIVE'` with a `select` present; the action that
+answers it is read from `steps[i][you]['action']` (which may itself land on an
+INACTIVE or DONE record — the action is NOT gated on step i's status, only the
+select at step i-1 is). Treating every step with a stale echoed `select` as a
+fresh decision (the previous version of this tool) fabricates dozens of phantom
+"timeouts" per game and corrupts the decision log.
 
 Usage: python3 analyze_replay.py <replay.json> [--out out.txt]
 """
@@ -72,10 +77,17 @@ def fmt_pk(names, pk):
     tag = ''
     if pk.get('megaEx'): tag = '[megaEx]'
     elif pk.get('ex'): tag = '[ex]'
-    return f"{names.get(cid,'?')}({cid}) {hp}/{maxhp}{tag}"
+    energies = pk.get('energies') or []
+    etag = f" E={energies}" if energies else ""
+    return f"{names.get(cid,'?')}({cid}) {hp}/{maxhp}{tag}{etag}"
+
+def cards_needed_for(hp):
+    if hp is None or hp >= 99999: return None
+    return math.ceil(hp / PH_DMG)
 
 def resolve_chosen(names, prev_obs, action):
-    """Given the observation the agent SAW and the action it picked, describe it."""
+    """Given the observation the agent SAW (at a real ACTIVE decision point) and
+    the action it picked, describe it."""
     sel = prev_obs.get('select')
     if not sel: return None
     opts = sel.get('option', [])
@@ -113,75 +125,62 @@ def resolve_chosen(names, prev_obs, action):
         info['desc'] = 'END TURN'
     return info
 
-PSYCHIC_CARD_IDS = {BASIC_P, TELEPATH_P}
-PIVOT_FREE_RETREAT_IDS = {SHAYMIN}
+def real_decisions(you_idx, steps):
+    """Yield (i, prev_obs, action) for every genuine decision point: prev record
+    (steps[i-1][you_idx]) has status ACTIVE and a select; action is read from
+    steps[i][you_idx] regardless of that record's status."""
+    n = len(steps)
+    out = []
+    for i in range(1, n):
+        prev_rec = steps[i-1][you_idx]
+        if prev_rec.get('status') != 'ACTIVE':
+            continue
+        prev_obs = prev_rec.get('observation') or {}
+        sel = prev_obs.get('select')
+        if not sel:
+            continue
+        action = steps[i][you_idx].get('action')
+        out.append((i, prev_obs, sel, action))
+    return out
 
-def check_bad_energy_attach(names, prev_obs, sel, action):
-    """Flags Psychic energy attached to a non-attacker with no legitimate reason.
-    Legitimate = Alakazam (attacker) / Kadabra / Abra (pre-load before evolving),
-    or the Active paying a real (non-zero, non-free) retreat cost into a bench
-    Pokemon that's actually ready to attack. Everything else is 'preemptive
-    giving' with zero payoff — the energy sits on a Pokemon that will never use it."""
-    opts = sel.get('option', [])
-    if not action or action[0] >= len(opts) or action[0] < 0:
-        return None
-    o = opts[action[0]]
-    if o.get('type') != ATTACH:
-        return None
-    _, yidx, pl = get_players(prev_obs)
-    if yidx is None or len(pl) <= yidx:
-        return None
-    me = pl[yidx]
-    hand = me.get('hand') or []
-    idx = o.get('index')
-    cid = pk_id(hand[idx]) if idx is not None and 0 <= idx < len(hand) else None
-    if cid not in PSYCHIC_CARD_IDS:
-        return None
-    ipa = o.get('inPlayArea'); ipi = o.get('inPlayIndex', 0)
-    bench = me.get('bench') or []
-    active = (me.get('active') or [None])[0]
-    tgt = active if ipa == 4 else (bench[ipi] if ipa == 5 and 0 <= ipi < len(bench) else None)
-    tid = pk_id(tgt)
-    if tid in (ALAKAZAM, KADABRA, ABRA):
-        tgt_has_psychic = 5 in (tgt.get('energies') or [])
-        if tgt_has_psychic:
-            # Powerful Hand only ever needs 1 Psychic on the card that attacks with
-            # it — a 2nd copy on the SAME physical Pokemon is pure waste (hand size,
-            # not energy count, is the damage stat).
-            return f"-> {cname(names, tid)} ALREADY has Psychic — 2nd copy is pure waste (Powerful Hand only needs 1)"
-        return None  # legitimate: the attacker itself, or pre-loading the evolution line
-    if tid in PIVOT_FREE_RETREAT_IDS:
-        return f"-> {cname(names, tid)} (FREE retreat — energy can never help it retreat, and it never attacks)"
-    if ipa == 4:
-        bench_has_ready_alak = any(
-            pk_id(b) == ALAKAZAM and 5 in (b.get('energies') or []) for b in bench if b)
-        if bench_has_ready_alak:
-            return None  # legitimate: paying a real retreat cost into a waiting attacker
-        return f"-> Active {cname(names, tid)} (no ready bench attacker to retreat into — energy fixes nothing this turn)"
-    return f"-> bench support {cname(names, tid)} (no attack, no imminent retreat — pure waste)"
-
-def can_lethal(prev_obs):
-    """Replicate v15's can_ko logic approximately: active is Alakazam w/ psychic, attack available, dmg>=opp hp, no mist."""
-    cur, yidx, pl = get_players(prev_obs)
-    if yidx is None or len(pl) < 2: return None
-    me = pl[yidx]; opp = pl[1-yidx]
-    my_active = (me.get('active') or [None])[0]
-    opp_active = (opp.get('active') or [None])[0]
-    if not my_active or not opp_active: return None
-    hand_n = me.get('handCount')
-    if hand_n is None: hand_n = len(me.get('hand') or [])
-    opp_mist = any(ec.get('id') in (MIST_ENERGY, ROCK_ENERGY) for ec in (opp_active.get('energyCards') or []))
-    is_alak = pk_id(my_active) == ALAKAZAM
-    has_psychic = 5 in (my_active.get('energies') or [])
-    sel = prev_obs.get('select')
-    attack_avail = sel and sel.get('type') == 0 and any(o.get('type') == ATTACK for o in sel.get('option', []))
-    dmg = PH_DMG * hand_n if (is_alak and has_psychic and attack_avail and not opp_mist) else 0
-    opp_hp = opp_active.get('hp', 99999) or 99999
-    return {
-        'is_alak': is_alak, 'has_psychic': has_psychic, 'attack_avail': attack_avail,
-        'opp_mist': opp_mist, 'dmg': dmg, 'opp_hp': opp_hp,
-        'lethal': bool(attack_avail and is_alak and has_psychic and not opp_mist and dmg >= opp_hp),
-    }
+def classify_terminal(d, you_idx):
+    """Terminal-cause triage: PRIZED_OUT / DECK_OUT / NO_POKEMON_IN_PLAY /
+    EMPTY_OR_ILLEGAL_RETURN / OTHER."""
+    steps = d['steps']
+    n = len(steps)
+    rewards = d.get('rewards', [None, None])
+    your_result = rewards[you_idx]
+    if your_result != -1:
+        return None  # only classify losses
+    # last real decision point: did we return a legal, non-empty action?
+    decs = real_decisions(you_idx, steps)
+    if decs:
+        i, prev_obs, sel, action = decs[-1]
+        opts = sel.get('option', [])
+        illegal = (not action) or action[0] < 0 or action[0] >= len(opts)
+        if illegal and len(opts) > 0:
+            return 'EMPTY_OR_ILLEGAL_RETURN'
+    # true last board state (reflects the actual end-of-game board)
+    last_full = None
+    for i in range(n-1, -1, -1):
+        obs = steps[i][you_idx].get('observation') or {}
+        cur, yidx, pl = get_players(obs)
+        if yidx is not None and len(pl) == 2:
+            last_full = (cur, yidx, pl)
+            break
+    if last_full:
+        cur, yidx, pl = last_full
+        me = pl[yidx]; opp = pl[1-yidx]
+        opp_prizes_taken = 6 - len(opp.get('prize') or [])
+        my_deck = me.get('deckCount', 99)
+        no_pokemon = not me.get('active') and not (me.get('bench') or [])
+        if no_pokemon:
+            return 'NO_POKEMON_IN_PLAY'
+        if my_deck == 0:
+            return 'DECK_OUT'
+        if opp_prizes_taken >= 6:
+            return 'PRIZED_OUT'
+    return 'OTHER'
 
 def analyze(path, names):
     with open(path) as f:
@@ -193,163 +192,63 @@ def analyze(path, names):
     rewards = d.get('rewards', [None, None])
     your_result = rewards[you_idx]
     result_str = {1: 'WIN', -1: 'LOSS', 0: 'DRAW'}.get(your_result, str(your_result))
-
-    lines = []
-    lines.append(f"=== {path.split('/')[-1]} ===")
-    lines.append(f"Opponent: {opp_name} | Result: {result_str} | Total steps: {len(d['steps'])}")
-    lines.append("")
+    terminal_cause = classify_terminal(d, you_idx) if your_result == -1 else None
 
     steps = d['steps']
     n = len(steps)
-    timeouts = []
-    missed_lethals = []
-    bad_retreats = []
-    boss_plays = []
-    bad_energy_attaches = []
-    flagged_lines = []
 
-    last_main_phase_idx = None  # index into steps where you last had a stype=0 decision
-    pending_retreat_step = None
+    lines = []
+    lines.append(f"=== {path.split('/')[-1]} ===")
+    lines.append(f"Opponent: {opp_name} | Result: {result_str}"
+                  + (f" | Terminal cause: {terminal_cause}" if terminal_cause else "")
+                  + f" | Total steps: {n}")
+    lines.append("")
 
-    for i in range(1, n):
-        prev_rec = steps[i-1][you_idx]
-        cur_rec = steps[i][you_idx]
-        prev_obs = prev_rec.get('observation', {})
-        action = cur_rec.get('action')
-        sel = prev_obs.get('select')
-        if sel is None:
-            continue
-        if cur_rec.get('observation', {}).get('current') is None and i < n - 1:
-            # not your turn / no new info
-            pass
+    decs = real_decisions(you_idx, steps)
+    lines.append(f"--- Decision log ({len(decs)} real decisions) ---")
 
+    empty_illegal = []
+    for i, prev_obs, sel, action in decs:
         opts = sel.get('option', [])
         stype = sel.get('type')
-
-        # detect empty/OOB action when there WAS a real decision to make
-        if (not action) and len(opts) > 0:
-            cur_state, yidx2, pl2 = get_players(prev_obs)
-            timeouts.append((i, stype, len(opts)))
-            continue
-        if action and (action[0] >= len(opts) or action[0] < 0):
-            timeouts.append((i, stype, len(opts), 'OOB:'+str(action)))
-            continue
-
-        if stype != 0:
-            continue  # focus on main-phase decisions for flow; resolved below for retreat/boss target
-
-        chosen = resolve_chosen(names, prev_obs, action)
-        if chosen is None:
-            continue
-
-        cur_p, yidx, pl = get_players(prev_obs)
+        cur, yidx, pl = get_players(prev_obs)
         me = pl[yidx] if yidx is not None and len(pl) > yidx else {}
         opp = pl[1-yidx] if yidx is not None and len(pl) == 2 else {}
         my_active = (me.get('active') or [None])[0]
         opp_active = (opp.get('active') or [None])[0]
+        hand = me.get('hand') or []
+        hand_names = ','.join(names.get(pk_id(c), '?') for c in hand) if hand else ''
+        hand_n = me.get('handCount', len(hand))
+        deck_n = me.get('deckCount')
         my_prizes = len(me.get('prize') or [])
         opp_prizes = len(opp.get('prize') or [])
-        hand_n = me.get('handCount', len(me.get('hand') or []))
+        turn = cur.get('turn')
 
-        # missed lethal check
-        lethal_info = can_lethal(prev_obs)
-        ot = chosen.get('otype')
-        if lethal_info and lethal_info['lethal'] and ot != ATTACK:
-            missed_lethals.append((i, lethal_info, chosen))
+        illegal = (not action) or action[0] < 0 or action[0] >= len(opts)
+        if illegal and len(opts) > 0:
+            empty_illegal.append(i)
+            lines.append(f"  step{i:3d} turn{turn} | stype={stype} n_opts={len(opts)} "
+                         f"| EMPTY/ILLEGAL RETURN action={action}")
+            continue
+        if stype != 0:
+            continue  # non-MAIN selects (targeting, deck search, etc.) are resolved
+                      # by the surrounding main-phase action; skip for the readable log
 
-        # preemptive/wasted energy attach check
-        bad_energy = check_bad_energy_attach(names, prev_obs, sel, action)
-        if bad_energy:
-            bad_energy_attaches.append((i, bad_energy))
-
-        # Boss play detection -> look ahead for target selection
-        if ot == PLAY and chosen.get('card', '').startswith('Boss'):
-            # find next stype==1 selection targeting opponent bench
-            target_desc = None
-            for j in range(i, min(i+6, n)):
-                rec_j = steps[j][you_idx]
-                obs_j = rec_j.get('observation', {})
-                sel_j = obs_j.get('select')
-                if sel_j and sel_j.get('type') == 1:
-                    optsj = sel_j.get('option', [])
-                    if optsj and all(o.get('playerIndex') == (1-you_idx) and o.get('area') == 5 for o in optsj):
-                        # the action that resolves THIS selection is in steps[j+1]
-                        if j+1 < n:
-                            act_j = steps[j+1][you_idx].get('action')
-                            curj, yidxj, plj = get_players(obs_j)
-                            oppj = plj[1-yidxj] if yidxj is not None and len(plj)==2 else {}
-                            opp_bench = oppj.get('bench') or []
-                            if act_j and 0 <= act_j[0] < len(optsj):
-                                bi = optsj[act_j[0]].get('index', 0)
-                                tgt = opp_bench[bi] if 0 <= bi < len(opp_bench) else None
-                                target_desc = fmt_pk(names, tgt)
-                        break
-            boss_plays.append((i, my_prizes, opp_prizes, fmt_pk(names, opp_active), target_desc))
-
-        # Retreat -> look ahead for bench target selection
-        if ot == RETREAT:
-            bench = me.get('bench') or []
-            target_desc = None
-            for j in range(i, min(i+6, n)):
-                rec_j = steps[j][you_idx]
-                obs_j = rec_j.get('observation', {})
-                sel_j = obs_j.get('select')
-                if sel_j and sel_j.get('type') == 1:
-                    optsj = sel_j.get('option', [])
-                    if optsj and any(o.get('area') == 5 for o in optsj):
-                        if j+1 < n:
-                            act_j = steps[j+1][you_idx].get('action')
-                            if act_j and 0 <= act_j[0] < len(optsj):
-                                oj = optsj[act_j[0]]
-                                bi = oj.get('index', 0)
-                                tgt = bench[bi] if 0 <= bi < len(bench) else None
-                                target_desc = fmt_pk(names, tgt)
-                                tgt_id = pk_id(tgt)
-                                if tgt_id in NON_ATTACKER_IDS:
-                                    # was there a better option (Alakazam w/ psychic or Dudunsparce) on bench?
-                                    better = [b for b in bench if pk_id(b) == ALAKAZAM and 5 in (b.get('energies') or [])]
-                                    if better:
-                                        bad_retreats.append((i, target_desc, [fmt_pk(names,b) for b in better]))
-                        break
-                    elif sel_j.get('type') != 1:
-                        break
-            flagged_lines.append((i, 'RETREAT', target_desc, my_prizes, opp_prizes))
-
-        # log every main-phase action compactly
+        chosen = resolve_chosen(names, prev_obs, action)
+        if chosen is None:
+            continue
+        cn = cards_needed_for((opp_active or {}).get('hp')) if opp_active else None
         desc_extra = chosen.get('card') or chosen.get('desc') or chosen.get('attackId') or ''
         target = chosen.get('target', '')
-        flagged_lines.append((i, chosen['otype_name'], f"{desc_extra} {target}".strip(),
-                               my_prizes, opp_prizes))
-
-    lines.append(f"--- Decision log ({len(flagged_lines)} main-phase actions) ---")
-    for entry in flagged_lines:
-        i, ot_name, desc, mp, op = entry[:5]
-        lines.append(f"  step{i:3d} | you_prizes={mp} opp_prizes={op} | {ot_name}: {desc}")
-
-    lines.append("")
-    lines.append(f"--- FLAGS ---")
-    lines.append(f"Timeouts/empty-or-OOB actions: {len(timeouts)}")
-    for t in timeouts[:20]:
-        lines.append(f"  step{t[0]}: stype={t[1]} n_opts={t[2]} {t[3] if len(t)>3 else ''}")
-
-    lines.append(f"Missed lethal attacks: {len(missed_lethals)}")
-    for i, li, chosen in missed_lethals[:20]:
-        lines.append(f"  step{i}: could KO (dmg={li['dmg']} vs opp_hp={li['opp_hp']}) but chose {chosen['otype_name']} {chosen.get('card','')}")
-
-    lines.append(f"Bad retreats (promoted non-attacker while ready Alakazam on bench): {len(bad_retreats)}")
-    for i, tgt, better in bad_retreats[:20]:
-        lines.append(f"  step{i}: promoted {tgt}, but had ready: {better}")
-
-    lines.append(f"Wasted/preemptive Psychic energy attaches: {len(bad_energy_attaches)}")
-    for i, desc in bad_energy_attaches[:20]:
-        lines.append(f"  step{i}: {desc}")
-
-    lines.append(f"Boss's Orders plays: {len(boss_plays)}")
-    for i, mp, op, opp_act, tgt in boss_plays:
-        lines.append(f"  step{i}: prizes you={mp} opp={op} | opp_active_was={opp_act} | gusted_target={tgt}")
+        lines.append(
+            f"  step{i:3d} turn{turn} | you_prizes={my_prizes} opp_prizes={opp_prizes} "
+            f"| hand={hand_n}[{hand_names}] deck={deck_n} "
+            f"| my_active={fmt_pk(names,my_active)} opp_active={fmt_pk(names,opp_active)} "
+            f"cards_needed={cn} "
+            f"| {chosen['otype_name']}: {desc_extra} {target}".strip())
 
     lines.append("")
-    lines.append(f"Final state check (last few steps):")
+    lines.append("--- Final state check (last few steps) ---")
     for i in range(max(1, n-6), n):
         rec = steps[i][you_idx]
         obs = rec.get('observation', {})
@@ -361,6 +260,10 @@ def analyze(path, names):
         opp_active = (opp.get('active') or [None])[0]
         lines.append(f"  step{i}: you={fmt_pk(names,my_active)} prizes={len(me.get('prize') or [])} deck={me.get('deckCount')} "
                       f"| opp={fmt_pk(names,opp_active)} prizes={len(opp.get('prize') or [])} deck={opp.get('deckCount')}")
+
+    if empty_illegal:
+        lines.append("")
+        lines.append(f"*** {len(empty_illegal)} EMPTY/ILLEGAL RETURN(S) at real ACTIVE decisions: steps {empty_illegal} ***")
 
     return '\n'.join(lines)
 
@@ -381,6 +284,6 @@ if __name__ == '__main__':
             out = f"=== {p} ===\nERROR: {e}\n{traceback.format_exc()}"
         outpath = os.path.join(os.path.dirname(os.path.abspath(p)),
                                 os.path.basename(p).replace('.json', '_summary.txt'))
-        with open(outpath, 'w') as f:
+        with open(outpath, 'w', encoding='utf-8') as f:
             f.write(out)
         print(f"Wrote {outpath} ({len(out)} chars)")

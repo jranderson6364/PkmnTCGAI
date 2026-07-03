@@ -2,11 +2,271 @@
 
 *Newest first. From Mega Lucario to Alakazam.*
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03 (v25c)
 
 ---
 
-## v24: Deck Simplification — Psyduck/Genesect Out, 4th Alakazam + 4th Dunsparce In — CURRENT
+## v25c: Desperation Mode, Lone-Active-Opportunity, Deck-Search/Boss's Orders Target-Quality Fixes
+
+Submission `54282648`, shipped 2026-07-03. 5 replay-verified fixes from user-flagged
+ladder losses (replays `83429870`, `83458785`, `83461698`, `83462350`), plus one
+new scoped heuristic feature:
+
+1. **`desperation` mode** — when the opponent is ≤1 prize from winning (or ≤2
+   with an ex in play), overrides deck-out caution and forces racing to
+   Alakazam/maximum hand size instead of trying to out-survive a lethal hit.
+2. **`lone_active_opportunity`** — opponent's bench is empty and a rough
+   max-hand estimate (current hand + untapped Dudunsparce/Hilda/Dawn/Enriching
+   draw sources) already clears the KO threshold on their active → stop
+   banking draw for later and go for the kill now.
+3. **`_score_deck_search` Alakazam-priority bug** — Poke Pad/Dawn/Hilda/Lana's
+   Aid/Sacred Ash preferred fetching a dead-weight Alakazam or Kadabra over an
+   Abra when no line piece existed anywhere (replay `83458785`). Fixed via a
+   `have_line_piece` gate (in-play line piece or Abra-in-hand only — a
+   Kadabra-in-hand doesn't count, since it's equally unplayable without an
+   Abra already in play).
+4. **Hilda-vs-Dawn context bug** (replay `83461698`) — Hilda's search pool
+   structurally cannot fetch Basic Pokémon (Stage 1/2 + energy only), but its
+   flat scoring weight beat Dawn's (which can fetch Basics) even with zero
+   Abra anywhere in play or hand. Fixed via `need_basic_abra`, which drops
+   Hilda's score when no line piece exists and there's no Abra in hand.
+5. **Boss's Orders `PHASE_CLOSING` target-quality gate** (replays `83458785`
+   and `83462350`) — the `PHASE_CLOSING` branch returned an unconditional flat
+   199.0 regardless of target quality, confirmed wasting Boss's Orders twice:
+   once swapping a KOable 3-prize Starmie for a 1-prize Staryu, once gusting
+   a fueled Mega Lucario ex for a 1-prize Solrock (though replaying that exact
+   state showed the "440 damage" alternative wasn't actually legal that turn —
+   active was a same-turn Abra, Powerful Hand needs Alakazam, Rare Candy was
+   blocked by `appearThisTurn`). Fixed: `PHASE_CLOSING`'s 199.0 now requires
+   `boss_target_exists` (a real, KOable target) rather than firing unconditionally.
+
+400-game A/B and full gauntlet not yet re-run against this exact patch (see
+outstanding items in `CLAUDE.md`). Known open gap, not fixed here: `main.py`
+has no handling for the engine's `MULLIGAN` select context — zero confirmed
+firings found across 6 replays checked, so left unfixed pending a live example.
+Known unfixed pattern: "board-thinning" — ending up with 1-2 Pokémon in play
+and a bloated, mostly-dead hand after the attacker line gets repeatedly KO'd;
+not a card-sequencing problem, flagged for a dedicated look later.
+
+---
+
+## v25b: Mist-Wall Retreat Fix + Candy-Racing Offensive Trigger + Harness Tie Bug
+
+User watched the first v25 replay live and flagged 3 suspected misplays plus the
+long-standing Dragapult gauntlet ties. Traced against replay `83429870.json`.
+
+**1. Confirmed: retreat scoring force-retreated a fully-fueled Alakazam whenever
+the opponent walled with Mist/Rocky Energy, with no check for whether we could
+exploit it.** `main.py`'s RETREAT branch had `if opp_mist and active_is_alak:
+return 9.0` unconditionally — turn 20, a 140/140 HP Alakazam with a Psychic
+energy attached retreated into a Kadabra (no Powerful Hand, can never attack)
+for zero benefit, confirmed by running the exact game state through
+`score_options_main`. In this deck the only escapes from a Mist/Rocky wall are
+Enhanced Hammer and Boss's Orders, both of which target the *opponent's* side
+and work regardless of who's active — retreating our own Alakazam never helps,
+and re-promoting it later costs a second wasted retreat. **Fix:** removed the
+branch; falls through to the existing `active_can_attack: return -2.0`.
+
+**2. Not reproduced: Boss's Orders allegedly skipping a lethal fueled Trevenant
+for a weak unevolved target with "no wall present."** Traced all 3 Boss's
+Orders plays in the same replay by energy card ID (Mist Energy displays as
+colorless type but carries card id 11) — all 3 targeted a genuinely
+Mist-walled active, and the bench target chosen was the best legal one each
+time. No fix applied; need the specific replay if this recurs.
+
+**3. Confirmed gap (not reproduced in this replay, but real): Rare Candy racing
+had no offensive trigger.** `racing_for_alakazam` only fired on defense
+(`active_below_half`) or in late phase — no notion of "Candying now sets up a
+near-term KO." **Fix:** added `candy_lethal_soon` (current hand size × 20 ≥
+opponent's active HP, no Mist/Rock wall, Abra active) as a third OR-branch.
+
+**4. Confirmed: "Dragapult ties" were never step-limit draws — a harness bug.**
+`opponents/dragapult_agent.py` imports `cg.api` for rich dataclasses, only
+available in the Kaggle-hosted `kiyotah/cg-lib` dataset; the local
+`try/except Exception` fallback never defines `Pokemon`, so every local game
+vs this anchor crashes with `NameError` in both seats — reproduced 20/20.
+Separately, `training/harness.py::summarize()` read only `rewards[0]`; when
+the crash landed in slot 0 it fell through to the tie branch instead of
+reading slot 1's reward of `1` as a win. **Fix:** `summarize()` now checks
+both reward slots. Post-fix: 20/20 vs `dragapult_agent.py` in both seat
+orders now correctly show 100% win, 0 ties. `lucario`/`abomasnow`/`starmie`
+anchors don't have this crash. The anchor's own crash is left unfixed
+(optional: vendor `cg/api.py` from the dataset, confirmed downloadable and
+plain ~26KB Python); the `dragapult` column in `gauntlet_results.csv` has
+never reflected real play for any prior version.
+
+**Verification:** 400-game A/B vs frozen v23: 53.0% ± 4.9% (up from 52.0%
+pre-fix, CIs overlap). Gauntlet gElo 767 (200 games/anchor, post-harness-fix):
+below v24 (791), above v23 (753)/v22/v21. 0 errors throughout. Shipped as
+submission 54279766.
+
+---
+
+## v25: Replay Analyzer Rebuild + Ability-Prompt Deck-Out Fix + Kadabra Retreat Fix
+
+Rebuilt `tools/analyze_replay.py` from scratch — the prior version never gated on
+each step's `status` field, so the `select` object's echo into the opponent's
+INACTIVE steps was read as a fresh decision, fabricating 28–102 phantom "timeouts"
+per game and swamping any real signal (its analytical predicates read 0 across all
+5 games in the v23 forensics for the same reason: wrong decision extraction, not
+wrong predicates). Rebuilt as a faithful transcript: real decisions require
+`steps[i-1][you].status=='ACTIVE'` with a `select`, action read from `steps[i]`
+regardless of its own status. Added a terminal-cause triage classifier
+(`PRIZED_OUT`/`DECK_OUT`/`NO_POKEMON_IN_PLAY`/`EMPTY_OR_ILLEGAL_RETURN`/`OTHER`)
+and enriched each decision line with hand contents, active HP/energy, deck count,
+and `cards_needed` — replacing the old noise predicates that never fired on a real
+bug.
+
+**Confirmed root cause (replay `83348630`, `DECK_OUT` loss):** evolving a bench
+Kadabra into Alakazam triggers a separate "may use this Ability?" Yes/No prompt
+(select `stype==9`) for Psychic Draw — `_choose`'s stype==9 handler answered YES
+unconditionally, with no deck-count check, unlike every other draw source in the
+file (Dawn/Hilda/Poffin/Poké Pad/Dudunsparce-ability all gate on `deck_danger`).
+In this game the prompt fired at deck=3 with hand already at 17 (`cards_needed`=7)
+and a 5-2 prize lead — drew 3 more cards and emptied the deck the same turn.
+**Fix:** stype==9 now declines (answers NO) when `deck_count<5` and
+`hand_n >= cards_needed+3` — mirrors the existing deck_danger convention.
+Verified end-to-end by replaying the exact `83348630` step-160 obs through the
+patched `main._choose` directly: confirmed `deck_count=3`/`hand_n=16`/
+`cards_needed=7` (opp HP correctly populated) and the patched code returns `[1]`
+(NO) where the old code always returned `[0]` (YES). Note this game had a
+*separate* leak too (Psychic energy misrouted onto the non-attacking Dudunsparce
+instead of the developing Alakazam/Kadabra line, so `hand_surplus`'s
+`ready_attacker_exists` gate never engaged) — the fix closes one deck-out path,
+it doesn't convert this specific game. 400-game A/B vs frozen v23: 52.2% ± 4.9%
+(a null result, expected and uninformative here — it only shows the fix didn't
+break the common case, not that it fires; the direct-replay check above is what
+verifies it). Ships regardless of the A/B per the contract-bug policy, since it
+prevents a category of instant self-losses.
+
+**Also surfaced (documented, not yet fixed) — triage is incomplete:**
+- **Recurring engine stall, 2 of 3 spot-checked `OTHER` losses:** replays
+  `83166796` and `83168738` both show a healthy full-HP board, the opponent
+  having taken only 2-4 of their 6 prizes, the game stalling in `INACTIVE` for
+  7-14 steps, then an abrupt `DONE` loss with an empty action. Fresh evidence for
+  the previously-unconfirmed "prize-selection engine stall" gap
+  (`docs/piloting-guide.md` §13) — but with only 2 data points and ~11 `OTHER`
+  losses still unread, this isn't root-caused yet, and the triage classifier
+  itself likely under-detects it (only catches `NO_POKEMON_IN_PLAY`/`DECK_OUT`/
+  `PRIZED_OUT==6`, not "stalled with a healthy board"). **Follow-up needed:** add
+  a stall detector to `tools/analyze_replay.py`'s classifier and read the
+  remaining `OTHER` games.
+- `NO_POKEMON_IN_PLAY` loss (replay `83344386`): opening hand had no Poffin/Poké
+  Pad/Dawn/Abra to build a bench; single Dunsparce active got KO'd on turn ~3-4
+  with nothing to promote — an instant loss under standard TCG rules. Consistent
+  with the already-documented mulligan/dead-hand gap (piloting-guide.md §6); no
+  new fix, logged as supporting evidence.
+
+**Second confirmed fix, same v25 (full logic audit of retreat/energy/evolution,
+requested separately, before shipping):** `KADABRA` was missing from
+`NON_ATTACKER_IDS`. Kadabra has a real attack (Super Psy Bolt, {P}→30 flat dmg),
+but this deck's `ATTACK` scoring only ever rewards Alakazam's Powerful Hand
+(`active_can_attack` requires `is_alak`; any Kadabra attack scores -5
+unconditionally) — so Kadabra is functionally a non-attacker here, just not
+tagged as one. Consequence: a stuck Kadabra active (no energy, no attack) with a
+fully-fueled, ready Alakazam waiting on the bench fell through every
+retreat-priority tier in the `RETREAT` scoring and landed on a flat 0.5 — *lower
+than simply ending the turn (1.0)*. Verified empirically both before and after
+the fix by constructing that exact state and calling `score_options_main`
+directly: pre-fix, RETREAT=0.5 < END=1.0; post-fix, RETREAT=22.0 > END=1.0.
+400-game A/B vs frozen v23: 53.2% ± 4.9% (CI includes parity — expected and
+uninformative for a narrow-state fix; this run and the stype==9 fix's 52.2% run
+are two independent noisy samples of the same ~50% true rate, not a trend — 0
+errors, no regression is the actual signal). Ships bundled with the stype==9
+fix above.
+
+**Two more fixes from the same audit, after checking each was real and cleanly
+fixable (not just plausible-looking):**
+- **Wondrous Patch's target-select was reusing `_score_bench_target`.** That
+  function's tiebreak (prefer an *already-fueled* Alakazam over an unfueled
+  Kadabra/Abra) is correct for retreat/promotion targeting (swap into whoever
+  can attack right now) but backwards for Wondrous Patch, which *attaches* the
+  recovered Psychic energy to the selected bench Pokémon — there you want
+  whoever needs the energy, not whoever already has it. Checked the actual
+  select object across replays before fixing: Wondrous Patch's follow-up select
+  carries `effect.id==1146` (its own card id), cleanly distinguishable from
+  plain retreat/promotion selects (`effect=None`) and Boss's Orders
+  (`effect.id==1182`) — so this didn't need new context-tracking machinery, just
+  a dispatch branch on that existing field. Added `_score_wondrous_patch_target`
+  (prefers unfueled Alakazam > Kadabra > Abra; -10 if already fueled) routed via
+  `sel['effect']['id']==WONDROUS_PATCH`. Verified with a constructed
+  already-fueled-Alakazam + unfueled-Kadabra bench: old shared scorer would pick
+  the fueled Alakazam (wasting the attach), new scorer correctly picks the
+  Kadabra. 400-game A/B: 53.2% ± 4.9%, 0 errors (expected null result — Wondrous
+  Patch is a 1-of, this is a rare-state fix).
+- **Enriching Energy's "draw 4" had no deck-safety gate at all.** Unlike
+  Kadabra/Alakazam's Psychic Draw (a may-use prompt, now gated via the stype==9
+  fix above), Enriching's draw fires unconditionally on attach — and it drew
+  literally zero scrutiny for deck safety anywhere in the ATTACH branch. Traced
+  to a real contributing factor in the *other* `DECK_OUT` loss, replay
+  `83156504`: attached at deck=5 with hand already at 18, dropping the deck to 1
+  in one action (the game continued a few more turns before finally hitting 0,
+  so this wasn't the sole cause, but it burned nearly all the remaining margin
+  for zero reason). Fixed: `if deck_critical and not emergency_draw: return -6.0`
+  before the existing Dudunsparce/Alakazam routing — `deck_critical` (<10) rather
+  than `deck_danger` (<5) since Enriching's single draw (4) is roughly double
+  Dawn/Hilda's, so it needs more margin. Verified by replaying the exact
+  `83156504` step-174 obs: the option the agent originally chose now scores -6.0,
+  below the new best available option (9.0). 400-game A/B: 54.0% ± 4.9%, 0
+  errors.
+- (Originally considered discouraging Enriching-on-support-mon as an inconsistency
+  with the Alakazam case — **rejected on closer reading**: the draw-4 fires
+  regardless of target, so a support mon attach is a real +4 cards, not a wasted
+  attach like the Alakazam case which blocks the {P} attack-cost slot. The actual
+  bug was the missing deck-safety gate above, not the target preference.)
+
+**Fifth fix, closing the evolution gap the user asked about directly:**
+`docs/piloting-guide.md` §13 had long flagged "manual evolve > Rare Candy" as
+"⚠️ approximate." Nailed down precisely via a synthetic zero-time-pressure state
+(full-HP Abra, full-HP opponent, 6-6 prizes, normal hand): Rare Candy (45.0)
+unconditionally beat manual Abra→Kadabra evolve (2.0) whenever both were legal —
+there was no "do we have time" signal in this matchup at all, exactly matching
+the guide's own gap. Added `racing_for_alakazam` (no Alakazam in play yet, AND
+either our active is below-half HP while the opponent already leads the prize
+race, or the opponent is down to ≤2 prizes) and gated both the Candy-on-active-
+Abra score and the manual-Kadabra-evolve score on it — Candy wins when racing
+(unchanged 45 vs 2), manual wins when there's time (new: 15 vs 10), per
+piloting-guide §3's "bank the extra card when you have time" principle.
+
+**Two bugs caught in the fix's OWN construction, by testing rather than trusting
+the code:** (1) first draft reused `active_vulnerable` for the danger check, but
+that has an `active_hp<60` absolute-HP clause that's *always true for Abra*
+(50 max HP) regardless of actual health — made `racing_for_alakazam`
+unconditionally true and the fix a no-op until caught by a synthetic full-HP
+test. Switched to the relative `active_below_half`. (2) first draft also
+included `emergency_draw` (hand≤4), which is spuriously true turn 1-2 before the
+draw engine has run — exactly when there's the *most* time to climb manually,
+not an emergency. Dropped it. Final version verified against three synthetic
+states (neutral, hurt-and-behind, opponent-closing) all producing the correct
+choice. 400-game A/B vs frozen v23: 52.7% ± 4.9%, 0 errors, no regression.
+
+**Audit scope, stated plainly:** retreat, energy/ATTACH, and now evolution's
+manual-vs-Candy tradeoff got full branch-by-branch scrutiny with
+replay/synthetic verification. Boss's Orders and bench-promotion targeting were
+not re-audited here — they were already reviewed and fixed in the v23
+replay-forensics pass and showed no new issues in this session's spot checks.
+
+**Shipped to Kaggle 2026-07-03** bundled with the other agent's v23-deck revert
+— one submission carrying both the deck revert (`deck.csv`) and these five
+logic fixes (`main.py`). See `training/ladder_history.csv` for the submission
+row.
+
+---
+
+## v24 REVERTED (2026-07-03) — back to v23 deck
+
+Live ladder trend (680 Elo at ~7h, 780 at ~24h) prompted a user call to revert
+before the documented 48h/50-point decision checkpoint. `main.py`'s `DECK` list
+and `deck.csv` reverted to the exact v23 composition (3× Alakazam, 3× Dunsparce,
+Genesect + Psyduck back in) — no scoring-logic changes, since v24's change was
+deck-list-only. Caveat for the record: v23 itself had decayed to 773 by its own
+day-2 reading, so 780-at-24h for v24 isn't an unambiguous regression against
+that baseline — see `docs/report-log.md` 2026-07-03 entry for the full data.
+The 200-game local A/B that favored v24 (60.0% ± 6.8%) stands unexplained.
+
+---
+
+## v24: Deck Simplification — Psyduck/Genesect Out, 4th Alakazam + 4th Dunsparce In — SUPERSEDED, see revert above
 
 First (and only sanctioned) deck change since the list was adopted; logic untouched.
 The Stage 0 deck audit (`tools/deck_audit.py`) showed Psyduck (858) and Genesect

@@ -281,7 +281,13 @@ competitive prize-mapping practice):
 
 ---
 
-## Method Bake-off Protocol
+## Method Bake-off Protocol (first full run 2026-07-03 — Table B in report-log)
+
+**Outcome:** gElo ladder random 5 → generic-greedy 57 → bc-v2 239 →
+dagger-r2 246 → heuristic-v25c 568 (8,000 games, one protocol). DAgger not
+CI-separable from BC on win-rate (third confirmation of the fidelity plateau);
+kept as Stage 2 initialization. Future rows (AWR, search+belief) append to the
+same table under new seeds — no re-runs of old rows without a protocol bump.
 
 Every method row is produced by the same `training/gauntlet.py` version on the same
 anchor panel, 200 games/anchor, recorded seed, statistical conventions above. Rows:

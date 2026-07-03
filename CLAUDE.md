@@ -123,7 +123,7 @@ Open, unfixed pattern: "board-thinning" (ending up with 1-2 Pokémon in play
 and a bloated dead hand after the attacker line gets repeatedly KO'd).
 **Roadmap (canonical: `docs/competition-strategy.md` §Master Plan):**
 Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → **Stage 0c
-deck bake-off (DONE — freeze re-closed) + method bake-off (running)** → Stage 1
+deck bake-off (DONE — freeze re-closed) + method bake-off (DONE)** → Stage 1
 DAgger → Stage 2
 advantage-weighted self-play → Stage 3 belief model (parallel) → Stage 4
 hardening → Stage 5 search-at-inference (Kaggle-gated).
@@ -191,11 +191,14 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
     per-seat+seed logging in gauntlet/ab_test, `tools/meta_survey.py` (meta
     share from replays — Archaludon ~18%, not in our anchor pool; candidate
     future anchor).
-0b. **Method bake-off** — pre-registered same date; all rows through one fixed
-    gauntlet protocol (see `docs/competition-strategy.md` → Method Bake-off
-    Protocol). 5 rows launched 2026-07-03 (random, generic-greedy,
-    heuristic-v25c, bc-v2, dagger-r2; 200 games/anchor, 8 anchors incl. fixed
-    dragapult, seed method-run1) — results entry pending run completion.
+0b. ~~Method bake-off~~ DONE 2026-07-03: all 5 rows through one protocol
+    (8 anchors incl. fixed dragapult, 200 games/anchor, seed method-run1).
+    gElo ladder: random 5 → generic-greedy 57 → bc-v2 239 → dagger-r2 246 →
+    heuristic-v25c 568. DAgger's +7 over BC is not CI-separable → per the
+    pre-registered rule it is kept as Stage 2 initialization, not as a pilot
+    (third independent confirmation of the fidelity-plateau story). v25c
+    replicated 568 vs 575 across independent runs (figure-#6 variance
+    datapoint). Table B + verdicts: `docs/report-log.md` 2026-07-03 entry.
 
 1. ~~Ship the v23-deck revert + v25 logic fixes~~ DONE 2026-07-03: submission
    54277762 (v23-deck revert + 5 heuristic fixes — stype==9 deck-out, Kadabra

@@ -56,6 +56,50 @@ protocol, one-line keep/reject verdict each).
 
 ---
 
+## 2026-07-03 — Method bake-off complete: Table B + keep/reject verdicts
+
+**Hypothesis:** per the method-bake-off pre-registration (below): the
+imitation-first ladder dominates cheaper alternatives under one fixed
+protocol, and the known negative results survive re-measurement.
+
+**Method (plain English):** all five rows through the same `gauntlet.py`,
+full 8-anchor panel (first run ever with the repaired dragapult), 200
+games/anchor (1,600 games/row, 8,000 total), seed `method-run1`, per-seat
+splits persisted. Net rows via `net_agent.py` with `NET_CKPT`.
+
+**Result — Table B (gElo on the shared BT scale, anchored random=0):**
+
+| method | gElo | vs sample bots | vs frozen heuristics (v21/v22/v23) | verdict |
+|--------|-----:|----------------|-------------------------------------|---------|
+| method-heuristic-v25c | **568** | 93-99.5% | 67% / 65.5% / 61% | **KEPT** — ladder submission + DAgger teacher; beats every cheaper row decisively |
+| method-dagger-r2 | 246 | 66-92% | 21.5% / 19% / 18.5% | kept as **Stage 2 initialization only** — see verdict note |
+| method-bc-v2 | 239 | 65-92% | 21% / 22% / 20% | rejected as pilot, **kept as initialization** (pre-stated non-Elo justification) |
+| method-generic-greedy | 57 | 42-86% | 5.5-9.5% | floor baseline only (that's its job) |
+| method-random | 5 | 38-61% | 1.5-3% | floor reference |
+
+**Verdict notes (rule applied exactly):** dagger-r2 beats bc-v2 by only +7
+gElo — NOT CI-separable at this n, so under the pre-registered rule ("beats
+the best cheaper row with CI excluding 0") DAgger does **not** earn a
+keep-as-pilot on win-rate. This is the third independent measurement agreeing
+with the fidelity-vs-win-rate story: +8pp state fidelity (74.9→81.9%) has not
+yet converted to head-to-head Elo. Roadmap unchanged — exceeding the teacher
+is Stage 2 AWR's job, with `ptcg_dagger_r2.pth` as the starting checkpoint.
+
+**Bonus replications:** (1) method-heuristic-v25c re-gauntleted at 568 vs the
+earlier v25c run's 575 — a Δ7 seed-to-seed replication across independent
+200-game runs (first datapoint for figure #6's variance panel); (2)
+method-random landed at gElo 5 vs the anchor random's 0 — the scale
+self-checks. (3) The sample-notebook bots are weak enough that even random
+goes ~50/50 with them — context that the tier-1 deck margins are largely
+*pilot* margins, which is the co-design thesis said out loud.
+
+**Report relevance:** Table B complete; the method ladder
+(random 5 → generic-greedy 57 → BC 239 → DAgger 246 → tuned heuristic 568)
+is the §3 method-narrative figure; the DAgger verdict is the honest-negative
+§5 material.
+
+---
+
 ## 2026-07-03 — Tier-2 deck bake-off + Stage 0c DECISION: freeze re-closed on Alakazam
 
 **Hypothesis:** per the Stage 0c pre-registration: with one fixed generic

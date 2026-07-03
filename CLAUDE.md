@@ -12,6 +12,11 @@ Detailed sub-topics live in `docs/`.
 **Scoring:** 70% model approach / 20% deck concept / 10% report.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting agent is the only path to Strategy track.
 
+**Mission** (canonical: `docs/competition-strategy.md` → "Mission"): deck and learning
+problem are co-designed; every major choice is quantitatively defended against named
+alternatives; **no report claim without a pre-registered trial** in `docs/report-log.md`.
+The Alakazam deck freeze is **re-opened** pending the Stage 0c deck bake-off.
+
 **Current ladder submission:** v21 Alakazam heuristic agent (`main.py` + `deck.csv`), committed to this repo.
 **NN track:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher). See `docs/nn-training.md`.
 **Training plan:** Self-play vs diverse opponent pool (Starmie/Lucario/Dragapult) + curriculum. See `docs/training-setup.md`.
@@ -46,6 +51,8 @@ docs/
   version-history.md ← v1–v21 change log
   training-setup.md  ← self-play + curriculum training plan
   EN_Card_Data.csv   ← official card text/IDs reference (for opponent deck building + replay analysis)
+  competition-strategy.md ← rubric, mission, Stage 0c deck bake-off + method bake-off protocol
+  report-log.md      ← pre-registered trials + results (report evidence ledger)
 opponents/
   starmie_agent.py   ← Mega Starmie ex training opponent (DECK IDs TODO)
   lucario_agent.py   ← Mega Lucario ex + Rocky Energy training opponent (DECK IDs TODO)
@@ -55,6 +62,9 @@ tools/
                        bad Boss targets, wasted energy attaches, timeouts). Usage:
                        `python3 tools/analyze_replay.py <replay.json> [more...]`
                        writes `<name>_summary.txt` next to each input.
+  deck_math.py       ← analytic consistency panel: hypergeometric mulligan % and
+                       combo-by-turn-N odds for any deck list. Usage:
+                       `python3 tools/deck_math.py deck.csv --want "label=id:n,...@turn"`
 ```
 
 ---
@@ -352,6 +362,12 @@ def prize_value(pokemon):
 ---
 
 ## Outstanding Items (Priority Order)
+
+0a. **Stage 0c deck bake-off** — pre-registered in `docs/report-log.md` (2026-07-03);
+    decision rule + protocol in `docs/competition-strategy.md` → Stage 0c. Runs before
+    Stage 2 compute-heavy work. Deck freeze is re-opened until this resolves.
+0b. **Method bake-off** — pre-registered same date; all rows through one fixed
+    gauntlet protocol (see `docs/competition-strategy.md` → Method Bake-off Protocol).
 
 1. **Opponent DECK IDs are all placeholder (0)** — fill in `opponents/*.py` using `all_card_data()` on Kaggle before self-play can start. See `docs/training-setup.md`.
 2. **v15 A/B harness validation pending** — run `ab_test(v15, random, n=200)` and `ab_test(v15, v11, n=400)` on Kaggle to confirm improvements over v14.

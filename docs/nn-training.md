@@ -1,6 +1,9 @@
 # Neural Net Training Log & Roadmap
 
-**Last updated:** 2026-07-01  
+**Last updated:** 2026-07-03  
+**Evidence rule:** method claims route through the pre-registered method bake-off —
+see `docs/competition-strategy.md` → Method Bake-off Protocol and `docs/report-log.md`.
+
 **Status:** Paused at `sp2_iter2.pth` (~55% vs v11 teacher, right at the Phase 1 exit
 threshold) while the heuristic ladder track (now v21, ~750 Elo / 1600-4000) runs.
 

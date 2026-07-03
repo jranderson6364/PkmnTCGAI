@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-03 (v25c Gauntlet baseline + BC re-collect; entries added 2026-07-02, see below)
+**Last updated:** 2026-07-03 (Stage 0c deck bake-off run + resolved, meta survey, bake-off rig; earlier same-day: v25c Gauntlet baseline + BC re-collect)
 
 ---
 
@@ -53,6 +53,142 @@ protocol, one-line keep/reject verdict each).
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-03 — Tier-2 deck bake-off + Stage 0c DECISION: freeze re-closed on Alakazam
+
+**Hypothesis:** per the Stage 0c pre-registration: with one fixed generic
+pilot on every deck, deck strength can be compared free of pilot quality.
+
+**Method (plain English):** built `training/generic_pilot.py` — a deliberately
+simple deck-agnostic greedy policy (evolve > ability > play > attach > attack
+> end; never retreats; uses only option-type codes, no card knowledge). All 5
+decks piloted by it, same round-robin protocol as tier 1 (200 games/pair,
+seat-alternating, 3,000-step cap ≈ 3× the longest tier-1 game).
+
+**Result (tier 2, 2,000 games, 0 errors, 0 cap-ties, seed tier2-run1):**
+**every pairing is statistically 50/50.** All 10 Wilson CIs cover 0.5;
+BT-Elo spread is 24 points (vs 1,010 in tier 1); prize-trade efficiency
+0.94-1.03 for all decks. End reasons tell the story: **80% of tier-2 games
+end in DECK_OUT** (vs 22% in tier 1) and zero in PRIZED_OUT — below a pilot
+competence floor, matches degenerate into deck-out races and deck identity
+never expresses. The pre-registered "tier-1/tier-2 disagreement is a finding"
+clause triggers in its most extreme form: **deck value is entirely
+pilot-dependent in this pool** — our own harder-edged version of the
+wmh/ptcg-abc observation that simple decks piloted cleanly beat strong decks
+piloted badly.
+
+**DECISION (per the pre-registered rule, applied exactly):** no challenger
+beats Alakazam by ≥10pp with CI excluding 0 in *either* tier — tier 1 is not
+close (best challenger: abomasnow at **7.0%** vs Alakazam; Alakazam ≥93% vs
+everything), and tier 2 discriminates nothing. Condition (a) fails for every
+challenger → **the Alakazam freeze re-closes, now quantitatively justified.**
+Condition (b) (meta-weighted win rate) was not needed, but qualitatively:
+Alakazam beats all four available meta-representative decks ≥93% as-piloted,
+and the meta survey puts those four at ~43% of the observed field.
+
+**Caveats (stated before anyone asks):** tier 2's null is about the *pilot
+floor*, not proof the decks are equal; the 4 challenger decks are the ones
+with in-repo lists (Bellibolt/Crustle stretch decks not yet built); tier-1
+"as-piloted" advantage includes our 25-version pilot vs sample-notebook
+pilots — which is exactly the thesis (co-design of deck + pilot), stated as
+such in the report rather than hidden.
+
+**Report relevance:** Table A complete (both tiers); the tier-1/tier-2
+contrast is a headline finding for §2 (deck as thesis) and §5 (findings);
+DECK_OUT-rate shift (22%→80%) is the mechanism figure.
+
+---
+
+## 2026-07-03 — Bake-off rig built + tier-1 deck bake-off results
+
+**Hypothesis:** per the Stage 0c pre-registration (below): Alakazam is the
+strongest available deck as-piloted.
+
+**Method (plain English):** built `training/bakeoff.py` — the first tool that
+runs any (agent, deck) pairing on either seat (the gauntlet/ab_test CLIs bind
+each agent to its own module deck). Every game logs the pre-registered fields
+(seats, winner, turns, prizes per side, first-attack turn per side, end
+reason, run-id) to `training/bakeoff_results.csv`. Also upgraded the rig's
+logging: `gauntlet_results.csv` now persists per-seat splits + a run id
+(columns added, old rows padded), `ab_test.py` appends every run to
+`training/ab_history.csv`, and `harness.play_game` accepts a step cap.
+Sanity gate passed first: a main.py mirror match came out 17W-23L
+(wr 0.425, Wilson CI [0.285, 0.578] — covers 0.5), 0 errors.
+
+**Protocol notes (deviations from pre-registration, both logged before
+interpreting results):**
+- "seed" is a **run identifier** for grouping independent repeat runs, not an
+  RNG seed — the engine's shuffle lives in the native `cg.dll`, which exposes
+  no seed API. Variance measurement is unaffected (runs are independent).
+- Tier 1 ran uncapped; a 3,000-step cap (≈3× the longest observed tier-1 game)
+  was added before tier 2 because two passive pilots are otherwise bounded
+  only by deck-out (`episodeSteps` defaults to 10M). Capped games score as
+  ties; tier 1 hit no cap (max 43 turns).
+- Fixed `opponents/dragapult_agent.py` first: its cg-lib fallback stubs were
+  missing the `Pokemon`/`Card`/`State` classes used in `isinstance()` checks —
+  the actual root cause of its 100% local crash rate (the import guard itself
+  was fine). Post-fix: 3W-1L vs random, real games. The dragapult anchor is
+  now usable (closes the CLAUDE.md item-6 follow-up).
+
+**Result (tier 1, as-piloted, 200 games/pair, 10 pairs, 2,000 games, 0 errors,
+seed tier1-run1):**
+
+| pair | record | wr (Wilson 95%) |
+|------|--------|------------------|
+| alakazam vs dragapult | 198W-2L | .990 [.964,.997] |
+| alakazam vs lucario | 191W-9L | .955 [.917,.976] |
+| alakazam vs starmie | 195W-5L | .975 [.943,.989] |
+| alakazam vs abomasnow | 186W-14L | .930 [.886,.958] |
+| abomasnow vs dragapult | 150W-50L | .750 |
+| abomasnow vs lucario | 123W-77L | .615 |
+| lucario vs dragapult | 111W-89L | .555 |
+| lucario vs starmie | 186W-14L | .930 |
+| dragapult vs starmie | 186W-14L | .930 |
+| abomasnow vs starmie | 196W-4L | .980 |
+
+BT-Elo: **alakazam 1010** > abomasnow 577 > lucario 469 > dragapult 410 >
+starmie 0. In-play metrics (figure #7): alakazam prize-trade efficiency
+**2.35** (the single-prize thesis, measured — takes 2.35 prizes per prize
+conceded) with the *slowest* setup (mean first attack turn 6.0 vs 2.4-4.5
+for the others) — it wins through the trade, not the race.
+
+**Decision:** tier-1 half of the pre-registered rule is unambiguous — no
+challenger comes near the ≥10pp-over-Alakazam bar (best challenger result:
+abomasnow's 7.0% vs alakazam). Await tier 2 before closing Stage 0c.
+
+**Report relevance:** Table A tier-1 column complete; figure #7 prize-trade
+and setup-speed numbers; the tier-1-vs-tier-2 comparison is the "deck value
+is pilot-dependent" finding.
+
+---
+
+## 2026-07-03 — Ladder meta survey tool + first meta share table
+
+**Hypothesis:** the opponent's archetype is identifiable from cards revealed
+in play/discard, giving (a) meta weights for the deck decision rule,
+(b) belief-model labels (Stage 3), (c) a report figure.
+
+**Method (plain English):** `tools/meta_survey.py` collects every card id the
+opponent revealed across a replay, maps ids→names via `EN_Card_Data.csv`, and
+matches names against an archetype signature list (ace attackers first).
+Unmatched games stay "other/unknown" rather than being guessed.
+
+**Result (28 local replays, v22-v26c bands):** archaludon **17.9%**, alakazam
+14.3%, dragapult 14.3%, lucario 14.3%, starmie 10.7%, crustle 10.7%,
+grimmsnarl/abomasnow/rockets-mewtwo 3.6% each, 1 unknown, 1 corrupt file.
+Two findings: (1) **Archaludon ex is the most-seen opponent and is not in our
+anchor panel or ratings table at all** — candidate for a vendored anchor and a
+matchups.md entry; (2) initial signature list missed 4 archetypes now added
+(archaludon, grimmsnarl, rockets-mewtwo, snorlax-stall).
+
+**Caveats:** n=28 and the sample is conditioned on our Elo band (~880) —
+meta weights for the decision rule should be refreshed from a bulk replay
+download before any deck-switch call rests on them.
+
+**Report relevance:** meta-share table (figure candidate), decision-rule
+weights, Stage 3 label pipeline validated.
 
 ---
 

@@ -22,6 +22,14 @@ except Exception:
         def __getattr__(self, n): return None
     AreaType = SelectContext = OptionType = CardType = LogType = _Stub()
     to_observation_class = lambda x: x
+    # real (empty) classes, not _Stub instances: these names are used in
+    # isinstance() checks at runtime (e.g. add_card_count), which need types —
+    # their absence crashed 100% of local games as NameError: 'Pokemon'
+    class Pokemon: pass
+    class Card: pass
+    class State: pass
+    class Log: pass
+    class Observation: pass
 
 # ── Deck (60 cards, embedded) ─────────────────────────────────────────────────
 Dreepy               = 119   # ×4

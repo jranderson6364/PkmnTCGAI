@@ -35,7 +35,14 @@ from harness import run_matches, summarize
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESULTS_CSV = os.path.join(REPO_ROOT, "training", "gauntlet_results.csv")
 FIELDS = ["timestamp", "candidate", "anchor", "cand_wins", "anchor_wins",
-          "ties", "errors", "n_requested"]
+          "ties", "errors", "n_requested",
+          # per-seat split (candidate as P0 / as P1) + run id, added 2026-07-03
+          # for report figure #6 (robustness panel). Older rows have blank cells.
+          # NOTE: "seed" is a run identifier for grouping independent repeat
+          # runs (variance measurement), NOT an RNG seed — the engine's shuffle
+          # lives in the native cg.dll and exposes no seed API.
+          "cand_wins_p0", "cand_wins_p1", "anchor_wins_p0", "anchor_wins_p1",
+          "ties_p0", "ties_p1", "seed"]
 
 # Fixed anchor panel: name -> path (relative to repo root).
 PANEL = {
@@ -50,7 +57,7 @@ PANEL = {
 }
 
 
-def run_panel(cand_path, cand_name, games_per_anchor, panel_names, workers):
+def run_panel(cand_path, cand_name, games_per_anchor, panel_names, workers, seed=""):
     rows = []
     for name in panel_names:
         if name == cand_name:
@@ -73,6 +80,11 @@ def run_panel(cand_path, cand_name, games_per_anchor, panel_names, workers):
             "ties": s1["ties"] + s2["ties"],
             "errors": s1["errors"] + s2["errors"],
             "n_requested": games_per_anchor,
+            # s1: candidate seated P0; s2: candidate seated P1
+            "cand_wins_p0": s1["C_wins"], "cand_wins_p1": s2["C_wins"],
+            "anchor_wins_p0": s1["A_wins"], "anchor_wins_p1": s2["A_wins"],
+            "ties_p0": s1["ties"], "ties_p1": s2["ties"],
+            "seed": seed,
         }
         n = row["cand_wins"] + row["anchor_wins"] + row["ties"]
         wr = (row["cand_wins"] + 0.5 * row["ties"]) / n if n else 0.0
@@ -85,7 +97,8 @@ def run_panel(cand_path, cand_name, games_per_anchor, panel_names, workers):
 def append_results(rows):
     exists = os.path.exists(RESULTS_CSV)
     with open(RESULTS_CSV, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS)
+        # restval="" keeps rows writable if FIELDS grows again later
+        w = csv.DictWriter(f, fieldnames=FIELDS, restval="")
         if not exists:
             w.writeheader()
         w.writerows(rows)
@@ -163,6 +176,11 @@ def main():
     ap.add_argument("--panel", default=",".join(PANEL),
                     help="comma-separated anchor subset (default: all)")
     ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--seed", default=None,
+                    help="run identifier recorded per row (groups independent "
+                         "repeat runs for variance; NOT an RNG seed — engine "
+                         "randomness is in the native cg.dll). Default: "
+                         "run-YYYYmmdd-HHMMSS")
     ap.add_argument("--table", action="store_true", help="refit + print table only")
     args = ap.parse_args()
 
@@ -174,7 +192,9 @@ def main():
         if unknown:
             ap.error(f"unknown panel anchors: {unknown} (known: {list(PANEL)})")
         cand_path = os.path.abspath(args.candidate)
-        rows = run_panel(cand_path, args.name, args.games, panel_names, args.workers)
+        seed = args.seed or datetime.datetime.now().strftime("run-%Y%m%d-%H%M%S")
+        rows = run_panel(cand_path, args.name, args.games, panel_names,
+                         args.workers, seed=seed)
         append_results(rows)
 
     scores, games = load_pair_scores()

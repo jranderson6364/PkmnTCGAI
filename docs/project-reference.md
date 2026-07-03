@@ -71,6 +71,9 @@ tools/
   deck_math.py       ← analytic consistency panel: hypergeometric mulligan % and
                        combo-by-turn-N odds for any deck list (feeds report figure #7).
                        `python tools/deck_math.py deck.csv --want "label=id:n,...@turn"`
+  meta_survey.py     ← classify opponent archetype per replay JSON → ladder meta
+                       share table (decision-rule weights, Stage 3 labels, report
+                       figure). `python tools/meta_survey.py --all --csv training/meta_survey.csv`
 variants/
   README.md          ← deck-variant workflow (Stage 0): copy of main.py with DECK
                        edited, A/B'd vs current main.py; scratch dir, losers deleted

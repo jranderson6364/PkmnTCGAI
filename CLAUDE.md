@@ -78,7 +78,9 @@ agent is the only path; the heuristic is the ladder placeholder and DAgger teach
 **Mission** (canonical: `docs/competition-strategy.md` → "Mission"): deck and learning
 problem are co-designed; every major choice is quantitatively defended against named
 alternatives; **no report claim without a pre-registered trial** in `docs/report-log.md`.
-The Alakazam deck freeze is **re-opened** pending the Stage 0c deck bake-off.
+The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
+**re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
+challengers; tier 2: pilot floor flattens everything — see report-log).
 **Current agent:** v25c (`main.py` + `deck.csv`, submission 54282648, shipped
 2026-07-03, user-reported ladder Elo peaked ~900, settled ~880; gauntlet gElo
 589, top of the whole table) — see the v25c paragraph below. Previously
@@ -121,7 +123,8 @@ Open, unfixed pattern: "board-thinning" (ending up with 1-2 Pokémon in play
 and a bloated dead hand after the attacker line gets repeatedly KO'd).
 **Roadmap (canonical: `docs/competition-strategy.md` §Master Plan):**
 Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → **Stage 0c
-deck bake-off (freeze re-opened) + method bake-off** → Stage 1 DAgger → Stage 2
+deck bake-off (DONE — freeze re-closed) + method bake-off (running)** → Stage 1
+DAgger → Stage 2
 advantage-weighted self-play → Stage 3 belief model (parallel) → Stage 4
 hardening → Stage 5 search-at-inference (Kaggle-gated).
 **Engine runs locally:** `pip install kaggle_environments --no-deps` → ~0.5s/game.
@@ -178,11 +181,21 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 
-0a. **Stage 0c deck bake-off** — pre-registered in `docs/report-log.md` (2026-07-03);
-    decision rule + protocol in `docs/competition-strategy.md` → Stage 0c. Runs before
-    Stage 2 compute-heavy work. Deck freeze is re-opened until this resolves.
+0a. ~~Stage 0c deck bake-off~~ DONE 2026-07-03 (same day as pre-registration):
+    tier 1 (as-piloted) Alakazam ≥93% vs all 4 challengers, BT-Elo 1010 vs 577
+    next-best; tier 2 (fixed generic pilot) all pairings ~50/50 with 80%
+    DECK_OUT — deck value is pilot-dependent. **Freeze re-closed on Alakazam
+    per the pre-registered rule.** See `docs/report-log.md` 2026-07-03 entries.
+    Rig gains: `training/bakeoff.py` (orthogonal agent×deck round-robins),
+    `training/generic_pilot.py`, dragapult anchor fixed (stub-class root cause),
+    per-seat+seed logging in gauntlet/ab_test, `tools/meta_survey.py` (meta
+    share from replays — Archaludon ~18%, not in our anchor pool; candidate
+    future anchor).
 0b. **Method bake-off** — pre-registered same date; all rows through one fixed
-    gauntlet protocol (see `docs/competition-strategy.md` → Method Bake-off Protocol).
+    gauntlet protocol (see `docs/competition-strategy.md` → Method Bake-off
+    Protocol). 5 rows launched 2026-07-03 (random, generic-greedy,
+    heuristic-v25c, bc-v2, dagger-r2; 200 games/anchor, 8 anchors incl. fixed
+    dragapult, seed method-run1) — results entry pending run completion.
 
 1. ~~Ship the v23-deck revert + v25 logic fixes~~ DONE 2026-07-03: submission
    54277762 (v23-deck revert + 5 heuristic fixes — stype==9 deck-out, Kadabra

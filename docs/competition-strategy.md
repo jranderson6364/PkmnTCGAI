@@ -226,9 +226,20 @@ by the gauntlet; keep logging per-matchup splits every run.
 
 ---
 
-## Stage 0c — Deck Bake-off (decision re-opened)
+## Stage 0c — Deck Bake-off (RESOLVED 2026-07-03: freeze re-closed on Alakazam)
 
-The Alakazam freeze is **re-opened** pending a controlled 5-deck comparison, so the
+**Outcome:** both tiers ran 2026-07-03 (2,000 games each, 0 errors; full
+numbers + decision in `docs/report-log.md`). No challenger came near the
+pre-registered ≥10pp bar — Alakazam won ≥93% of every tier-1 pairing (BT-Elo
+1010 vs 577 for the best challenger), and tier 2 (fixed generic pilot)
+discriminated nothing: all pairings ~50/50, 80% of games ending in DECK_OUT —
+the "deck value is pilot-dependent" finding in its most extreme form. **The
+freeze is re-closed, now quantitatively justified.** Original protocol below
+for the record; re-run only if the ladder meta shifts against Alakazam
+(watch `tools/meta_survey.py` shares — Archaludon at ~18% is not covered by
+the current challenger pool).
+
+The Alakazam freeze was **re-opened** pending a controlled 5-deck comparison, so the
 final freeze is a measured decision, not a prior. Decks: Alakazam + the 4 opponent
 anchor decks in `opponents/`. Two tiers, both required:
 

@@ -1,0 +1,6 @@
+label,agent_path,deck_source
+alakazam,training/generic_pilot.py,main.py
+lucario,training/generic_pilot.py,opponents/lucario_agent.py
+abomasnow,training/generic_pilot.py,opponents/abomasnow_agent.py
+starmie,training/generic_pilot.py,opponents/starmie_agent.py
+dragapult,training/generic_pilot.py,opponents/dragapult_agent.py

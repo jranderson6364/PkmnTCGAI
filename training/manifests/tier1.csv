@@ -1,0 +1,6 @@
+label,agent_path,deck_source
+alakazam,main.py,
+lucario,opponents/lucario_agent.py,
+abomasnow,opponents/abomasnow_agent.py,
+starmie,opponents/starmie_agent.py,
+dragapult,opponents/dragapult_agent.py,

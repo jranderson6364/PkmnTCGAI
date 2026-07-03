@@ -6,7 +6,7 @@ pool. NN architecture and the phased training roadmap live in
 `docs/nn-training.md`; the stage plan lives in `docs/competition-strategy.md`
 §Master Plan.*
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 
 ---
 
@@ -31,9 +31,15 @@ also need: `flask jsonschema numpy requests` (usually already present).
 | File | Purpose |
 |------|---------|
 | `harness.py` | Load agents by file path, run games (parallel), summarize |
-| `ab_test.py` | A/B two agent files, alternating seats, with 95% CI |
+| `ab_test.py` | A/B two agent files, alternating seats, with 95% CI; logs to `ab_history.csv` |
+| `ab_history.csv` | Every A/B run persisted (per-seat splits — report figure #6 input) |
 | `gauntlet.py` | Fixed 8-anchor panel + Bradley-Terry fit → gElo strength scale |
-| `gauntlet_results.csv` | Accumulated panel results (append-only; the BT fit input) |
+| `gauntlet_results.csv` | Accumulated panel results (append-only; the BT fit input; per-seat splits + run id since 2026-07-03) |
+| `bakeoff.py` | Round-robin over arbitrary (agent, deck) pairs — the Stage 0c/method bake-off tool; per-game rows to `bakeoff_results.csv` |
+| `bakeoff_results.csv` | Per-game bake-off rows (seats, winner, turns, prizes, first-attack turn, end reason, run id) |
+| `generic_pilot.py` | Deck-agnostic greedy pilot (tier-2 control + method-bake-off floor baseline) |
+| `manifests/` | Bake-off entry lists (`tier1.csv`, `tier2.csv`) |
+| `meta_survey.csv` | Ladder meta shares from `tools/meta_survey.py` |
 | `ladder_history.csv` | Realized ladder Elo per shipped version (gElo calibration) |
 | `bc_collect.py` | Teacher self-play → `bc_data.pkl.gz` for NN warmup |
 | `weight_search.py` | SPSA tuning of `main.W` scoring constants vs frozen v21 |
@@ -61,6 +67,14 @@ python training/gauntlet.py --table          # refit + print current gElo table
 
 # per-card utilization audit (deck simplification evidence)
 python tools/deck_audit.py --games 1000
+
+# deck/method bake-off round-robin (see docs/report-log.md pre-registrations)
+python training/bakeoff.py --manifest training/manifests/tier1.csv --games 200 --tag tier1
+python training/bakeoff.py --sanity            # mirror-match gate: CI must cover 0.5
+python training/bakeoff.py --table --tag tier1 # reprint matchup matrix + BT + metrics
+
+# ladder meta survey (archetype share from downloaded replays)
+python tools/meta_survey.py --all --csv training/meta_survey.csv
 
 # BC warmup data (~150+ samples/game; both seats harvested in mirror games)
 python training/bc_collect.py --games 2000

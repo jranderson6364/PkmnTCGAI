@@ -31,13 +31,19 @@ def load_agent(path):
     return mod.agent, list(mod.DECK), mod
 
 
-def play_game(agent0, deck0, agent1, deck1, keep_steps=False):
+def play_game(agent0, deck0, agent1, deck1, keep_steps=False, max_steps=None):
     """Run one full game. Returns dict with rewards, steps, wall time, and
-    (optionally) the full step trace for BC collection / analysis."""
+    (optionally) the full step trace for BC collection / analysis.
+    max_steps caps runaway games (cabt's default episodeSteps is 10M, so two
+    passive agents are otherwise bounded only by deck-out); a capped game ends
+    as a tie."""
     from kaggle_environments import make
 
     t0 = time.time()
-    env = make("cabt", configuration={"decks": [deck0, deck1]})
+    config = {"decks": [deck0, deck1]}
+    if max_steps:
+        config["episodeSteps"] = max_steps
+    env = make("cabt", configuration=config)
     env.run([agent0, agent1])
     wall = time.time() - t0
     last = env.steps[-1]

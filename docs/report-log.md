@@ -56,6 +56,41 @@ protocol, one-line keep/reject verdict each).
 
 ---
 
+## 2026-07-03 — Analytic consistency panel for all 5 bake-off decks (figure #7)
+
+**Hypothesis:** the hypergeometric consistency stats (`tools/deck_math.py`)
+differ meaningfully across the bake-off decks and contextualize the tier-1
+result.
+
+**Method (plain English):** exported all 5 deck lists to
+`training/manifests/decks/*.csv` (from each agent module's DECK) and ran the
+deck_math panel on each: mulligan probability (no Basic in opening 7),
+P(ace seen by turn 3), P(key evolution line assembled by turn 3).
+
+**Result:**
+
+| deck | Basics | P(mulligan) | ace ≥1 by T3 | key line by T3 |
+|------|-------:|------------:|-------------:|----------------|
+| **alakazam** | 11 | **22.2%** | 42.7% (Alakazam) | natural 10.1% / Candy 8.1% |
+| lucario | 10 | 25.9% | 52.8% (M-Lucario, Stage 1) | — |
+| dragapult | 9 | 30.0% | 42.7% (Dragapult ex) | natural 10.1% / Candy 5.7% |
+| abomasnow | 6 | 45.9% | 52.8% | — (Basic ace) |
+| starmie | 4 | **60.1%** | 52.8% | — (Basic ace) |
+
+**Findings:** (1) Alakazam has the *lowest* mulligan rate of the pool — the
+"deliberately simplified deck" is also the most consistent one, a point the
+deck section can make analytically rather than anecdotally. (2) The sample
+decks' mulligan rates are catastrophic (abomasnow 45.9%, starmie 60.1% —
+4-6 Basics in 60), which partly mechanizes their tier-1 losses and their
+weak anchor gElos. (3) Stage-2 line-by-T3 is ~10% for both Stage-2 decks —
+piloting around that scarcity (fetch priorities, Candy racing) is where the
+pilot earns its margin, consistent with tier 2 flattening when no pilot does.
+
+**Report relevance:** figure #7 consistency column complete for Table A;
+finding (1) is a §2 sentence.
+
+---
+
 ## 2026-07-03 — Method bake-off complete: Table B + keep/reject verdicts
 
 **Hypothesis:** per the method-bake-off pre-registration (below): the

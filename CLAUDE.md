@@ -75,6 +75,10 @@ logged same-day in `docs/report-log.md`.
 **Key insight:** Rule-based bots cap out at ~0% on the 70% axis. A learned piloting
 agent is the only path; the heuristic is the ladder placeholder and DAgger teacher.
 
+**Mission** (canonical: `docs/competition-strategy.md` → "Mission"): deck and learning
+problem are co-designed; every major choice is quantitatively defended against named
+alternatives; **no report claim without a pre-registered trial** in `docs/report-log.md`.
+The Alakazam deck freeze is **re-opened** pending the Stage 0c deck bake-off.
 **Current agent:** v25c (`main.py` + `deck.csv`, submission 54282648, shipped
 2026-07-03, user-reported ladder Elo peaked ~900, settled ~880; gauntlet gElo
 589, top of the whole table) — see the v25c paragraph below. Previously
@@ -171,6 +175,12 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 ## Outstanding Items (Priority Order)
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
+
+0a. **Stage 0c deck bake-off** — pre-registered in `docs/report-log.md` (2026-07-03);
+    decision rule + protocol in `docs/competition-strategy.md` → Stage 0c. Runs before
+    Stage 2 compute-heavy work. Deck freeze is re-opened until this resolves.
+0b. **Method bake-off** — pre-registered same date; all rows through one fixed
+    gauntlet protocol (see `docs/competition-strategy.md` → Method Bake-off Protocol).
 
 1. ~~Ship the v23-deck revert + v25 logic fixes~~ DONE 2026-07-03: submission
    54277762 (v23-deck revert + 5 heuristic fixes — stype==9 deck-out, Kadabra

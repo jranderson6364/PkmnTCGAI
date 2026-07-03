@@ -4,6 +4,8 @@
 learned-piloting agent (the 70%-weighted "model approach" axis).*
 
 **Last updated:** 2026-07-03
+**Evidence rule:** method claims route through the pre-registered method bake-off —
+see `docs/competition-strategy.md` → Method Bake-off Protocol and `docs/report-log.md`.
 **Status:** RESTARTED. All prior training data was lost, but the engine now runs
 **fully locally** (`training/README.md`) — data collection no longer needs Kaggle
 or even the Vivobook (the Vivobook multiplies throughput). Teacher is now v25c

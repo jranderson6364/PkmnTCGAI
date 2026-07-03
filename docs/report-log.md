@@ -23,6 +23,17 @@ material for these continuously, don't reconstruct later):
 4. **Ablation table** (BC mix ratio, value target type, belief vs. placeholder
    determinization, DAgger on/off, prior-blend λ)
 5. **Latency budget curve** (search sims/decision vs. p99 move time vs. win rate)
+6. **Robustness panel** (per-anchor matchup table, per-seat win split, cross-run
+   seed-to-seed variance, opening-hand-quality conditional win rate)
+7. **Pro-metrics panel** (consistency table via `tools/deck_math.py` — mulligan %,
+   key-combo-by-turn odds per deck; prize-trade efficiency; setup speed = mean
+   first-attack turn; meta-weighted expected win rate)
+
+Target tables: **Table A — deck bake-off** (5 decks × tier-1 BT rating, tier-2 BT
+rating, head-to-head vs Alakazam ±CI, meta-weighted win rate, mulligan %,
+prize-trade efficiency); **Table B — method comparison** (one row per method —
+random, generic-greedy, heuristic, bc, dagger-r2, + future — same gauntlet
+protocol, one-line keep/reject verdict each).
 
 ---
 
@@ -42,6 +53,73 @@ material for these continuously, don't reconstruct later):
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-03 — PRE-REGISTRATION: Deck bake-off (Stage 0c)
+
+**Date:** 2026-07-03 (registered before any bake-off games)
+
+**Hypothesis:** Alakazam is the strongest available deck for this project both
+as-piloted (tier 1) and intrinsically (tier 2, fixed generic pilot), and is not
+disadvantaged against the observed ladder meta. Null outcome (freeze stands) is
+the expected result; the trial exists to make the freeze quantitative.
+
+**Protocol:** 5 decks — Alakazam (`deck.csv`) + the 4 opponent anchor decks.
+Tier 1: each deck with its specialist agent; tier 2: all decks piloted by
+`training/generic_pilot.py`. Full seat-alternating round-robin per tier,
+200 games/pair, via `training/bakeoff.py` (per-game rows: seats, winner, turns,
+prizes taken per side, first-attack turn per side, end reason, seed). Outputs:
+Bradley-Terry ranking, matchup matrix with Wilson 95% CIs, figure #7 metrics.
+Stretch (does not gate the decision): Bellibolt and Crustle lists in tier 2 only.
+
+**Statistical conventions (verbatim from competition-strategy.md):** ties count
+0.5; crash games excluded from win rate and reported (>2% → fix and re-run);
+Wilson 95% CIs; recorded seeds, ≥2 independent-seed runs per headline pairing;
+per-seat splits persisted.
+
+**Decision rule:** replace Alakazam only if a challenger (a) beats it
+head-to-head by ≥10pp with 95% CI excluding 0 in BOTH tiers, and (b) has
+meta-weighted expected win rate (weights from the ladder replay meta survey) ≥
+Alakazam's. Tier-1/tier-2 rank disagreement is a finding, not a trigger.
+Switch cost acknowledged: invalidates BC/DAgger corpora, new heuristic work,
+~6 weeks of ladder remaining. Optional 24–48h ladder probe only if tiers
+disagree or a challenger is within threshold.
+
+**Report relevance:** deck-concept axis (20%) — turns the deck section from a
+story into a controlled comparison; feeds Table A and figures #6/#7.
+
+---
+
+## 2026-07-03 — PRE-REGISTRATION: Method bake-off
+
+**Date:** 2026-07-03 (registered before any method-comparison games)
+
+**Hypothesis:** the imitation-first ladder (BC → DAgger → planned AWR self-play)
+strictly dominates the cheaper alternatives (random, generic-greedy heuristic,
+hand-tuned specialist heuristic) under one fixed protocol, and each rung's
+existing negative result (BC compounding error, SP-only collapse, DAgger plateau)
+survives re-measurement under that protocol.
+
+**Protocol:** same `training/gauntlet.py` version for every row, current anchor
+panel (incl. repaired dragapult), 200 games/anchor, recorded seed, conventions
+above. Rows: `random`, `generic-greedy` (tier-2 pilot on the Alakazam deck),
+`heuristic` (`main.py`), `bc`, `dagger-r2`; future methods (AWR self-play,
+search+belief) append to the same table — no re-runs of old rows without a
+protocol version bump.
+
+**Decision rule:** a method is "kept" (stays on the roadmap) only if it beats
+the best cheaper row with 95% CI excluding 0, or has a pre-stated non-Elo
+justification written in its keep/reject line (e.g. BC kept as initialization,
+not as a pilot). Explicitly out of scope: a from-scratch RL baseline — its
+compute competes with Stage 2; imitation-first is justified by the SP-only
+collapse result and literature precedent, and the report states this rather than
+hiding it.
+
+**Report relevance:** model-approach axis (70%) — the "hypotheses tested"
+rubric line; feeds Table B.
+
+---
 
 ---
 

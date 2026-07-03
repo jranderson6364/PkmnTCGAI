@@ -68,6 +68,9 @@ tools/
   deck_audit.py      ← per-card utilization over local self-play (plays/game-drawn,
                        rot rate, end-hand rate, win-rate deltas) — the deck
                        simplification evidence base. `python tools/deck_audit.py --games 1000`
+  deck_math.py       ← analytic consistency panel: hypergeometric mulligan % and
+                       combo-by-turn-N odds for any deck list (feeds report figure #7).
+                       `python tools/deck_math.py deck.csv --want "label=id:n,...@turn"`
 variants/
   README.md          ← deck-variant workflow (Stage 0): copy of main.py with DECK
                        edited, A/B'd vs current main.py; scratch dir, losers deleted

@@ -6,6 +6,20 @@
 
 ---
 
+## Mission
+
+The deck and the learning problem are designed **together**: a simple, single-prize,
+flat-damage deck exists to make piloting learnable, and the learned pilot exists to
+extract the deck's ceiling — every major choice (deck, method, architecture) is
+quantitatively defended against named alternatives, not asserted. This maps directly
+onto the rubric: 70% model approach (the method bake-off), 20% deck concept (the deck
+bake-off), 10% report (the trial log that makes both citable). Evidence rule: **no
+claim goes in the report without a pre-registered trial behind it** — hypothesis,
+protocol, and decision rule are written into `docs/report-log.md` *before* the games
+run.
+
+---
+
 ## The Thesis in One Paragraph
 
 Top 8 is **not** won by the best forward-search engine or the flashiest RL run. It is won by a **learned-piloting agent on a deliberately simplified deck**, trained by **BC → DAgger → advantage-weighted self-play** from a strong scripted teacher, optionally deployed with **fast, shallow belief-determinized search** under the 10-minute clock — then written up as a rigorous "model approach." This is the one path that scores on *both* axes: real ladder performance *and* the 70%-weighted "model approach" rubric. And the report is not the 10% axis — it is the delivery channel for the whole 70%: **report-driven development** (`docs/report-log.md`).
@@ -207,6 +221,65 @@ added as target figure #6: a robustness panel (per-anchor matchup win-rate
 table, seat/going-first split, variance across repeated gauntlet runs,
 win-rate conditional on opening-hand quality). Data mostly already collected
 by the gauntlet; keep logging per-matchup splits every run.
+
+---
+
+## Stage 0c — Deck Bake-off (decision re-opened)
+
+The Alakazam freeze is **re-opened** pending a controlled 5-deck comparison, so the
+final freeze is a measured decision, not a prior. Decks: Alakazam + the 4 opponent
+anchor decks in `opponents/`. Two tiers, both required:
+
+- **Tier 1 (as-piloted):** each deck with its own specialist agent, full seat-alternating
+  round-robin (200 games/pair), Bradley-Terry ranking + matchup matrix with CIs.
+- **Tier 2 (controlled):** all decks piloted by one deck-agnostic greedy heuristic
+  (`training/generic_pilot.py`), same protocol — isolates deck strength from pilot
+  quality. Tier-1/tier-2 rank disagreement is itself a finding (deck value is
+  pilot-dependent), not a trigger.
+
+**Pre-registered decision rule:** Alakazam is replaced only if a challenger
+(a) beats Alakazam head-to-head by ≥10pp with the 95% CI excluding 0 in **both**
+tiers, and (b) has a meta-weighted expected win rate (weights = observed ladder
+archetype spread from the replay meta survey) ≥ Alakazam's. Otherwise the freeze
+stands, now quantitatively justified. Switch cost, stated up front: invalidates the
+BC/DAgger corpora, requires new heuristic piloting work, ~6 weeks of ladder left.
+
+### Measurement standard (pro-aligned)
+
+Match how the field measures decks (Trainer Hill / Limitless matchup tables; the
+IEEE DataPort formal analysis of Trainer Hill data uses Wilson CIs + bootstrap —
+our conventions match; JustInBasil / SixPrizes hypergeometric deck math;
+competitive prize-mapping practice):
+
+1. **Matchup matrix + meta-weighted win rate** — pairwise win rates with raw W-L-T,
+   then expected field win rate weighted by observed meta share.
+2. **Consistency panel** (analytic, `tools/deck_math.py`) — mulligan probability,
+   P(key combo by turn N) per deck.
+3. **In-play efficiency** — per game: turns, prizes taken per side, first-attack
+   turn, end reason; derived: **prize-trade efficiency** (prizes taken per prize
+   conceded — the Alakazam thesis, measured), setup speed, game length.
+4. **Statistical conventions** — ties = 0.5 wins; crashes excluded and reported
+   (>2% errors → fix and re-run, don't interpret); Wilson 95% CIs; recorded seeds
+   with ≥2 independent-seed runs per headline pairing; seat-alternated with per-seat
+   splits persisted.
+5. **External anchor** — real-TCG Alakazam (Powerful Hand): 48% win rate at 4.07%
+   usage (Campinas 2026 Regional), 4 regional top-8s incl. 1 win (Cerys Jones,
+   Indianapolis) — the archetype is competitively real; card pool/meta differ here.
+
+---
+
+## Method Bake-off Protocol
+
+Every method row is produced by the same `training/gauntlet.py` version on the same
+anchor panel, 200 games/anchor, recorded seed, statistical conventions above. Rows:
+`random`, `generic-greedy` (tier-2 pilot on the Alakazam deck), `heuristic`
+(`main.py`), `bc`, `dagger-r2`; future rows (AWR self-play, search+belief) join the
+same table. Deliverable: one comparable ranking table plus a written "why kept /
+why rejected" line per method, backed by these numbers and the existing negative
+results (SP-only collapse, BC compounding error, DAgger plateau). No from-scratch RL
+baseline: its cost competes directly with Stage 2 compute; imitation-first is
+justified by the SP-only collapse data point and literature precedent, and the report
+says so explicitly.
 
 ---
 

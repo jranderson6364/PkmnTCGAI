@@ -179,6 +179,17 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
+**>>> NEXT STEP (as of 2026-07-04): Stage 3 Phase B, archetype-library build.**
+680 real ladder replays are on disk (`replays/bulk/`, via
+`tools/download_replays.py`) with a real meta-share survey done — see item 5
+below and `docs/belief-model.md` §Phase B / `docs/report-log.md` 2026-07-04
+"Ladder replay bulk download" entry. Not yet started: (1) extend
+`tools/meta_survey.py`'s `SIGNATURES` list to cover the 25.9% `other/unknown`
+slice, (2) tag each replay's opponent into a known-archetype library with a
+representative 60-card list per archetype, (3) honest `unknown` posterior
+handling. Do this before Phase C (wiring the belief posterior into
+`main.py`'s `opp_likely_ace_spec` + the Stage 5 determinization sampler).
+
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 
 0a. ~~Stage 0c deck bake-off~~ DONE 2026-07-03 (same day as pre-registration):

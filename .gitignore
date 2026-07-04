@@ -11,3 +11,5 @@ training/weights_ckpt.json
 replays/**/*.json
 training/*_out.txt
 training/*_ab.txt
+training/local_cg/
+training/kaggle_notebook/*_output/

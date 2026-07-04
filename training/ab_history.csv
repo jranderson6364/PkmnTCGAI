@@ -3,3 +3,12 @@ timestamp,path_a,path_b,n_requested,a_wins,b_wins,ties,errors,a_wins_p0,a_wins_p
 2026-07-04T01:22:13,nn/net_agent.py,nn/net_agent_seed.py,400,191,209,0,0,95,96,105,104,0,0,0.4775,0.049
 2026-07-04T02:55:13,nn/net_agent.py,../main.py,400,46,354,0,0,22,24,178,176,0,0,0.115,0.0313
 2026-07-04T02:56:21,nn/net_agent.py,nn/net_agent_seed.py,400,215,185,0,0,117,98,83,102,0,0,0.5375,0.0489
+2026-07-04T12:43:42,main.py,training/nn/mcts_agent.py,10,7,3,0,0,5,2,0,3,0,0,0.7,0.284
+2026-07-04T13:12:28,main.py,training/nn/mcts_agent.py,60,35,25,0,0,19,16,11,14,0,0,0.5833,0.1247
+2026-07-04T13:44:19,main.py,training/nn/mcts_agent.py,40,27,13,0,0,17,10,3,10,0,0,0.675,0.1452
+2026-07-04T14:07:09,main.py,training/nn/mcts_agent.py,6,5,1,0,0,2,3,1,0,0,0,0.8333,0.2982
+2026-07-04T14:11:52,main.py,training/nn/score_argmax_agent.py,50,35,15,0,0,19,16,6,9,0,0,0.7,0.127
+2026-07-04T14:34:39,main.py,training/nn/mcts_agent.py,8,6,2,0,0,2,4,2,0,0,0,0.75,0.3001
+2026-07-04T15:23:12,main.py,training/nn/mcts_agent.py,60,59,1,0,0,29,30,1,0,0,0,0.9833,0.0324
+2026-07-04T15:46:10,main.py,training/nn/mcts_agent.py,12,11,1,0,0,6,5,0,1,0,0,0.9167,0.1564
+2026-07-04T17:12:28,main.py,training/nn/mcts_agent.py,50,50,0,0,0,25,25,0,0,0,0,1.0,0.0

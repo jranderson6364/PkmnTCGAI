@@ -179,16 +179,28 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-04): Stage 3 Phase B, archetype-library build.**
-680 real ladder replays are on disk (`replays/bulk/`, via
-`tools/download_replays.py`) with a real meta-share survey done — see item 5
-below and `docs/belief-model.md` §Phase B / `docs/report-log.md` 2026-07-04
-"Ladder replay bulk download" entry. Not yet started: (1) extend
-`tools/meta_survey.py`'s `SIGNATURES` list to cover the 25.9% `other/unknown`
-slice, (2) tag each replay's opponent into a known-archetype library with a
-representative 60-card list per archetype, (3) honest `unknown` posterior
-handling. Do this before Phase C (wiring the belief posterior into
-`main.py`'s `opp_likely_ace_spec` + the Stage 5 determinization sampler).
+**>>> NEXT STEP (as of 2026-07-04, per user `/goal` directive — "ML model
+beats latest heuristic"): Stage 5 search-at-inference CLOSED, negative;
+Stage 3 Phase B DONE; next is Phase C.** `training/nn/mcts.py`
+(heuristic-guided PIMC, 100% local dev via `training/setup_local_search.py`)
+went through five gates and three real bug fixes (weak-teacher rollout,
+strategy fusion, `_STALL_MEMO` global-state corruption in two different
+modules) plus one architectural fix (adversarial `lucario_agent` rollout
+opponent, per a user-directed Claude Fable consult) — pre-registered gate
+(≥55% to continue) came back **0W-50L (0%)**, decisively closing the line
+as a third load-bearing negative result alongside DAgger and AWR. See
+`docs/nn-training.md` and `docs/report-log.md` 2026-07-04 "Stage 5
+search-at-inference" entries for the full sequence. Per Fable's
+sequencing, pivoted to Stage 3 Phase B same day: signature extension
+(unknown 25.9%→21.3%, honest 78.7% recognition ceiling confirmed via
+re-clustering — genuine long tail, not more signatures away) and
+archetype library (`training/archetype_decks.json`, reconstructed from
+real replay evidence) both DONE — see item 5 below and
+`docs/belief-model.md` §Phase B. **Not started: Phase C** — wire the
+belief posterior into `main.py`'s `opp_likely_ace_spec` (still hardcoded
+`True`) + Mist/Rocky anticipation, and build the determinization sampler
+for any future search work. Gate: 400-game A/B vs pre-wiring `main.py`,
+must not regress; ladder confirm.
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 
@@ -284,6 +296,23 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
    `search_begin`/MCTS spike, (b) start Stage 3 belief model in parallel
    (doesn't depend on this result), or (c) keep v25c heuristic as the ladder
    submission and treat tonight's result as report material for now.
+   ~~(a)~~ **DONE + CLOSED same day, per user /goal directive (2026-07-04):**
+   two cheap probes (branching + timing) both green-lit inference-time
+   search — see `docs/engine-api.md` "MCTS branching + timing probe". Built
+   `training/nn/mcts.py`/`mcts_agent.py` (heuristic-guided PIMC) and
+   `training/setup_local_search.py` (local `cg.api` search, zero Kaggle
+   round-trips for dev). Five gates, three real bugs fixed (weak-teacher
+   rollout, strategy fusion, `_STALL_MEMO` global-state corruption in two
+   modules), one architectural fix tried (adversarial `lucario_agent`
+   rollout opponent, per a user-directed Claude Fable consult) —
+   pre-registered gate (≥55% to continue) came back **0W-50L (0%)**.
+   **CLOSED, negative** — third load-bearing negative result alongside
+   DAgger and AWR: all three converge on "a value/policy signal built
+   without genuinely external information can't exceed the teacher it's
+   built from." See `docs/nn-training.md` and `docs/report-log.md`
+   2026-07-04 "Stage 5 search-at-inference" entries (multiple) for the full
+   sequence. Per Fable's sequencing, pivoted to Stage 3 Phase B next
+   regardless of outcome (see item 5).
 5. **Stage 3 (parallel): belief model** — archetype classifier + accuracy-by-turn
    figure. **Phase A DONE 2026-07-04:** 92.3% held-out accuracy, 99.1% by
    turn 1 (clears the >90%-by-turn-3 target two turns early), beats the
@@ -299,11 +328,22 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
    API rate-limiting + user call that top-percentile coverage suffices).
    Real meta share: lucario 16.3%, starmie 12.1%, dragapult 10.9%, alakazam
    10.4%, abomasnow 7.8%, crustle 7.8%, archaludon 4.0% (down from an
-   apparent 17.9% on the old 28-replay sample), plus 25.9% `other/unknown`
-   — the archetype-library and signature-set work itself is still
-   unstarted. `opp_likely_ace_spec` still hardcoded `True` — not wired yet
-   (Phase C, depends on Phase B). See `docs/belief-model.md` and
-   `docs/report-log.md` 2026-07-04 entries.
+   apparent 17.9% on the old 28-replay sample), plus 25.9% `other/unknown`.
+   **Signature extension + archetype library DONE 2026-07-04:** clustered
+   the unknown slice's non-generic revealed cards, added 2 pre-evolution
+   aliases (`snover`→abomasnow, `dreepy`/`drakloak`→dragapult) + 1 new
+   archetype (`kyogre`, 13 replays) to `tools/meta_survey.py`'s
+   `SIGNATURES` — unknown dropped 25.9%→21.3%, confirmed via re-clustering
+   to be a genuine long tail (144 replays, each a unique/scattered minor
+   combo) not a few signatures away from full coverage — **78.7% honest
+   recognition ceiling**, reported as-is. `tools/build_archetype_decks.py`
+   reconstructs representative 60-card lists from real replay card-reveal
+   frequency; `training/archetype_decks.json` covers crustle/archaludon/
+   bellibolt/kyogre/raging-bolt/rockets-mewtwo/gardevoir/grimmsnarl
+   (lucario/dragapult/abomasnow/starmie already have exact decklists via
+   `opponents/*_agent.py`, skipped). `opp_likely_ace_spec` still hardcoded
+   `True` — not wired yet (Phase C, next up, not started this session). See
+   `docs/belief-model.md` and `docs/report-log.md` 2026-07-04 entries.
 6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03, **partially corrected
    2026-07-04:** the "`opponents/dragapult_agent.py` crashes 100% of local
    games" claim below was WRONG — confirmed 0/20 errors in a direct

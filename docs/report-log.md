@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-04 (ladder replay bulk download DONE, 680 replays, real meta-share survey; Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative — needs search to exceed teacher parity)
+**Last updated:** 2026-07-04 (ladder replay bulk download DONE, 680 replays, real meta-share survey; Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative; Stage 5 search-at-inference CLOSED negative after 5 gates/3 bugs/1 architectural fix — third load-bearing negative result; Stage 3 Phase B signature extension + archetype library DONE, 78.7% honest ladder-opponent recognition)
 
 ---
 
@@ -53,6 +53,355 @@ protocol, one-line keep/reject verdict each).
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-04 — Stage 3 Phase B: signature extension + archetype library built
+
+**Hypothesis:** with Stage 5 search-at-inference closed negative (see below
+entries), pivoted to the already-scoped Stage 3 Phase B work per a Claude
+Fable consult's explicit "regardless of outcome" sequencing — building a
+real ladder archetype library was never blocked on the search result.
+
+**Method:** (1) Clustered the 25.9%-unknown replay slice's non-generic
+revealed cards (filtering common trainers/energies) to find real archetype
+gaps rather than guessing. (2) Extended `tools/meta_survey.py`'s
+`SIGNATURES` with confirmed findings. (3) Built
+`tools/build_archetype_decks.py` to reconstruct a representative 60-card
+list per archetype from real replay card-reveal frequency, weighted by
+game-presence fraction and capped at real copy limits.
+
+**Result:**
+- Signature extension: unknown dropped **25.9% → 21.3%** (176→145 of 680
+  replays) via two pre-evolution aliases (`snover`→abomasnow,
+  `dreepy`/`drakloak`→dragapult — games ending before the ace evolves were
+  being missed) plus one genuine new archetype (`kyogre`, 13 replays).
+  Re-clustered the remaining 145: **no further common clusters** — 144 have
+  unique/scattered minor-card combos, a real long tail, not a few more
+  signatures away from coverage. Honest ceiling for this method: **78.7%**
+  (535/680) recognized.
+- Archetype library: `training/archetype_decks.json` — reconstructed lists
+  for crustle (53 replays), archaludon (27), bellibolt (11), kyogre (11),
+  raging-bolt (7), rockets-mewtwo (7), gardevoir (4), grimmsnarl (3), all
+  with the ace card at/near 100% game-presence and plausible tails.
+  lucario/dragapult/abomasnow/starmie skipped — already have *exact*
+  decklists via the official Kaggle sample bots in `opponents/*_agent.py`.
+  5 signatures (charizard, gholdengo, pidgeot-control, snorlax-stall,
+  terapagos) had 0 matching replays in the current 680 — left unbuilt
+  rather than fabricated.
+
+**Decision:** Phase B's two concrete deliverables (signature extension,
+archetype library) are done; the honest-unknown-handling finding (21.3%
+long tail, not a gap) is logged as the answer to Phase B item 2, not an
+open task. Phase C (wiring the posterior into `main.py`'s
+`opp_likely_ace_spec` + a determinization sampler) is next but not started
+this session.
+
+**Report relevance:** concrete, data-driven "originality" material for the
+report's model-approach section — a real ladder meta-share table built
+from actual replay evidence (not guessed), with an honestly-reported
+recognition ceiling rather than an inflated one. Good complement to the
+Stage 5 negative-results trio from earlier today: this is deliverable
+progress on a different, non-search axis of the same competition problem.
+
+---
+
+## 2026-07-04 — Stage 5 search-at-inference: MCTS built, first gate negative (untuned)
+
+**Hypothesis:** with Stage 2 direct-self-play AWR closed negative (both β values
+flat-to-worse vs teacher — see below), advisor guidance was that inference-
+time search over a heuristic-dominant prior is a shorter path to beating the
+v25c teacher than another training campaign — search over a good prior
+improves on it almost by construction, and needs no retraining loop. Two cheap
+probes gated whether this was even worth building: (1) branching — does one
+`search_begin` root support independent children via repeated `search_step`
+calls (needed for real tree search, not just linear rollouts), (2) timing —
+does search fit the 10-min/match clock. Both confirmed favorable (see
+`docs/engine-api.md` "MCTS branching + timing probe": branching independent
+and non-destructive; ~730 sims/decision affordable on engine cost alone).
+
+**Method:** Built `training/nn/mcts.py` (`MCTSSearcher`) — PUCT selection at
+our own decision nodes using the heuristic's own per-option score vector
+(softmaxed) as the prior; heuristic argmax as a fixed opponent model at the
+opponent's decision nodes (not searched — keeps branching factor down);
+leaf evaluation via a full heuristic-vs-heuristic rollout to a real terminal
+result, **not** the net value head (already confirmed saturated bimodally
+near ±1 during the AWR diagnostic — using it as a leaf evaluator would carry
+almost no per-decision signal). `training/nn/mcts_agent.py` wraps this in the
+standard `agent(obs_dict)` contract so it plugs into `training/ab_test.py`
+directly. Also built `training/setup_local_search.py`: pairs the native
+engine binary already bundled in the locally-installed `kaggle_environments`
+package with the fuller `cg-lib` dataset's Python source, giving a fully
+working local `search_begin`/`search_step`/`search_end` — the whole MCTS
+build/test loop now runs with **zero Kaggle round-trips** (see
+`docs/engine-api.md` "Local search dev shim").
+
+Smoke-tested first: 10 games at `sims=30`, 0 errors across all decision
+types exercised. First real gate: 60 games (alternating seats) at
+`sims=150`, `c_puct=1.4`, `prior_temp=2.0` (both untuned defaults) vs the
+v25c heuristic.
+
+**Result:** MCTS agent (B) **25W-35L over 60 games (41.7%)** — nominally
+*worse* than the plain heuristic, though not statistically separable from
+50% at this n (0 errors both directions, mechanically sound; `avg_game_s`
+262-390s, confirming the timing-probe budget held in practice). Working
+theory: `prior_temp=2.0` significantly flattens the heuristic's own score
+ordering into a near-uniform prior for many select types, which fights the
+"heuristic-dominant prior" design intent — PUCT ends up spending sims
+exploring heuristic-disfavored branches instead of mostly refining the
+heuristic's own top choices. Iterating: sharper `prior_temp` (trust the
+heuristic ranking more) and higher `sims` (within the confirmed budget
+headroom) before drawing any conclusion — this is a single untuned run, not
+yet a load-bearing result either way.
+
+**Decision:** Not shipping, not concluding failure. Logged honestly per
+project discipline (every experiment same-day, negative results included).
+Next: a controlled follow-up varying `prior_temp`/`c_puct`/`sims` before any
+verdict on the search-at-inference approach.
+
+**Follow-up same day — sharper prior + more sims made it WORSE, not better
+(2026-07-04):** `prior_temp=0.6` (sharper, trust the heuristic ranking more),
+`c_puct=1.0`, `sims=300` (2x). 40 games: MCTS **13W-27L (32.5%)** — worse than
+the first gate's 41.7%, and with a stark seat split (MCTS as P1 vs heuristic
+P0: 15% (3/20); MCTS as P0 vs heuristic P1: 50% tied (10/20)). Rules out "just
+needed better hyperparameters" as the fix — the same direction change
+(trust the heuristic prior harder, search deeper) made things worse, mirroring
+the AWR finding that "more aggressive" wasn't the fix there either.
+
+**Root-cause theory — echo chamber, not a tuning problem:** the prior,
+the leaf-rollout policy, AND the opponent model are all literally the SAME
+heuristic function. `_heuristic_action` is deterministic argmax, so any
+rollout from a given state always replays the identical continuation (only
+the engine's own internal randomness — draws, coin flips — varies between
+visits). The search therefore can't inject genuinely new information beyond
+one level of root branching; it mostly re-confirms whatever the heuristic
+already believes, occasionally amplifying blind spots rather than correcting
+them. Sharpening the prior and adding sims made this WORSE because it means
+trusting the same self-referential signal more strongly, not because more
+computation is inherently bad. This is a different, more specific failure
+mode than the AWR value-head saturation, but shares the shape: an
+evaluator built entirely from the artifact you're trying to improve on can't
+easily produce information that artifact doesn't already have.
+
+**Next planned test (not yet run):** make the *rollout* policy stochastic
+(temperature-sampled from the heuristic's own score distribution instead of
+deterministic argmax) to see whether diversifying rollouts alone recovers
+some of the lost signal, isolating this one variable against the original
+untuned baseline (`prior_temp=2.0`, `c_puct=1.4`, `sims=150`). If that also
+doesn't clear parity, this closes the "pure heuristic-guided MCTS, no net"
+line as a second real negative result for the report (after AWR) — the
+methodological throughline being that self-referential evaluators
+(rollout==prior==opponent-model, or a saturated value head) don't give
+search room to improve on the thing it's built from.
+
+**Correction, same day — the "echo chamber" framing was wrong; found two
+real, separate bugs instead (advisor-guided):** the sub-50% sign itself
+doesn't fit an echo-chamber theory (that predicts ~50%, a wash, not
+systematically worse) — sub-50% means the search's value signal was
+actively misaligned, not just uninformative. Two real bugs, found via
+targeted diagnostics rather than more hyperparameter tuning:
+
+1. **`score_options` is a materially weaker reconstruction of the teacher
+   than assumed.** Isolated test: `argmax(score_options(obs, sel))` alone
+   (zero search) vs `main.py` over 50 games — **15W (30%)**. `mcts.py`'s
+   rollout policy AND opponent model both called this weak function, not
+   the real `main.agent`/`_choose` (desperation mode, `_STALL_MEMO`, real
+   `_pick_boss_target`) — so every prior gate measured "search over
+   `score_options`" fighting a materially weaker phantom, and MORE search
+   (gate 2's sharper prior + more sims) just committed harder to that
+   phantom's blind spots, explaining the monotonic degradation. Fixed:
+   rollout and opponent-model now call the real `main.agent`; `score_options`
+   is kept only as the (weaker, less damaging per advisor) PUCT prior.
+2. **Strategy fusion — the real cause of the sub-50% sign.** `filler()`
+   (the hidden-zone determinization: opponent hand/deck identity, own deck
+   order) was sampled ONCE per real decision and reused across all 150
+   simulations, with `manual_coin=True` removing even coin-flip randomness.
+   Every simulation therefore explored the exact identical fixed fictional
+   world — textbook determinized-search-without-re-determinization: the
+   search wasn't averaging over hidden-information uncertainty at all, just
+   exploring one guessed world deeply and picking whatever won in that one
+   fiction. Under a correct implementation a mirror match has a theoretical
+   floor near 50% (one step of policy improvement over the same teacher
+   can't do worse); landing at 32-42% is exactly what a single bad
+   determinization produces. Fixed: `training/nn/mcts.py` rewritten as
+   proper PIMC — fresh random `filler()` + fresh `search_begin` EVERY
+   simulation, `manual_coin=False` so the engine injects real coin
+   randomness. Structural consequence: since different simulations are now
+   different fictional worlds past the root, tree statistics can only be
+   shared at the root (single-ply PUCT + full rollout-to-terminal per sim,
+   not a deep persistent tree) — this is standard for PIMC, not a
+   regression.
+
+**Diagnostic confirming the fix (per advisor's suggested check):** printed
+per-simulation values for the same root action across a mid-game decision —
+values now genuinely vary sim to sim (1.0, 0.0, 0.0, 1.0, 0.0, ...) instead
+of being frozen, confirming re-determinization is actually diversifying the
+search instead of just adding call overhead.
+
+**Third bug found — the confirmatory gate collapsed to 1/60 (1.7%), WORSE
+than every prior attempt.** Root cause: `main.agent`/`_choose` mutates a
+module-global stall-avoidance cache (`_STALL_MEMO`) that detects "have I
+seen this exact decision+state before with no progress" and, on a repeat,
+rotates to a different (often much worse) answer instead of repeating —
+correct behavior across one real game's linear history, but not across
+hundreds of interleaved simulated rollouts that legitimately revisit similar
+decision fingerprints. Every simulation's calls to the real teacher were
+polluting the SAME global dict, so later rollouts (and even the real
+subsequent game turns after `choose()` returned, since the global was never
+restored) saw false-positive "stall" triggers and got rotated into
+essentially garbage answers. Notably: **the codebase already knew about this
+exact hazard** — `score_options`' docstring says it is "side-effect-free
+(never touches `_STALL_MEMO`)... safe to call repeatedly inside a search
+tree," and `_main_phase_features`' docstring says the same ("search may
+call this thousands of times per game"). Routing the rollout/opponent-model
+through the real `main.agent` (the fix for bug #1) reintroduced exactly the
+hazard `score_options` was built to avoid — bug #1's fix and this bug are in
+tension, and both matter (see below).
+
+**Fixed:** `training/nn/mcts.py`'s `_rollout` now saves the real game's
+`_STALL_MEMO`, resets it to an empty dict at the start of every simulation
+(each rollout is its own independent fictitious playout — a fresh memo is
+the correct scope, not a bug), and restores the real game's memo when the
+rollout returns, so search never pollutes the actual game's stall-tracking
+and different simulations never contaminate each other. Smoke-tested next.
+
+**Report relevance:** three real, distinct bugs found via targeted
+diagnostics in one session (weak-teacher rollout, strategy fusion, global
+state leakage across simulations) rather than blind hyperparameter tuning —
+strong methodology-section material either way this resolves. The
+`_STALL_MEMO` finding is also a nice concrete illustration of a general
+principle for search-over-heuristic designs: a heuristic function's
+purity/side-effect contract that's safe for one real sequential game is not
+automatically safe to reuse inside a search process that calls it many times
+over many hypothetical, non-sequential states.
+
+**CLOSED, negative — the actual limiting mechanism found (2026-07-04):**
+post-`_STALL_MEMO`-fix smoke test was still poor (1/12), prompting one more
+advisor consult rather than a 5th gate. Key reframe: **every result since
+the very first, simplest version has been flat-or-worse** (41.7% → 32.5% →
+1.7% → 8.3%) — the `main.agent`-rollout and re-determinization changes,
+despite being individually well-motivated, never demonstrably helped. The
+unifying explanation, confirmed by a targeted 2-minute diagnostic (not
+another full gate) on 3 fixed mid-game positions, 30 sims each:
+
+- **`N` piled entirely on one action every time** (e.g. `[0,0,0,0,0,0,0,30,0,0]`)
+  — PUCT exploration collapsed to pure exploitation after the first result,
+  meaning the search never actually explores alternatives to the prior's
+  top pick. In practice: MCTS ≈ `argmax(score_options)`.
+- **Every terminating rollout across all 3 positions was a win — 90/90,
+  zero losses, zero draws.** The simulated "opponent" (a random hand drawn
+  from our OWN deck, piloted by our OWN Alakazam-strategy heuristic) is not
+  a meaningful adversary — it's hapless enough that the rollout wins
+  regardless of which root action was chosen. With no losses to distinguish
+  good root choices from bad ones, **the rollout carries zero discriminating
+  signal** — there was nothing for 150 sims to average into a useful value.
+
+This is precisely the leaf-evaluator-quality check that should have gated
+the build from the start (skipped in favor of the timing probe alone) — and
+it lands on the same underlying problem as the AWR value-head result from
+earlier the same day, just via a different mechanism: **a leaf/value signal
+built only from the artifact being improved on (in AWR's case, a saturated
+value head; here, a rollout against an opponent modeled by the same
+heuristic) cannot supply the information needed to beat that artifact.**
+Heuristic-guided PIMC without a genuinely discriminating value function is
+therefore closed as a load-bearing negative result, the same shape as AWR:
+**exceeding the v25c teacher via search needs either (a) real Kaggle-gated
+MCTS expert iteration with a trained (non-degenerate) value/policy pair, or
+(b) a materially stronger/adversarial opponent model in the rollout** — not
+achievable within the "no net, no Kaggle compute" version tested here.
+
+**Decision:** Escalating to the user rather than unilaterally choosing (a),
+(b), or a pivot to Stage 3 belief-model work — this is the critical
+decision point the autonomous `/goal` loop's own guidance reserves for the
+user.
+
+**User directed a Claude Fable consult; Fable's recommendation (2026-07-04):**
+run option (b) — swap the rollout's hapless mirror-opponent for a real
+adversarial opponent module (one of `opponents/{lucario,dragapult,
+abomasnow,starmie}_agent.py`) — as ONE strictly time-boxed test: re-run the
+diagnostic first (not a full gate), and if it shows a real signal, run
+exactly one pre-registered gate. Regardless of outcome, pivot to Stage 3
+Phase B afterward (already scoped, no dependency on this result, and its
+archetype-deck output would make any future search opponent model more
+honest). Defer the big Kaggle MCTS-expert-iteration option — its premise
+(that search adds value here) is exactly what's unproven, and it depends on
+a non-degenerate value function the AWR result says doesn't exist yet.
+
+**Implemented:** `training/nn/mcts.py` now plays the rollout's opponent
+turns via `opponents/lucario_agent.py`'s real `agent()` (env-configurable
+via `MCTS_OPPONENT_MODULE`) instead of a mirror of our own heuristic/deck,
+with hidden-zone filler drawn from Lucario's real deck list. Found and
+isolated a second instance of the exact `_STALL_MEMO`-style hazard:
+`lucario_agent.py` also has module-global mutable state (`plan`,
+`pre_turn`, `ability_used`) that needed the same per-simulation
+save/reset/restore treatment.
+
+**Re-run diagnostic (3 positions, 30 sims each) — real, if partial,
+improvement:** losses now appear (1/30 in 2 of 3 positions, vs 0/90 with
+the mirror opponent), and one position shows genuine PUCT exploration
+spread (a clean 15/15 split between two actions, vs total pile-up on a
+single action everywhere with the mirror opponent). Not fully resolved —
+2 of 3 positions still show near-total pile-up on one action — but this is
+a qualitatively different, healthier pattern than the mirror-opponent's
+total collapse, and clears the bar Fable set for proceeding to one
+pre-registered gate.
+
+**PRE-REGISTRATION (per Fable's plan):** heuristic-guided PIMC with a
+Lucario adversarial rollout opponent vs the v25c teacher, `sims=150`,
+50 games. **Gate: ≥55% win rate → real signal, worth a larger confirmatory
+run before any ladder consideration. Below that → close the search-at-
+inference line for this deck/session as a third load-bearing negative
+result (alongside DAgger and AWR) and move to Stage 3 Phase B**, per
+Fable's explicit "regardless of outcome" sequencing.
+
+**RESULT: 0W-50L (0%) — decisively below the pre-registered bar.** A
+complete shutout, nominally even worse than the pre-fix mirror-opponent
+runs (1.7%, 8.3%), though at these low true rates a 0/50 draw is not
+statistically distinguishable from "still ~2-8%, same broken regime" (e.g.
+a true 3% rate has ~22% chance of landing exactly 0/50) — this reads as
+the same underlying failure, not a new regression from the opponent swap.
+The diagnostic's encouraging signal (losses appearing, one position's
+visits splitting 15/15) evidently wasn't enough to move real end-to-end
+game outcomes: 2 of the 3 diagnostic positions still showed near-total
+PUCT pile-up on one action even with the adversarial opponent, and even
+where exploration improved, one flipped loss out of 30 sims is a weak
+correction against a heavily-weighted prior. **Per the pre-registration,
+CLOSING Stage 5 search-at-inference (heuristic-guided PIMC, no net) as a
+third load-bearing negative result, alongside DAgger's imitation-ceiling
+and AWR's saturated-value-head findings** — all three converge on the same
+theme: a value/policy signal built without genuinely external information
+(a real trained value function, or a strong-enough opponent model) cannot
+supply what's needed to exceed the teacher it's built from. Per Fable's
+explicit sequencing, pivoting to Stage 3 Phase B next regardless of this
+outcome — not attempting a fourth architectural change without a fresh
+check-in.
+
+**Report relevance:** clean three-way negative result for the report's
+methodology section — DAgger (imitation asymptotes toward, never above,
+teacher parity), AWR (saturated value head carries no per-decision
+advantage signal), and now heuristic-guided PIMC (self-referential or
+too-weak opponent models give the rollout nothing to discriminate on) all
+tested against the same v25c teacher, same day, with root causes
+diagnosed via targeted tests rather than blind tuning throughout. Genuinely
+strong "why search-without-a-trained-value-function doesn't work here"
+narrative material.
+
+**Report relevance:** a third independent load-bearing negative result for
+the 70%-axis narrative (after DAgger's imitation-ceiling and AWR's
+saturated-value-head), all converging on the same methodological point
+via three different mechanisms — imitation-family and self-referential-
+evaluator search methods plateau at or below teacher parity on this
+problem; only genuinely external signal (real adversarial self-play with a
+trained value function, or search against real opponents) has a chance to
+exceed it. Strong, cohesive material for the report's methodology section.
+
+**Report relevance:** If this pans out after tuning, it's the load-bearing
+positive result for the whole 70%-axis narrative (imitation family plateaus
+at teacher parity per DAgger/AWR; search is what finally exceeds it). If it
+doesn't pan out even after tuning, it's still citable — a third method family
+(after DAgger, AWR) tested against the same teacher, strengthening the
+"why search-in-the-loop is the AlphaZero-style answer, not more imitation"
+methodology narrative either way.
 
 ---
 

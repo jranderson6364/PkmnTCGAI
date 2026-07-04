@@ -52,6 +52,13 @@ SIGNATURES = [
     ("rockets-mewtwo", ["team rocket's mewtwo"]),
     ("snorlax-stall", ["hop's snorlax"]),
     ("lucario",    ["riolu"]),  # fighting box revealed without the ace yet
+    # Phase B extension 2026-07-04 (docs/belief-model.md §Phase B): pre-
+    # evolution aliases for aces that hadn't evolved yet when the game ended
+    # (short games truncate revealed info before the ace shows), found by
+    # clustering the 25.9% "other/unknown" slice's non-generic revealed cards.
+    ("abomasnow",  ["snover"]),          # abomasnow's pre-evolution
+    ("dragapult",  ["dreepy", "drakloak"]),  # dragapult's pre-evolution line
+    ("kyogre",     ["kyogre"]),          # new archetype, standalone in the unknown slice
 ]
 
 

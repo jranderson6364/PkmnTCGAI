@@ -1,0 +1,1175 @@
+{
+  "alakazam": [
+    {
+      "cardId": 743,
+      "name": "Alakazam",
+      "copies": 4,
+      "games_seen": 71,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 741,
+      "name": "Abra",
+      "copies": 4,
+      "games_seen": 70,
+      "game_frac": 0.986
+    },
+    {
+      "cardId": 1152,
+      "name": "Pok\u00e9 Pad",
+      "copies": 4,
+      "games_seen": 68,
+      "game_frac": 0.958
+    },
+    {
+      "cardId": 742,
+      "name": "Kadabra",
+      "copies": 4,
+      "games_seen": 68,
+      "game_frac": 0.958
+    },
+    {
+      "cardId": 1086,
+      "name": "Buddy-Buddy Poffin",
+      "copies": 4,
+      "games_seen": 67,
+      "game_frac": 0.944
+    },
+    {
+      "cardId": 66,
+      "name": "Dudunsparce",
+      "copies": 4,
+      "games_seen": 65,
+      "game_frac": 0.915
+    },
+    {
+      "cardId": 1231,
+      "name": "Dawn",
+      "copies": 4,
+      "games_seen": 65,
+      "game_frac": 0.915
+    },
+    {
+      "cardId": 1225,
+      "name": "Hilda",
+      "copies": 4,
+      "games_seen": 60,
+      "game_frac": 0.845
+    },
+    {
+      "cardId": 19,
+      "name": "Telepath Psychic Energy",
+      "copies": 4,
+      "games_seen": 60,
+      "game_frac": 0.845
+    },
+    {
+      "cardId": 305,
+      "name": "Dunsparce",
+      "copies": 4,
+      "games_seen": 59,
+      "game_frac": 0.831
+    },
+    {
+      "cardId": 1079,
+      "name": "Rare Candy",
+      "copies": 4,
+      "games_seen": 52,
+      "game_frac": 0.732
+    },
+    {
+      "cardId": 5,
+      "name": "Basic {P} Energy",
+      "copies": 4,
+      "games_seen": 47,
+      "game_frac": 0.662
+    },
+    {
+      "cardId": 1129,
+      "name": "Sacred Ash",
+      "copies": 4,
+      "games_seen": 43,
+      "game_frac": 0.606
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 3,
+      "games_seen": 38,
+      "game_frac": 0.535
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 3,
+      "games_seen": 34,
+      "game_frac": 0.479
+    },
+    {
+      "cardId": 1081,
+      "name": "Enhanced Hammer",
+      "copies": 2,
+      "games_seen": 29,
+      "game_frac": 0.408
+    }
+  ],
+  "archaludon": [
+    {
+      "cardId": 169,
+      "name": "Duraludon",
+      "copies": 4,
+      "games_seen": 27,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 190,
+      "name": "Archaludon ex",
+      "copies": 4,
+      "games_seen": 27,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 8,
+      "name": "Basic {M} Energy",
+      "copies": 4,
+      "games_seen": 26,
+      "game_frac": 0.963
+    },
+    {
+      "cardId": 1122,
+      "name": "Pok\u00e9gear 3.0",
+      "copies": 4,
+      "games_seen": 25,
+      "game_frac": 0.926
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 4,
+      "games_seen": 24,
+      "game_frac": 0.889
+    },
+    {
+      "cardId": 57,
+      "name": "Relicanth",
+      "copies": 4,
+      "games_seen": 24,
+      "game_frac": 0.889
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 4,
+      "games_seen": 23,
+      "game_frac": 0.852
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 4,
+      "games_seen": 23,
+      "game_frac": 0.852
+    },
+    {
+      "cardId": 1152,
+      "name": "Pok\u00e9 Pad",
+      "copies": 4,
+      "games_seen": 23,
+      "game_frac": 0.852
+    },
+    {
+      "cardId": 1244,
+      "name": "Full Metal Lab",
+      "copies": 4,
+      "games_seen": 21,
+      "game_frac": 0.778
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 4,
+      "games_seen": 19,
+      "game_frac": 0.704
+    },
+    {
+      "cardId": 1185,
+      "name": "Explorer\u2019s Guidance",
+      "copies": 3,
+      "games_seen": 14,
+      "game_frac": 0.519
+    },
+    {
+      "cardId": 666,
+      "name": "Cinderace",
+      "copies": 3,
+      "games_seen": 13,
+      "game_frac": 0.481
+    },
+    {
+      "cardId": 1213,
+      "name": "Judge",
+      "copies": 3,
+      "games_seen": 10,
+      "game_frac": 0.37
+    },
+    {
+      "cardId": 1192,
+      "name": "Carmine",
+      "copies": 2,
+      "games_seen": 8,
+      "game_frac": 0.296
+    },
+    {
+      "cardId": 1147,
+      "name": "Jumbo Ice Cream",
+      "copies": 2,
+      "games_seen": 8,
+      "game_frac": 0.296
+    },
+    {
+      "cardId": 1123,
+      "name": "Switch",
+      "copies": 2,
+      "games_seen": 7,
+      "game_frac": 0.259
+    },
+    {
+      "cardId": 1159,
+      "name": "Hero\u2019s Cape",
+      "copies": 1,
+      "games_seen": 4,
+      "game_frac": 0.148
+    }
+  ],
+  "bellibolt": [
+    {
+      "cardId": 4,
+      "name": "Basic {L} Energy",
+      "copies": 4,
+      "games_seen": 11,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 268,
+      "name": "Iono\u2019s Tadbulb",
+      "copies": 4,
+      "games_seen": 11,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 269,
+      "name": "Iono\u2019s Bellibolt ex",
+      "copies": 4,
+      "games_seen": 11,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 270,
+      "name": "Iono\u2019s Wattrel",
+      "copies": 4,
+      "games_seen": 9,
+      "game_frac": 0.818
+    },
+    {
+      "cardId": 265,
+      "name": "Iono\u2019s Voltorb",
+      "copies": 4,
+      "games_seen": 9,
+      "game_frac": 0.818
+    },
+    {
+      "cardId": 1233,
+      "name": "Canari",
+      "copies": 4,
+      "games_seen": 8,
+      "game_frac": 0.727
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 4,
+      "games_seen": 8,
+      "game_frac": 0.727
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 4,
+      "games_seen": 8,
+      "game_frac": 0.727
+    },
+    {
+      "cardId": 271,
+      "name": "Iono\u2019s Kilowattrel",
+      "copies": 4,
+      "games_seen": 8,
+      "game_frac": 0.727
+    },
+    {
+      "cardId": 1152,
+      "name": "Pok\u00e9 Pad",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 0.636
+    },
+    {
+      "cardId": 1254,
+      "name": "Levincia",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 0.636
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 0.636
+    },
+    {
+      "cardId": 1086,
+      "name": "Buddy-Buddy Poffin",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 0.636
+    },
+    {
+      "cardId": 1110,
+      "name": "Max Rod",
+      "copies": 3,
+      "games_seen": 4,
+      "game_frac": 0.364
+    },
+    {
+      "cardId": 1118,
+      "name": "Energy Retrieval",
+      "copies": 2,
+      "games_seen": 3,
+      "game_frac": 0.273
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 2,
+      "games_seen": 2,
+      "game_frac": 0.182
+    },
+    {
+      "cardId": 1102,
+      "name": "Dusk Ball",
+      "copies": 1,
+      "games_seen": 1,
+      "game_frac": 0.091
+    }
+  ],
+  "crustle": [
+    {
+      "cardId": 345,
+      "name": "Crustle",
+      "copies": 4,
+      "games_seen": 53,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 344,
+      "name": "Dwebble",
+      "copies": 4,
+      "games_seen": 52,
+      "game_frac": 0.981
+    },
+    {
+      "cardId": 1086,
+      "name": "Buddy-Buddy Poffin",
+      "copies": 4,
+      "games_seen": 38,
+      "game_frac": 0.717
+    },
+    {
+      "cardId": 1,
+      "name": "Basic {G} Energy",
+      "copies": 4,
+      "games_seen": 33,
+      "game_frac": 0.623
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 3,
+      "games_seen": 21,
+      "game_frac": 0.396
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 3,
+      "games_seen": 20,
+      "game_frac": 0.377
+    },
+    {
+      "cardId": 18,
+      "name": "Grow Grass Energy",
+      "copies": 3,
+      "games_seen": 20,
+      "game_frac": 0.377
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 2,
+      "games_seen": 17,
+      "game_frac": 0.321
+    },
+    {
+      "cardId": 11,
+      "name": "Mist Energy",
+      "copies": 2,
+      "games_seen": 16,
+      "game_frac": 0.302
+    },
+    {
+      "cardId": 1152,
+      "name": "Pok\u00e9 Pad",
+      "copies": 2,
+      "games_seen": 14,
+      "game_frac": 0.264
+    },
+    {
+      "cardId": 1122,
+      "name": "Pok\u00e9gear 3.0",
+      "copies": 2,
+      "games_seen": 13,
+      "game_frac": 0.245
+    },
+    {
+      "cardId": 1123,
+      "name": "Switch",
+      "copies": 2,
+      "games_seen": 12,
+      "game_frac": 0.226
+    },
+    {
+      "cardId": 14,
+      "name": "Spiky Energy",
+      "copies": 2,
+      "games_seen": 10,
+      "game_frac": 0.189
+    },
+    {
+      "cardId": 1224,
+      "name": "Cheren",
+      "copies": 2,
+      "games_seen": 9,
+      "game_frac": 0.17
+    },
+    {
+      "cardId": 1235,
+      "name": "Waitress",
+      "copies": 2,
+      "games_seen": 8,
+      "game_frac": 0.151
+    },
+    {
+      "cardId": 1159,
+      "name": "Hero\u2019s Cape",
+      "copies": 2,
+      "games_seen": 8,
+      "game_frac": 0.151
+    },
+    {
+      "cardId": 1197,
+      "name": "Xerosic\u2019s Machinations",
+      "copies": 1,
+      "games_seen": 7,
+      "game_frac": 0.132
+    },
+    {
+      "cardId": 1225,
+      "name": "Hilda",
+      "copies": 1,
+      "games_seen": 6,
+      "game_frac": 0.113
+    },
+    {
+      "cardId": 756,
+      "name": "Mega Kangaskhan ex",
+      "copies": 1,
+      "games_seen": 6,
+      "game_frac": 0.113
+    },
+    {
+      "cardId": 352,
+      "name": "Ethan's Cyndaquil",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 2,
+      "name": "Basic {R} Energy",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 1215,
+      "name": "Ethan's Adventure",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 1147,
+      "name": "Jumbo Ice Cream",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 1120,
+      "name": "Crushing Hammer",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 1186,
+      "name": "Eri",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 1204,
+      "name": "Lisia\u2019s Appeal",
+      "copies": 1,
+      "games_seen": 5,
+      "game_frac": 0.094
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 1,
+      "games_seen": 4,
+      "game_frac": 0.075
+    },
+    {
+      "cardId": 1198,
+      "name": "Crispin",
+      "copies": 1,
+      "games_seen": 4,
+      "game_frac": 0.075
+    },
+    {
+      "cardId": 354,
+      "name": "Ethan's Typhlosion",
+      "copies": 1,
+      "games_seen": 4,
+      "game_frac": 0.075
+    },
+    {
+      "cardId": 1194,
+      "name": "Colress\u2019s Tenacity",
+      "copies": 1,
+      "games_seen": 4,
+      "game_frac": 0.075
+    },
+    {
+      "cardId": 1210,
+      "name": "Brock\u2019s Scouting",
+      "copies": 1,
+      "games_seen": 4,
+      "game_frac": 0.075
+    },
+    {
+      "cardId": 1079,
+      "name": "Rare Candy",
+      "copies": 1,
+      "games_seen": 3,
+      "game_frac": 0.057
+    },
+    {
+      "cardId": 20,
+      "name": "Rock Fighting Energy",
+      "copies": 1,
+      "games_seen": 3,
+      "game_frac": 0.057
+    }
+  ],
+  "gardevoir": [
+    {
+      "cardId": 745,
+      "name": "Ralts",
+      "copies": 4,
+      "games_seen": 4,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 747,
+      "name": "Mega Gardevoir ex",
+      "copies": 4,
+      "games_seen": 4,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 272,
+      "name": "Lillie\u2019s Clefairy ex",
+      "copies": 4,
+      "games_seen": 4,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 0.75
+    },
+    {
+      "cardId": 5,
+      "name": "Basic {P} Energy",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 0.75
+    },
+    {
+      "cardId": 746,
+      "name": "Kirlia",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 0.75
+    },
+    {
+      "cardId": 1079,
+      "name": "Rare Candy",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 184,
+      "name": "Latias ex",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 1145,
+      "name": "Mega Signal",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 1225,
+      "name": "Hilda",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 1152,
+      "name": "Pok\u00e9 Pad",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 1194,
+      "name": "Colress\u2019s Tenacity",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 19,
+      "name": "Telepath Psychic Energy",
+      "copies": 3,
+      "games_seen": 2,
+      "game_frac": 0.5
+    },
+    {
+      "cardId": 1235,
+      "name": "Waitress",
+      "copies": 2,
+      "games_seen": 1,
+      "game_frac": 0.25
+    },
+    {
+      "cardId": 1205,
+      "name": "Cyrano",
+      "copies": 2,
+      "games_seen": 1,
+      "game_frac": 0.25
+    },
+    {
+      "cardId": 1231,
+      "name": "Dawn",
+      "copies": 2,
+      "games_seen": 1,
+      "game_frac": 0.25
+    },
+    {
+      "cardId": 1072,
+      "name": "Snorlax",
+      "copies": 2,
+      "games_seen": 1,
+      "game_frac": 0.25
+    },
+    {
+      "cardId": 765,
+      "name": "Meloetta",
+      "copies": 2,
+      "games_seen": 1,
+      "game_frac": 0.25
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 2,
+      "games_seen": 1,
+      "game_frac": 0.25
+    }
+  ],
+  "grimmsnarl": [
+    {
+      "cardId": 1152,
+      "name": "Pok\u00e9 Pad",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 646,
+      "name": "Marnie's Impidimp",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 7,
+      "name": "Basic {D} Energy",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 647,
+      "name": "Marnie's Morgrem",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 648,
+      "name": "Marnie's Grimmsnarl ex",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1086,
+      "name": "Buddy-Buddy Poffin",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1259,
+      "name": "Spikemuth Gym",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 112,
+      "name": "Munkidori",
+      "copies": 4,
+      "games_seen": 3,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1079,
+      "name": "Rare Candy",
+      "copies": 4,
+      "games_seen": 2,
+      "game_frac": 0.667
+    },
+    {
+      "cardId": 1219,
+      "name": "Team Rocket's Petrel",
+      "copies": 4,
+      "games_seen": 2,
+      "game_frac": 0.667
+    },
+    {
+      "cardId": 860,
+      "name": "Snorunt",
+      "copies": 4,
+      "games_seen": 2,
+      "game_frac": 0.667
+    },
+    {
+      "cardId": 104,
+      "name": "Froslass",
+      "copies": 4,
+      "games_seen": 2,
+      "game_frac": 0.667
+    }
+  ],
+  "kyogre": [
+    {
+      "cardId": 721,
+      "name": "Kyogre",
+      "copies": 4,
+      "games_seen": 11,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 3,
+      "name": "Basic {W} Energy",
+      "copies": 4,
+      "games_seen": 11,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1145,
+      "name": "Mega Signal",
+      "copies": 3,
+      "games_seen": 5,
+      "game_frac": 0.455
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 2,
+      "games_seen": 3,
+      "game_frac": 0.273
+    },
+    {
+      "cardId": 1219,
+      "name": "Team Rocket's Petrel",
+      "copies": 2,
+      "games_seen": 3,
+      "game_frac": 0.273
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 2,
+      "games_seen": 3,
+      "game_frac": 0.273
+    },
+    {
+      "cardId": 1235,
+      "name": "Waitress",
+      "copies": 2,
+      "games_seen": 3,
+      "game_frac": 0.273
+    },
+    {
+      "cardId": 1205,
+      "name": "Cyrano",
+      "copies": 2,
+      "games_seen": 2,
+      "game_frac": 0.182
+    },
+    {
+      "cardId": 1262,
+      "name": "Surfing Beach",
+      "copies": 2,
+      "games_seen": 2,
+      "game_frac": 0.182
+    },
+    {
+      "cardId": 724,
+      "name": "Clauncher",
+      "copies": 2,
+      "games_seen": 2,
+      "game_frac": 0.182
+    },
+    {
+      "cardId": 725,
+      "name": "Clawitzer",
+      "copies": 2,
+      "games_seen": 2,
+      "game_frac": 0.182
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 1,
+      "games_seen": 1,
+      "game_frac": 0.091
+    },
+    {
+      "cardId": 1092,
+      "name": "Secret Box",
+      "copies": 1,
+      "games_seen": 1,
+      "game_frac": 0.091
+    },
+    {
+      "cardId": 1163,
+      "name": "Powerglass",
+      "copies": 1,
+      "games_seen": 1,
+      "game_frac": 0.091
+    }
+  ],
+  "raging-bolt": [
+    {
+      "cardId": 1,
+      "name": "Basic {G} Energy",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 4,
+      "name": "Basic {L} Energy",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 6,
+      "name": "Basic {F} Energy",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 63,
+      "name": "Raging Bolt ex",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 96,
+      "name": "Teal Mask Ogerpon ex",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1198,
+      "name": "Crispin",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1122,
+      "name": "Pok\u00e9gear 3.0",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1080,
+      "name": "Unfair Stamp",
+      "copies": 4,
+      "games_seen": 5,
+      "game_frac": 0.714
+    },
+    {
+      "cardId": 1094,
+      "name": "Bug Catching Set",
+      "copies": 4,
+      "games_seen": 5,
+      "game_frac": 0.714
+    },
+    {
+      "cardId": 1118,
+      "name": "Energy Retrieval",
+      "copies": 4,
+      "games_seen": 5,
+      "game_frac": 0.714
+    },
+    {
+      "cardId": 1124,
+      "name": "Pok\u00e9mon Catcher",
+      "copies": 4,
+      "games_seen": 5,
+      "game_frac": 0.714
+    },
+    {
+      "cardId": 1127,
+      "name": "Tera Orb",
+      "copies": 4,
+      "games_seen": 5,
+      "game_frac": 0.714
+    },
+    {
+      "cardId": 1182,
+      "name": "Boss\u2019s Orders",
+      "copies": 3,
+      "games_seen": 4,
+      "game_frac": 0.571
+    },
+    {
+      "cardId": 184,
+      "name": "Latias ex",
+      "copies": 1,
+      "games_seen": 3,
+      "game_frac": 0.429
+    }
+  ],
+  "rockets-mewtwo": [
+    {
+      "cardId": 1218,
+      "name": "Team Rocket's Giovanni",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1220,
+      "name": "Team Rocket's Proton",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 431,
+      "name": "Team Rocket's Mewtwo ex",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 400,
+      "name": "Team Rocket's Tarountula",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 401,
+      "name": "Team Rocket's Spidops",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 434,
+      "name": "Team Rocket's Mimikyu",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 414,
+      "name": "Team Rocket's Articuno",
+      "copies": 4,
+      "games_seen": 7,
+      "game_frac": 1.0
+    },
+    {
+      "cardId": 1216,
+      "name": "Team Rocket's Ariana",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1257,
+      "name": "Team Rocket's Factory",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1134,
+      "name": "Team Rocket's Transceiver",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1,
+      "name": "Basic {G} Energy",
+      "copies": 4,
+      "games_seen": 6,
+      "game_frac": 0.857
+    },
+    {
+      "cardId": 1094,
+      "name": "Bug Catching Set",
+      "copies": 4,
+      "games_seen": 5,
+      "game_frac": 0.714
+    },
+    {
+      "cardId": 1121,
+      "name": "Ultra Ball",
+      "copies": 3,
+      "games_seen": 4,
+      "game_frac": 0.571
+    },
+    {
+      "cardId": 15,
+      "name": "Team Rocket's Energy",
+      "copies": 3,
+      "games_seen": 4,
+      "game_frac": 0.571
+    },
+    {
+      "cardId": 1097,
+      "name": "Night Stretcher",
+      "copies": 3,
+      "games_seen": 3,
+      "game_frac": 0.429
+    },
+    {
+      "cardId": 1227,
+      "name": "Lillie's Determination",
+      "copies": 3,
+      "games_seen": 3,
+      "game_frac": 0.429
+    }
+  ]
+}

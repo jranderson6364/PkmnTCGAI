@@ -155,18 +155,51 @@ The ladder is not 4 bots. Two additions:
    raging-bolt 1.0%, gardevoir 0.6%, grimmsnarl 0.4% — and **25.9%
    other/unknown** (opponents `meta_survey.py`'s `SIGNATURES` list doesn't
    recognize at all). Full writeup: `docs/report-log.md` 2026-07-04 "Ladder
-   replay bulk download + real meta-share survey" entry. Tag each opponent
-   by key cards into the known meta list (Crustle, Gholdengo, Raging Bolt,
-   Charizard, Bellibolt, Alakazam mirror, …) — `docs/matchups.md` has the
-   meta list. Each tagged archetype needs a representative 60-card list
-   (from `EN_Card_Data.csv` + observed cards) before the determinization
-   sampler can use it. **Not yet started:** the 25.9% unknown slice means
-   the signature list likely needs extending before this is a credible
-   library, not just a re-run of the existing classifier.
+   replay bulk download + real meta-share survey" entry.
+
+   **Signature extension DONE 2026-07-04:** clustered the unknown slice's
+   non-generic revealed cards and found two real gaps — pre-evolution
+   aliases for archetypes whose ace hadn't evolved yet when a short game
+   ended (`snover`→abomasnow, `dreepy`/`drakloak`→dragapult), and one
+   genuine new archetype standalone in the data (`kyogre`, 13 replays).
+   Added to `tools/meta_survey.py`'s `SIGNATURES`; unknown dropped
+   **25.9% → 21.3%** (176 → 145 of 680 replays). Re-clustered the remaining
+   145 and found **no further common clusters** — 144 of them each have a
+   unique/scattered set of minor cards (only 2-3 tiny repeat groups of size
+   ≤2), i.e. a genuine long tail of rare decks, not a few more signatures
+   away from being covered. This is the honest Phase B item 2 finding
+   below, not a to-do.
+
+   **Archetype library DONE 2026-07-04:** `tools/build_archetype_decks.py`
+   reconstructs a representative 60-card list per archetype from real
+   replay evidence — counts every card id revealed across an archetype's
+   tagged games, weights assumed copy-count by how consistently each card
+   appears (≥60% of games → 4 copies, ≥35% → 3, ≥15% → 2, else 1), capped
+   at 60 total. Four of the biggest archetypes (lucario, dragapult,
+   abomasnow, starmie) already have **exact** decklists via the official
+   Kaggle sample bots in `opponents/*_agent.py` — skipped, no need to
+   reconstruct. Built reconstructed lists for the rest:
+   `training/archetype_decks.json` (crustle 53 replays, archaludon 27,
+   bellibolt 11, kyogre 11, raging-bolt 7, rockets-mewtwo 7, grimmsnarl 3,
+   gardevoir 4 — all with the ace card at or near 100% game-presence,
+   plausible support/energy tails; kyogre's list is honestly short,
+   30/60, reflecting genuinely thin evidence rather than fabricated
+   filler). charizard/gholdengo/pidgeot-control/snorlax-stall/terapagos:
+   0 matching replays in the current 680 — either rare on-ladder or the
+   signature needs a revealed-card example we haven't hit yet; left
+   unbuilt rather than guessed. `main.DECK`-mirror ("alakazam") also got
+   reconstructed as an incidental cross-check against the known real v23
+   `deck.csv` — not the deliverable, just a free sanity data point.
 2. **Honest `unknown` handling.** Posterior mass on `unknown` when evidence
    matches nothing known; consumers fall back to current behavior (ace-spec
    assumed, placeholder determinization). Report this honestly: coverage % of
-   ladder opponents recognized, by month.
+   ladder opponents recognized, by month. **2026-07-04 finding:** current
+   honest coverage is 78.7% (535/680) after the signature extension above;
+   the remaining 21.3% is a real long tail of rare/varied decks each
+   revealing only a handful of non-distinguishing cards before the game
+   ended, not a gap that more signature engineering closes cheaply. Report
+   this figure as-is — it is the honest ceiling for revealed-card-based
+   classification on short/early-ending games, not a bug.
 
 ## Phase C — Consumers
 

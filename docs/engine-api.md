@@ -191,3 +191,47 @@ itself, turn 7, a MAIN-phase select with 7 options):
 built) can proceed on the design in `docs/nn-training.md`'s Self-Play Phase
 Design section without further spikes — the only open item is confirming
 `manual_coin` empirically when a relevant state comes up.
+
+---
+
+## Local search dev shim (2026-07-04) — no Kaggle round-trip needed
+
+The installed local `kaggle_environments` package ships the real per-platform
+native engine binary (`cg.dll` on Windows) inside `envs/cabt/cg/`, but a
+stripped `sim.py` that only declares ctypes bindings for battle play, not
+search. The `kiyotah/cg-lib` dataset ships the fuller `sim.py`/`api.py`
+(search bindings) but only a Linux `.so`. **Pairing the dataset's Python
+source with the locally-installed native binary works** —
+`training/setup_local_search.py` assembles this into `training/local_cg/cg`
+(gitignored — third-party binary + organizer source, not ours to commit).
+Confirmed: `all_card_data()`/`all_attack()` and a full `search_begin` →
+`search_step` → `search_end` cycle all run correctly against the local
+binary. This does not change what ships to the ladder (the live Kaggle
+evaluation environment provides `cg.api` directly) — it only unlocks fast
+local MCTS dev/test iteration instead of a ~1min Kaggle-push round-trip per
+change.
+
+## MCTS branching + timing probe (2026-07-04, `mcts-probe.ipynb`)
+
+Two questions gating whether inference-time search (Stage 5) is worth
+building, per advisor guidance: can one `search_begin` root branch into
+independent children, and does search fit the 10-minute/match clock.
+
+- **Branching confirmed:** calling `search_step(parent_id, [action])`
+  repeatedly from the SAME parent with different actions returns distinct,
+  independent, non-interfering child `searchId`s (verified: 3 children from
+  one parent got ids 1/2/3, all independently steppable; re-stepping child 0
+  again afterward got a fresh id 4, unaffected by child 1/2 exploration). This
+  is exactly what MCTS needs — no fresh `search_begin` per rollout required.
+- **Timing:** `search_step` costs ~0.36ms mean / ~0.44ms p95 (native call,
+  essentially free). At a 15-step rollout depth, ~5.5ms/rollout in pure engine
+  cost. Against a 10-min/match clock ÷ ~150 decisions/game ≈ 4.0s/decision
+  budget, that's **~730 sims/decision** affordable on engine cost alone
+  (heuristic-scoring/Python overhead not included in this raw figure, but
+  empirically — see `docs/nn-training.md` — a real 150-sim heuristic-guided
+  search including all overhead runs ~1.2s/decision, comfortably inside
+  budget given only ~half of a game's decisions are ours).
+- **Decision:** inference-time search is affordable. Proceeded to build
+  `training/nn/mcts.py` (heuristic-guided PUCT + heuristic-rollout leaf eval,
+  no net value head — see `docs/nn-training.md` for why) rather than the
+  `mcts_collect.py` training-loop path.

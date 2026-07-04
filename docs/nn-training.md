@@ -15,12 +15,68 @@ r1→r2) but win-rate vs teacher stayed flat (~12-17%) throughout, and round 2
 (testing a lower collection temperature) showed the fidelity gain itself
 diminishing (+8pp then +0.8pp) — two rounds of evidence that further DAgger
 rounds won't move the needle much more. **DAgger paused here**; `ptcg_dagger_r2.pth`
-is the best checkpoint but not ship-ready. **Stage 2 direct-self-play AWR is now
-CLOSED, negative (2026-07-04):** two β values tested (1.0, 0.5), both flat-to-worse
+is the best checkpoint but not ship-ready. **Stage 2 direct-self-play AWR CLOSED,
+negative (2026-07-04):** two β values tested (1.0, 0.5), both flat-to-worse
 vs teacher (15.8%, 11.5%) and not significantly better than the seed either — more
-aggressive weighting made it worse, ruling out a simple β fix. Advancing past the
-teacher needs Kaggle-gated MCTS/search-in-the-loop, not more direct self-play. See
-"Resume Here" below for the full writeup.
+aggressive weighting made it worse, ruling out a simple β fix.
+
+**Stage 5 (search-at-inference) STARTED same day, ahead of schedule:** per
+advisor guidance (given AWR's value-head-saturation finding below), inference-
+time search over a heuristic-dominant prior is very likely a shorter path to
+beating the teacher than another training campaign — search over a good prior
+improves on it almost by construction, no retraining needed. Two cheap probes
+before committing engineering: (1) branching semantics — confirmed, one
+`search_begin` root branches into independent children via repeated
+`search_step` calls; (2) timing — confirmed, ~730 sims/decision affordable
+under the 10-min clock on engine cost alone. Both green-lit the approach; see
+`docs/engine-api.md` "MCTS branching + timing probe" for full numbers. Also
+found: a local dev shim (`training/setup_local_search.py`) pairs the
+locally-installed native engine binary with the fuller cg-lib dataset source,
+so the whole MCTS build/test loop now runs with **zero Kaggle round-trips** —
+see `docs/engine-api.md` "Local search dev shim". Built `training/nn/mcts.py`
+(`MCTSSearcher`, heuristic-guided PUCT selection + heuristic-vs-heuristic
+rollout-to-terminal leaf evaluation — deliberately NOT the value head, since
+the AWR diagnostic already confirmed it saturates bimodally near ±1 and would
+carry little per-decision signal as a leaf evaluator) and
+`training/nn/mcts_agent.py` (agent-contract wrapper, plugs into
+`training/ab_test.py` directly). Smoke-tested: 0 errors across 10 games at
+sims=30 (all decision types exercised, no crashes).
+
+**CLOSED, negative (2026-07-04) — five gates, three real bugs fixed, one
+architectural fix tried, still no signal.** Sequence: 41.7% (untuned) →
+32.5% (sharper prior + more sims — worse) → 1.7% (after fixing the rollout
+to use the real `main.agent` instead of a weaker reconstruction, AND fixing
+strategy fusion via per-simulation re-determinization — a `_STALL_MEMO`
+global-state corruption bug made this catastrophic) → 8.3% (after fixing
+the `_STALL_MEMO` leak). **The limiting mechanism**, found via a 2-minute
+targeted diagnostic (3 fixed positions, 30 sims each) rather than a 5th
+full gate: PUCT visits piled entirely on one action every time (zero
+exploration — MCTS collapsed to `argmax(score_options)`, the weak ~30%
+prior), and every terminating rollout across all 3 positions was a win
+(90/90, zero losses) — the simulated "opponent" (a random hand of our own
+deck piloted by our own Alakazam heuristic) is too weak to ever punish a
+bad root choice, so the rollout carries zero discriminating signal.
+**Escalated to the user; a Claude Fable consult recommended one time-boxed
+fix**: swap the rollout's opponent to a real adversarial bot
+(`opponents/lucario_agent.py`) instead of a mirror of our own
+deck/heuristic (also required isolating a second `_STALL_MEMO`-style
+global-state hazard in that module). Diagnostic re-check showed real, if
+partial, improvement (losses appeared, one position's visits split
+15/15). **Pre-registered gate (≥55% to continue): 0W-50L (0%)** —
+decisively below bar, though at this low true rate not statistically
+distinguishable from "still the same ~2-8% broken regime," i.e. not a new
+regression, just confirmation the fix wasn't enough. **CLOSED per the
+pre-registration** as a third load-bearing negative result alongside
+DAgger's imitation-ceiling and AWR's saturated-value-head findings — all
+three converge on the same theme: a value/policy signal built without
+genuinely external information can't supply what's needed to exceed the
+teacher it's built from. Exceeding v25c via search would need real
+Kaggle-gated MCTS expert iteration with a trained (non-degenerate)
+value/policy pair — out of scope for now. Per Fable's sequencing, pivoted
+to Stage 3 Phase B next regardless of outcome. Full writeup:
+`docs/report-log.md` 2026-07-04 "Stage 5 search-at-inference" entries
+(multiple, same day). See "Resume Here" for the full AWR writeup this
+decision responds to.
 
 ---
 

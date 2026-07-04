@@ -3,7 +3,7 @@
 *Running log of NN architecture, training status, and the phased roadmap for the
 learned-piloting agent (the 70%-weighted "model approach" axis).*
 
-**Last updated:** 2026-07-03
+**Last updated:** 2026-07-04
 **Evidence rule:** method claims route through the pre-registered method bake-off —
 see `docs/competition-strategy.md` → Method Bake-off Protocol and `docs/report-log.md`.
 **Status:** RESTARTED. All prior training data was lost, but the engine now runs
@@ -16,7 +16,10 @@ r1→r2) but win-rate vs teacher stayed flat (~12-17%) throughout, and round 2
 diminishing (+8pp then +0.8pp) — two rounds of evidence that further DAgger
 rounds won't move the needle much more. **DAgger paused here**; `ptcg_dagger_r2.pth`
 is the best checkpoint but not ship-ready (needs Stage 2 AWR/search to exceed
-the teacher, not more imitation). See "Resume Here" below.
+the teacher, not more imitation). **Stage 2 AWR first result (β=1.0, 2026-07-04):
+real negative** — 15.8% vs teacher (flat, same band as DAgger), 47.7% vs its own
+seed (tied, not improved) — see "Resume Here" below for the full writeup and the
+queued β follow-up.
 
 ---
 
@@ -238,15 +241,47 @@ Concrete next steps, in order:
    full collect+train+gate cycle. Both code paths smoke-tested end-to-end (1
    epoch, 5 steps, on the 30-game shard + a 2k-sample BC slice) — no errors,
    `awr_norm` computed sanely (1.85 at β=1.0).
-   **Not yet done:** fresh large-scale SP collection with `ptcg_dagger_r2.pth`
-   (the existing `sp_data.pkl.gz` is stale, old-deck, pre-freeze — see the
-   RESTARTED note above), the real AWR training run, and the gate. Per
-   advisor: also run AWR-checkpoint vs its own seed (`ptcg_dagger_r2.pth`),
-   not just vs the teacher — vs-teacher alone can't distinguish "AWR improved
-   nothing" from "the seed was already near parity," and unlike DAgger's
-   imitation ceiling, AWR is supposed to exceed parity, so a plateau at ~50%
-   vs teacher here would be a real negative result, not a measurement-
-   resolution artifact. Exit: 55-60%+ vs the teacher over 400 local games.
+   **Collection + first training run — DONE 2026-07-04:** 1000 fresh
+   self-play games with `ptcg_dagger_r2.pth` (temp 1.0) → 317,143 samples,
+   `training/sp_data_awr*.pkl.gz` (the old `sp_data.pkl.gz` was stale,
+   old-deck, pre-freeze). First train attempt (uncapped) got OOM-killed —
+   the exact bug `--bc-limit`/`--sp-limit` were built for during DAgger,
+   just omitted this run. Retrained with `--bc-limit 250000 --sp-limit
+   250000 --awr-beta 1.0`: 10 epochs, loss 0.51→0.41, `awr_norm=1.83` →
+   `training/ptcg_awr1.pth`.
+
+   **Gate (400 games each) — REAL NEGATIVE, not a measurement artifact:**
+   vs v25c teacher: **15.8% ± 3.6%** (63W-337L) — same flat 12-17% band as
+   every BC/DAgger checkpoint, no movement. vs its own seed
+   (`ptcg_dagger_r2.pth`, added per advisor's warning that vs-teacher alone
+   can't tell "AWR improved nothing" from "seed already near parity"):
+   **47.7% ± 4.9%** (191W-209L) — a clean statistical tie. Unlike DAgger's
+   excused imitation-ceiling plateau, AWR is supposed to be able to exceed
+   teacher parity, so this tied-vs-seed result at a CI tight enough to
+   resolve a real effect is a genuine null result, not a resolution
+   problem. Full writeup: `docs/report-log.md` 2026-07-04 entry.
+
+   **Working theory:** direct self-play (no MCTS/search tree) combined with
+   a value head that saturates bimodally toward ±1 for most states (see the
+   pre-training diagnostic below) may not carry much per-decision advantage
+   signal beyond the terminal outcome — making AWR reweighting behave close
+   to (not identical to) the winner-only ablation, which is itself an
+   untested dumb baseline here. One β sweep queued as the single follow-up
+   before concluding the direct-self-play-AWR line is capped without search
+   (per the pre-registered "1-2 follow-ups then stop" rule) — check the top
+   of this file / `docs/report-log.md` for the newest dated entry for the
+   outcome.
+
+   **Pre-training value-head diagnostic** (run before the collection, per
+   advisor): 30 self-play games with `ptcg_dagger_r2.pth`, temp 1.0 → 9,536
+   decisions. `v_pred` std 0.935 (not collapsed toward ~0 — the value head
+   discriminates, though it saturates toward ±1 for most states rather than
+   a smooth spread: p25 -0.999, p75 +0.9997). `advantage` mean 0.15, std
+   0.97, range clipped to [-2,2] as expected — confirmed AWR weighting
+   would be distinguishable from the winner-only ablation before spending
+   hours on a full collect+train+gate cycle (it was; the null result above
+   is real, not degenerate-into-baseline).
+   Exit: 55-60%+ vs the teacher over 400 local games — not yet cleared.
 4. **Gauntlet + ladder A/B each meaningful checkpoint** (`training/gauntlet.py`
    with a distinct `--name` per checkpoint). Real ladder is the only honest
    evaluator; gElo is the cheap ranking proxy being calibrated against it.

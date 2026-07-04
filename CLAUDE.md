@@ -257,10 +257,14 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
    (per advisor: imitation asymptotes to parity, never above — exceeding it
    needs Stage 2 AWR/search, not more imitation rounds).
 4. **Stage 2: advantage-weighted self-play** — gate 55–60% vs teacher over 400 games.
-   Infra BUILT 2026-07-03 (`train_sp.py` AWR weighting + `--winner-only`
-   ablation, value-head pre-check passed — see `docs/nn-training.md` §Resume
-   Here item 3). Not yet done: fresh SP collection with `ptcg_dagger_r2.pth`,
-   the real training run, and the gate.
+   Infra BUILT 2026-07-03. **First result (β=1.0) IS IN, 2026-07-04: real
+   negative** — `ptcg_awr1.pth` gated 15.8% vs v25c teacher (flat, same band
+   as DAgger) and 47.7% vs its own seed `ptcg_dagger_r2.pth` (tied, no
+   improvement) — not a measurement-resolution issue like DAgger's excused
+   plateau, since AWR is supposed to exceed parity. One β follow-up queued
+   before concluding the direct-self-play-AWR line is capped without a
+   search tree. See `docs/nn-training.md` §Resume Here item 3 and
+   `docs/report-log.md` 2026-07-04 entry.
 5. **Stage 3 (parallel): belief model** — archetype classifier + accuracy-by-turn
    figure; fixes `opp_likely_ace_spec` hardcoded to True.
 6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03: not step-limit draws at

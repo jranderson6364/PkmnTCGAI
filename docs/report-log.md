@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-03 (Stage 0c deck bake-off run + resolved, meta survey, bake-off rig; earlier same-day: v25c Gauntlet baseline + BC re-collect)
+**Last updated:** 2026-07-04 (Stage 2 AWR self-play: infra built, first β=1.0 result a real negative vs teacher and tied vs seed)
 
 ---
 
@@ -53,6 +53,68 @@ protocol, one-line keep/reject verdict each).
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-04 — Stage 2 AWR self-play: infra built, first result is a real negative
+
+**Hypothesis:** advantage-weighted self-play (reweight the imitation-style
+policy loss by `exp(advantage/β)`, advantage = n-step bootstrapped value
+target minus the value head's own V(s)) gives the net an improvement
+operator DAgger couldn't — DAgger only asymptotes to teacher parity by
+construction, AWR is supposed to be able to exceed it.
+
+**Method (plain English):** `selfplay_collect.py` now stores `v_pred` (the
+collecting net's own value-head estimate) per decision alongside the
+existing bootstrapped `value_target`. `dataset.py` computes
+`advantage = value_target - v_pred` per sample (BC samples get `None` →
+flat weight 1.0, since they carry no value estimate). `train_sp.py` weights
+each self-play sample's policy loss by `exp(advantage/β)`, rescaled by a
+corpus-level normalizer so the SP portion's mean weight stays ~1.0
+(protects the 40/60 BC/SP mix) and clipped to `[1/20, 20]`. `--winner-only`
+was added as the dumb-baseline ablation (filter to `outcome>0`, uniform
+weight, no AWR term) but not yet run.
+
+**Pre-registered check before the expensive run** (per advisor): dumped
+`v_pred`/advantage stats over 30 self-play games (9,536 decisions) with
+`ptcg_dagger_r2.pth` first. `v_pred` std 0.935 (not collapsed toward 0 —
+saturates bimodally toward ±1 for most states instead of a smooth spread),
+advantage mean 0.15/std 0.97. Confirmed AWR weighting would be
+distinguishable from winner-only before committing hours to collection.
+
+**Run:** collected 1000 fresh self-play games with `ptcg_dagger_r2.pth`
+(temp 1.0) → 317,143 samples (`training/sp_data_awr*.pkl.gz` — the old
+`sp_data.pkl.gz` was stale/pre-freeze, per the RESTARTED note). First
+training attempt (uncapped `--bc-data`/`--sp-data`, no limit) got
+OOM-killed — reproduced the exact bug `--bc-limit`/`--sp-limit` were built
+to fix during DAgger, just forgot to pass them this time. Retrained with
+`--bc-limit 250000 --sp-limit 250000`, `--awr-beta 1.0`: 10 epochs, loss
+0.51→0.41, `awr_norm=1.83` → `training/ptcg_awr1.pth`.
+
+**Gate (400 games each, per the pre-registered Stage 2 exit criterion):**
+- **vs v25c teacher:** 15.8% ± 3.6% (63W-337L). Same flat 12-17% range as
+  every BC/DAgger checkpoint before it — no improvement.
+- **vs its own seed (`ptcg_dagger_r2.pth`)** — added per advisor's specific
+  warning that vs-teacher alone can't distinguish "AWR improved nothing"
+  from "the seed was already near parity": 47.7% ± 4.9% (191W-209L), a
+  clean statistical tie.
+
+**Decision:** this is a **real negative result, not a measurement-resolution
+artifact** — unlike DAgger's excused imitation-ceiling plateau, AWR is
+supposed to be able to exceed teacher parity, and the tied vs-seed result
+at n=400 (tight enough CI to resolve a real effect) confirms training
+produced no detectable improvement, not just an invisible one. Direct
+self-play (no MCTS/search tree) + a value head that saturates toward ±1 for
+most states may simply not carry much per-decision advantage signal beyond
+the terminal outcome, making AWR reweighting behave close to (though not
+identical to) the winner-only ablation. One follow-up (different β) queued
+before concluding the direct-self-play-AWR line — see next entry / status
+at top of `docs/nn-training.md` for the outcome.
+
+**Report relevance:** target figure #3 (win rate vs teacher across BC →
+DAgger → AWR) gains a real data point either way — this is evidence for the
+report's "imitation-family methods plateau on this deck without search"
+narrative, not a throwaway failed run.
 
 ---
 

@@ -15,11 +15,12 @@ r1→r2) but win-rate vs teacher stayed flat (~12-17%) throughout, and round 2
 (testing a lower collection temperature) showed the fidelity gain itself
 diminishing (+8pp then +0.8pp) — two rounds of evidence that further DAgger
 rounds won't move the needle much more. **DAgger paused here**; `ptcg_dagger_r2.pth`
-is the best checkpoint but not ship-ready (needs Stage 2 AWR/search to exceed
-the teacher, not more imitation). **Stage 2 AWR first result (β=1.0, 2026-07-04):
-real negative** — 15.8% vs teacher (flat, same band as DAgger), 47.7% vs its own
-seed (tied, not improved) — see "Resume Here" below for the full writeup and the
-queued β follow-up.
+is the best checkpoint but not ship-ready. **Stage 2 direct-self-play AWR is now
+CLOSED, negative (2026-07-04):** two β values tested (1.0, 0.5), both flat-to-worse
+vs teacher (15.8%, 11.5%) and not significantly better than the seed either — more
+aggressive weighting made it worse, ruling out a simple β fix. Advancing past the
+teacher needs Kaggle-gated MCTS/search-in-the-loop, not more direct self-play. See
+"Resume Here" below for the full writeup.
 
 ---
 
@@ -261,16 +262,52 @@ Concrete next steps, in order:
    resolve a real effect is a genuine null result, not a resolution
    problem. Full writeup: `docs/report-log.md` 2026-07-04 entry.
 
-   **Working theory:** direct self-play (no MCTS/search tree) combined with
-   a value head that saturates bimodally toward ±1 for most states (see the
-   pre-training diagnostic below) may not carry much per-decision advantage
-   signal beyond the terminal outcome — making AWR reweighting behave close
-   to (not identical to) the winner-only ablation, which is itself an
-   untested dumb baseline here. One β sweep queued as the single follow-up
-   before concluding the direct-self-play-AWR line is capped without search
-   (per the pre-registered "1-2 follow-ups then stop" rule) — check the top
-   of this file / `docs/report-log.md` for the newest dated entry for the
-   outcome.
+   **β=0.5 follow-up (the single pre-registered follow-up) — DONE
+   2026-07-04, confirms the null result:** retrained on the SAME
+   `sp_data_awr*.pkl.gz` corpus with `--awr-beta 0.5` (more aggressive
+   reweighting — `awr_norm=6.95` vs β=1.0's 1.83) → `training/ptcg_awr_beta0.5.pth`.
+   Gate: vs v25c teacher **11.5% ± 3.1%** (46W-354L) — *worse* than β=1.0's
+   15.8%, not better. vs its own seed (`ptcg_dagger_r2.pth`): **53.7% ± 4.9%**
+   (215W-185L) — CI still spans 50%, not a statistically significant win,
+   though nominally above β=1.0's 47.7%.
+
+   **Table (both β values, 400-game gates):**
+
+   | β | vs teacher | vs seed (`dagger_r2`) |
+   |---|---|---|
+   | 1.0 | 15.8% ± 3.6% | 47.7% ± 4.9% (tied) |
+   | 0.5 | 11.5% ± 3.1% | 53.7% ± 4.9% (not significant) |
+
+   **Conclusion — Stage 2 direct-self-play AWR line CLOSED, negative result
+   (2026-07-04):** more aggressive advantage weighting made things *worse*
+   against the teacher while producing no statistically significant gain
+   against the seed either — ruling out "just needed a stronger β" as the
+   fix. Working theory: the value head saturates bimodally toward ±1 for
+   most states (see the pre-collection diagnostic below), so its
+   `advantage = value_target - v_pred` signal carries little per-decision
+   nuance beyond the terminal outcome; AWR reweighting under these
+   conditions concentrates training on a narrow winner-biased slice of the
+   self-play corpus rather than learning genuinely better-than-expected
+   actions, and the more aggressively it does so (lower β), the more it
+   overfits away from the teacher's distribution without a compensating
+   quality gain. Per the pre-registered "1-2 follow-ups then stop" rule,
+   this closes the direct-self-play-AWR line without a search tree — it
+   does not exceed teacher parity on this deck at either β tested. Full
+   writeup: `docs/report-log.md` 2026-07-04 entries.
+
+   **What this means for Stage 2 going forward:** advancing past the
+   teacher on the 70%-axis via self-play needs either (a) Kaggle-gated
+   MCTS/search-in-the-loop (the `SearchState`/`cg.api.search_begin` spike
+   already scoped earlier in this file — the "real" Stage 2/5 upgrade this
+   whole direct-self-play phase was always a stand-in for), or (b) accepting
+   `ptcg_dagger_r2.pth` (81.9% teacher-fidelity, not ship-ready) as the
+   ceiling of the imitation-family approach and shifting effort to Stage 3
+   (belief model, parallel track, doesn't depend on this result) while
+   `main.py` (v25c heuristic) remains the ladder submission. Either way,
+   **both β results are real, citable report material** for the ablation
+   table (target figure #4) and the "imitation-family methods plateau
+   without search" narrative (target figure #3) — this was not a wasted
+   night, it's a load-bearing negative result.
 
    **Pre-training value-head diagnostic** (run before the collection, per
    advisor): 30 self-play games with `ptcg_dagger_r2.pth`, temp 1.0 → 9,536
@@ -279,9 +316,10 @@ Concrete next steps, in order:
    a smooth spread: p25 -0.999, p75 +0.9997). `advantage` mean 0.15, std
    0.97, range clipped to [-2,2] as expected — confirmed AWR weighting
    would be distinguishable from the winner-only ablation before spending
-   hours on a full collect+train+gate cycle (it was; the null result above
-   is real, not degenerate-into-baseline).
-   Exit: 55-60%+ vs the teacher over 400 local games — not yet cleared.
+   hours on a full collect+train+gate cycle (it was; both null results
+   above are real, not degenerate-into-baseline).
+   Exit: 55-60%+ vs the teacher over 400 local games — **not cleared;
+   Stage 2 direct-self-play line concluded negative, see above.**
 4. **Gauntlet + ladder A/B each meaningful checkpoint** (`training/gauntlet.py`
    with a distinct `--name` per checkpoint). Real ladder is the only honest
    evaluator; gElo is the cheap ranking proxy being calibrated against it.

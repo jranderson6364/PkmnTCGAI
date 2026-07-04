@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-04 (Stage 2 AWR self-play: infra built, first β=1.0 result a real negative vs teacher and tied vs seed)
+**Last updated:** 2026-07-04 (Stage 2 direct-self-play AWR line CLOSED: both β=1.0 and β=0.5 gate negative — needs search to exceed teacher parity)
 
 ---
 
@@ -115,6 +115,36 @@ at top of `docs/nn-training.md` for the outcome.
 DAgger → AWR) gains a real data point either way — this is evidence for the
 report's "imitation-family methods plateau on this deck without search"
 narrative, not a throwaway failed run.
+
+**Update, same day — β sweep done, line closed:** ran the one pre-registered
+follow-up, `--awr-beta 0.5` (more aggressive reweighting, `awr_norm=6.95` vs
+β=1.0's 1.83) on the same self-play corpus → `ptcg_awr_beta0.5.pth`. Gated:
+**11.5% ± 3.1% vs teacher** (worse than β=1.0's 15.8% — more aggressive
+weighting hurt, not helped) and **53.7% ± 4.9% vs seed** (CI still spans
+50%, not significant, though nominally above β=1.0's 47.7%). This rules out
+"just needed a stronger β" as the fix.
+
+| β | vs teacher | vs seed (`dagger_r2`) |
+|---|---|---|
+| 1.0 | 15.8% ± 3.6% | 47.7% ± 4.9% (tied) |
+| 0.5 | 11.5% ± 3.1% | 53.7% ± 4.9% (not significant) |
+
+**Final decision:** Stage 2 direct-self-play AWR line is **closed, negative
+result**, per the pre-registered "1-2 follow-ups then stop" rule. Neither β
+exceeds teacher parity; the more aggressive setting made vs-teacher
+performance worse while not producing a significant vs-seed gain either —
+consistent with the value-head-saturation working theory (advantage signal
+carries little per-decision nuance beyond terminal outcome on this deck, so
+AWR reweighting mostly just overfits to a winner-biased slice rather than
+learning genuinely better actions). Advancing past teacher parity via
+self-play needs Kaggle-gated MCTS/search-in-the-loop; alternatives in the
+meantime are Stage 3 belief-model work (parallel, doesn't depend on this
+result) or treating `ptcg_dagger_r2.pth`'s 81.9% fidelity as the practical
+ceiling of the imitation-family approach while `main.py` (v25c heuristic)
+remains the ladder submission. Both β results are real, citable material for
+the report's ablation table (target figure #4) and plateau-without-search
+narrative (target figure #3) — a load-bearing negative result, not a wasted
+run. Full detail: `docs/nn-training.md` Stage 2 section.
 
 ---
 

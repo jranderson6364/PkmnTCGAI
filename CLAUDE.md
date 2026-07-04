@@ -256,15 +256,23 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
    win-rate on this deck) but not ship-ready. Gate 50%+ vs teacher → ship
    (per advisor: imitation asymptotes to parity, never above — exceeding it
    needs Stage 2 AWR/search, not more imitation rounds).
-4. **Stage 2: advantage-weighted self-play** — gate 55–60% vs teacher over 400 games.
-   Infra BUILT 2026-07-03. **First result (β=1.0) IS IN, 2026-07-04: real
-   negative** — `ptcg_awr1.pth` gated 15.8% vs v25c teacher (flat, same band
-   as DAgger) and 47.7% vs its own seed `ptcg_dagger_r2.pth` (tied, no
-   improvement) — not a measurement-resolution issue like DAgger's excused
-   plateau, since AWR is supposed to exceed parity. One β follow-up queued
-   before concluding the direct-self-play-AWR line is capped without a
-   search tree. See `docs/nn-training.md` §Resume Here item 3 and
-   `docs/report-log.md` 2026-07-04 entry.
+4. ~~Stage 2: advantage-weighted self-play (direct, no search)~~ **CLOSED,
+   NEGATIVE, 2026-07-04.** Two β values gated over 400 games each: β=1.0 →
+   15.8% vs teacher / 47.7% vs seed (tied); β=0.5 (more aggressive) → 11.5%
+   vs teacher (worse) / 53.7% vs seed (not significant). More aggressive
+   weighting made it worse, ruling out a simple β fix — per the
+   pre-registered "1-2 follow-ups then stop" rule this line is concluded.
+   Neither exceeds teacher parity; working theory is the value head
+   saturates near ±1 on most states, so AWR's advantage signal carries
+   little per-decision nuance beyond terminal outcome here. **Exceeding the
+   teacher needs Kaggle-gated MCTS/search-in-the-loop, not more direct
+   self-play.** Both results are real report material (ablation table +
+   plateau-without-search narrative). See `docs/nn-training.md` §Resume Here
+   item 3 and `docs/report-log.md` 2026-07-04 entries for full numbers.
+   **Next-step options for the user:** (a) scope the Kaggle
+   `search_begin`/MCTS spike, (b) start Stage 3 belief model in parallel
+   (doesn't depend on this result), or (c) keep v25c heuristic as the ladder
+   submission and treat tonight's result as report material for now.
 5. **Stage 3 (parallel): belief model** — archetype classifier + accuracy-by-turn
    figure; fixes `opp_likely_ace_spec` hardcoded to True.
 6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03: not step-limit draws at

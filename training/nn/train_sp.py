@@ -7,6 +7,7 @@ Usage:
       --init ../ptcg_bc_v1.pth --out ../ptcg_sp_iter1.pth --epochs 3
 """
 import argparse
+import math
 import os
 import sys
 
@@ -18,6 +19,16 @@ from torch.utils.data import DataLoader, WeightedRandomSampler, ConcatDataset
 
 from dataset import BCDataset, collate, load_shards
 from model import PTCGNet
+
+
+def awr_normalizer(sp_raw, beta):
+    """Mean of exp(advantage/beta) over SP samples that carry a v_pred
+    (docs/nn-training.md Stage 2) — used to rescale weights to mean ~1.0
+    within the SP portion, so AWR doesn't silently shift the "non-negotiable"
+    40% BC / 60% SP batch composition away from its target ratio."""
+    ws = [math.exp(max(-10.0, min(10.0, (s["value_target"] - s["v_pred"]) / beta)))
+          for s in sp_raw if "v_pred" in s]
+    return (sum(ws) / len(ws)) if ws else 1.0
 
 
 def build_mixed_loader(bc_raw, sp_raw, batch_size, bc_frac=0.4):
@@ -50,6 +61,18 @@ def main():
                           "resampled with replacement anyway, so a large corpus "
                           "gains nothing but memory pressure over a capped one)")
     ap.add_argument("--sp-limit", type=int, default=None)
+    ap.add_argument("--awr-beta", type=float, default=1.0,
+                     help="temperature for the AWR policy-loss weight "
+                          "exp(advantage/beta) (Stage 2, docs/nn-training.md); "
+                          "advantages are ~[-2,2] (both terms tanh-clipped), "
+                          "beta=1.0 is the calibrated default")
+    ap.add_argument("--awr-clip", type=float, default=20.0,
+                     help="clip normalized AWR weights to [1/awr-clip, awr-clip] "
+                          "so a few high-advantage samples can't dominate the gradient")
+    ap.add_argument("--winner-only", action="store_true",
+                     help="dumb-baseline ablation (docs/nn-training.md Stage 2): "
+                          "drop AWR weighting, just filter SP samples to winning "
+                          "games (outcome > 0)")
     args = ap.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,7 +80,13 @@ def main():
 
     bc_raw = load_shards(args.bc_data, limit=args.bc_limit)
     sp_raw = load_shards(args.sp_data, limit=args.sp_limit)
+    if args.winner_only:
+        sp_raw = [s for s in sp_raw if s.get("outcome", 0) > 0]
+        print(f"--winner-only: filtered sp_samples to {len(sp_raw)} (outcome>0)")
     print(f"bc_samples={len(bc_raw)} sp_samples={len(sp_raw)}")
+
+    awr_norm = 1.0 if args.winner_only else awr_normalizer(sp_raw, args.awr_beta)
+    print(f"awr_norm={awr_norm:.4f} beta={args.awr_beta} winner_only={args.winner_only}")
 
     loader = build_mixed_loader(bc_raw, sp_raw, args.batch_size, args.bc_frac)
 
@@ -84,7 +113,19 @@ def main():
             # mathematically identical to hard CE until mcts_collect.py starts
             # producing real soft targets.
             log_probs = torch.log_softmax(logits, dim=-1)
-            p_loss = -(batch["policy_targets"] * log_probs).sum(dim=-1).mean()
+            per_sample_p_loss = -(batch["policy_targets"] * log_probs).sum(dim=-1)
+            if args.winner_only:
+                weight = torch.ones_like(per_sample_p_loss)
+            else:
+                # AWR (Stage 2): BC samples (has_advantage==0) get weight 1.0;
+                # SP samples get exp(advantage/beta), rescaled by the corpus-
+                # level normalizer so the SP portion's mean weight stays ~1.0
+                # (protects the non-negotiable 40/60 BC/SP mix) and clipped so
+                # a few high-advantage samples can't dominate the gradient.
+                raw_w = torch.exp(torch.clamp(batch["advantages"] / args.awr_beta, -10.0, 10.0))
+                sp_w = torch.clamp(raw_w / awr_norm, 1.0 / args.awr_clip, args.awr_clip)
+                weight = torch.where(batch["has_advantage"] > 0, sp_w, torch.ones_like(sp_w))
+            p_loss = (weight * per_sample_p_loss).mean()
             v_loss = value_loss_fn(value, batch["values"])
             loss = p_loss + 0.5 * v_loss
             opt.zero_grad()

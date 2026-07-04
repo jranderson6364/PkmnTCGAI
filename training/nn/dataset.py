@@ -77,7 +77,12 @@ class BCDataset(Dataset):
         policy_target = d.get("policy_target")
         if policy_target is not None:
             policy_target = list(policy_target[:n_actions]) if n_actions else []
-        return enc, label, float(value or 0), policy_target
+        # advantage = value_target - v_pred (Stage 2 AWR, docs/nn-training.md
+        # §3): only self-play samples carry v_pred (the collecting net's own
+        # value-head estimate at s_t); BC samples have none, so advantage is
+        # None there and train_sp.py falls back to a flat policy-loss weight.
+        advantage = (value - d["v_pred"]) if "v_pred" in d else None
+        return enc, label, float(value or 0), policy_target, advantage
 
 
 def collate(batch):
@@ -94,8 +99,10 @@ def collate(batch):
     labels = torch.zeros(B, dtype=torch.long)
     values = torch.zeros(B, dtype=torch.float)
     policy_targets = torch.zeros(B, MAX_ACTIONS, dtype=torch.float)
+    advantages = torch.zeros(B, dtype=torch.float)
+    has_advantage = torch.zeros(B, dtype=torch.float)
 
-    for i, (enc, label, outcome, policy_target) in enumerate(batch):
+    for i, (enc, label, outcome, policy_target, advantage) in enumerate(batch):
         board_ids[i] = torch.tensor(enc["board_ids"], dtype=torch.long)
         h = enc["hand_ids"][:20]
         hand_ids[i, :len(h)] = torch.tensor(h, dtype=torch.long)
@@ -115,6 +122,9 @@ def collate(batch):
             policy_targets[i, :n] = torch.tensor(policy_target, dtype=torch.float)
         elif n > 0:
             policy_targets[i, label] = 1.0  # one-hot fallback (BC / direct-SP samples)
+        if advantage is not None:
+            advantages[i] = advantage
+            has_advantage[i] = 1.0
 
     return {
         "board_ids": board_ids, "hand_ids": hand_ids, "discard_ids": discard_ids,
@@ -122,4 +132,5 @@ def collate(batch):
         "action_attack": action_attack, "action_numeric": action_numeric,
         "action_mask": action_mask, "labels": labels, "values": values,
         "policy_targets": policy_targets,
+        "advantages": advantages, "has_advantage": has_advantage,
     }

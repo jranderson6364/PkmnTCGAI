@@ -215,12 +215,38 @@ Concrete next steps, in order:
    improvement operator (AWR/search), not more imitation rounds.
    **Gate: ~50%+ vs the teacher (Gauntlet + 400-game A/B) → ship to ladder**
    (single forward pass, no timeout risk) and log its bracket results.
-3. **Advantage-weighted self-play (Stage 2).** `train_sp.py` gains per-sample
-   policy-loss weights `exp(advantage/β)` where advantage = n-step value target
-   minus the value head's V(s) (both already computed). Keep the 40% BC / 60%
-   SP batch mix (non-negotiable — SP-only collapsed 46%→20% over 3 iterations).
-   Winner-only filtering as the dumb-baseline ablation. Exit: 55-60%+ vs the
-   teacher over 400 local games.
+3. **Advantage-weighted self-play (Stage 2) — infra BUILT 2026-07-03, not yet
+   trained/gated.** `selfplay_collect.py::compute_value_targets` now stores
+   `v_pred` (the collecting net's own value-head estimate at s_t) per decision
+   alongside `value_target`. `dataset.py` computes `advantage = value_target -
+   v_pred` per sample (`None`/weight-1.0 for BC samples, which carry no
+   `v_pred`) and threads `advantages`/`has_advantage` through `collate()`.
+   `train_sp.py` weights the policy loss `exp(advantage/β)` per SP sample
+   (`--awr-beta`, default 1.0), rescaled by a corpus-level normalizer
+   (`awr_normalizer()`) so the SP portion's mean weight stays ~1.0 — protects
+   the non-negotiable 40/60 BC/SP mix from silently drifting — and clipped to
+   `[1/awr-clip, awr-clip]` (default 20) so a few high-advantage samples can't
+   dominate the gradient. `--winner-only` is the dumb-baseline ablation
+   (filters SP samples to `outcome>0`, weight 1.0 uniformly, no AWR term).
+   **Pre-training value-head diagnostic** (per advisor, before committing to a
+   full collect): 30 self-play games with `ptcg_dagger_r2.pth`, temp 1.0 →
+   9,536 decisions. `v_pred` std 0.935 (not collapsed to ~0 — the value head
+   discriminates, though it saturates toward ±1 for most states rather than a
+   smooth spread: p25 -0.999, p75 +0.9997). `advantage` mean 0.15, std 0.97,
+   range clipped to [-2,2] as expected — confirms AWR weighting is
+   distinguishable from the winner-only ablation before spending hours on a
+   full collect+train+gate cycle. Both code paths smoke-tested end-to-end (1
+   epoch, 5 steps, on the 30-game shard + a 2k-sample BC slice) — no errors,
+   `awr_norm` computed sanely (1.85 at β=1.0).
+   **Not yet done:** fresh large-scale SP collection with `ptcg_dagger_r2.pth`
+   (the existing `sp_data.pkl.gz` is stale, old-deck, pre-freeze — see the
+   RESTARTED note above), the real AWR training run, and the gate. Per
+   advisor: also run AWR-checkpoint vs its own seed (`ptcg_dagger_r2.pth`),
+   not just vs the teacher — vs-teacher alone can't distinguish "AWR improved
+   nothing" from "the seed was already near parity," and unlike DAgger's
+   imitation ceiling, AWR is supposed to exceed parity, so a plateau at ~50%
+   vs teacher here would be a real negative result, not a measurement-
+   resolution artifact. Exit: 55-60%+ vs the teacher over 400 local games.
 4. **Gauntlet + ladder A/B each meaningful checkpoint** (`training/gauntlet.py`
    with a distinct `--name` per checkpoint). Real ladder is the only honest
    evaluator; gElo is the cheap ranking proxy being calibrated against it.

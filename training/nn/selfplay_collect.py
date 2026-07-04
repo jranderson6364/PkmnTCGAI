@@ -110,6 +110,10 @@ def compute_value_targets(model, decisions, outcome, mcts_root_values=None):
         # doesn't chase an unreachable label.
         decisions[t]["value_target"] = max(-1.0, min(1.0, target))
         decisions[t]["outcome"] = outcome
+        # raw V(s_t) from the collecting net, stored so AWR training (Stage 2)
+        # can compute advantage = value_target - v_pred without re-running the
+        # value head at train time.
+        decisions[t]["v_pred"] = values[t]
 
 
 def _shard_path(out, idx):

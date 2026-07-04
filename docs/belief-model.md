@@ -5,7 +5,7 @@ plays, turn)`, then sampling their unseen zones from the inferred archetype's
 decklist. The report's originality centerpiece. This file is the canonical home
 for the design, the phase plan, and (as they land) the results.*
 
-**Last updated:** 2026-07-04 (Phase A DONE — 92.3% held-out accuracy, 99%+ by turn 1)
+**Last updated:** 2026-07-04 (Phase A DONE — 92.3% held-out accuracy, 99%+ by turn 1; Phase B replay-download blocker resolved — 680 replays on disk, real meta share surveyed)
 
 ---
 
@@ -138,13 +138,31 @@ here; flagged for the user to decide whether to re-run it).
 
 The ladder is not 4 bots. Two additions:
 
-1. **Archetype library from ladder replays.** Download our submissions'
+1. **Archetype library from ladder replays.** ~~Download our submissions'
    episodes via the Kaggle API (only 8 replay JSONs on disk today — need
-   bulk download into `replays/`). Tag each opponent by key cards into the
-   known meta list (Crustle, Gholdengo, Raging Bolt, Charizard, Bellibolt,
-   Alakazam mirror, …) — `docs/matchups.md` has the meta list. Each tagged
-   archetype needs a representative 60-card list (from `EN_Card_Data.csv` +
-   observed cards) before the determinization sampler can use it.
+   bulk download into `replays/`)~~ **Blocker resolved 2026-07-04:**
+   `tools/download_replays.py` uses `kaggle competitions episodes
+   <submission_id>` + `kaggle competitions replay <episode_id>` (previously
+   undiscovered CLI subcommands) to bulk-download episode replays,
+   resumable (skips ids already on disk). 680 replays now on disk (up from
+   28), across 26 complete submissions / 1,282 total known episode ids —
+   stopped short of the full set after hitting Kaggle API rate limiting
+   (`429`) and per the user's call that top-percentile-bot coverage is
+   sufficient, not exhaustive completeness. Real meta share via
+   `tools/meta_survey.py --all --csv training/meta_survey.csv`: lucario
+   16.3%, starmie 12.1%, dragapult 10.9%, alakazam 10.4%, abomasnow 7.8%,
+   crustle 7.8%, archaludon 4.0%, bellibolt 1.6%, rockets-mewtwo 1.0%,
+   raging-bolt 1.0%, gardevoir 0.6%, grimmsnarl 0.4% — and **25.9%
+   other/unknown** (opponents `meta_survey.py`'s `SIGNATURES` list doesn't
+   recognize at all). Full writeup: `docs/report-log.md` 2026-07-04 "Ladder
+   replay bulk download + real meta-share survey" entry. Tag each opponent
+   by key cards into the known meta list (Crustle, Gholdengo, Raging Bolt,
+   Charizard, Bellibolt, Alakazam mirror, …) — `docs/matchups.md` has the
+   meta list. Each tagged archetype needs a representative 60-card list
+   (from `EN_Card_Data.csv` + observed cards) before the determinization
+   sampler can use it. **Not yet started:** the 25.9% unknown slice means
+   the signature list likely needs extending before this is a credible
+   library, not just a re-run of the existing classifier.
 2. **Honest `unknown` handling.** Posterior mass on `unknown` when evidence
    matches nothing known; consumers fall back to current behavior (ace-spec
    assumed, placeholder determinization). Report this honestly: coverage % of

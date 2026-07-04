@@ -281,10 +281,18 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
    (lucario/dragapult/abomasnow/starmie/alakazam-mirror), weights exported
    to `training/belief/belief_weights.json`. **Caveat:** this is the "easy"
    5-fixed-bot classification, not the real ladder — Phase B (real
-   archetype library + `unknown` mass) is the honest test, unstarted.
-   `opp_likely_ace_spec` still hardcoded `True` — not wired yet (Phase C,
-   depends on Phase B). See `docs/belief-model.md` and `docs/report-log.md`
-   2026-07-04 entry.
+   archetype library + `unknown` mass) is the honest test. **Phase B replay
+   blocker resolved 2026-07-04:** `tools/download_replays.py` bulk-downloads
+   via previously-undiscovered Kaggle CLI subcommands; 680 ladder replays
+   now on disk (up from 28, stopped short of the full 1,282-episode set on
+   API rate-limiting + user call that top-percentile coverage suffices).
+   Real meta share: lucario 16.3%, starmie 12.1%, dragapult 10.9%, alakazam
+   10.4%, abomasnow 7.8%, crustle 7.8%, archaludon 4.0% (down from an
+   apparent 17.9% on the old 28-replay sample), plus 25.9% `other/unknown`
+   — the archetype-library and signature-set work itself is still
+   unstarted. `opp_likely_ace_spec` still hardcoded `True` — not wired yet
+   (Phase C, depends on Phase B). See `docs/belief-model.md` and
+   `docs/report-log.md` 2026-07-04 entries.
 6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03, **partially corrected
    2026-07-04:** the "`opponents/dragapult_agent.py` crashes 100% of local
    games" claim below was WRONG — confirmed 0/20 errors in a direct

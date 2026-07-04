@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-04 (Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative — needs search to exceed teacher parity)
+**Last updated:** 2026-07-04 (ladder replay bulk download DONE, 680 replays, real meta-share survey; Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative — needs search to exceed teacher parity)
 
 ---
 
@@ -53,6 +53,68 @@ protocol, one-line keep/reject verdict each).
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-04 — Ladder replay bulk download + real meta-share survey
+
+**Hypothesis:** Stage 3 Phase B needs real ladder archetype data — we only had
+28 replay JSONs on disk, not enough to build an honest archetype library or
+measure real meta share (as opposed to Phase A's synthetic 5-bot set).
+
+**Method:** discovered the Kaggle CLI exposes `kaggle competitions episodes
+<submission_id>` (list episode ids for a submission) and `kaggle competitions
+replay <episode_id> -p <dir>` (download one episode's replay JSON) — not
+previously used. Built `tools/download_replays.py`: enumerates all COMPLETE
+submissions, lists their episodes (1,282 unique episode ids across 26
+submissions), and downloads any not already on disk, skipping ones that are
+(resumable — safe to re-run). Ran it in the background; it died twice
+mid-run with no fatal error in the log (once after a burst of connection
+timeouts, once cleanly with zero failures) — same signature as the machine
+sleep/wake kills seen earlier this session during belief-data collection.
+Resumed twice, and on the third run started hitting real `429 Too Many
+Requests` from the Kaggle API. Per the user's explicit call ("I only care
+about the top 50% percentile or so of bots so that's fine"), stopped there
+rather than fighting the rate limit — the goal is a representative meta
+sample, not exhaustive completeness.
+
+**Result:** 652 new replays downloaded (680 total on disk incl. the original
+28). `tools/meta_survey.py --all --csv training/meta_survey.csv` over all 680:
+
+| Archetype | Count | Share |
+|---|---|---|
+| other/unknown | 176 | 25.9% |
+| lucario | 111 | 16.3% |
+| starmie | 82 | 12.1% |
+| dragapult | 74 | 10.9% |
+| alakazam | 71 | 10.4% |
+| abomasnow | 53 | 7.8% |
+| crustle | 53 | 7.8% |
+| archaludon | 27 | 4.0% |
+| bellibolt | 11 | 1.6% |
+| rockets-mewtwo | 7 | 1.0% |
+| raging-bolt | 7 | 1.0% |
+| gardevoir | 4 | 0.6% |
+| grimmsnarl | 3 | 0.4% |
+
+This is a real update from the original 28-replay sample (archaludon had
+looked tied for top share at 17.9%; with 680 replays lucario/starmie/
+dragapult/alakazam all clearly outrank it, and archaludon settles at 4.0%).
+The 25.9% `other/unknown` slice is itself information: a quarter of ladder
+opponents don't match `tools/meta_survey.py`'s current `SIGNATURES` list at
+all — Phase B's archetype library needs to either extend that signature set
+or budget for a large honest `unknown` posterior mass.
+
+**Decision:** stop the download here (rate-limited, and the user only needs
+top-percentile-bot coverage, not exhaustive completeness); use this 680-replay
+snapshot as Phase B's starting corpus. `tools/download_replays.py` remains
+resumable if more replays are wanted later (e.g. after a cooldown on the
+Kaggle API rate limit).
+
+**Report relevance:** real ladder meta-share is direct material for the
+report's meta-share figure/table (item 4, "meta-weighted expected win rate").
+The `other/unknown` share is also evidence for Phase B's honest-coverage
+framing ("coverage % of ladder opponents recognized").
 
 ---
 

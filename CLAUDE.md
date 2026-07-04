@@ -274,16 +274,28 @@ Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
    (doesn't depend on this result), or (c) keep v25c heuristic as the ladder
    submission and treat tonight's result as report material for now.
 5. **Stage 3 (parallel): belief model** — archetype classifier + accuracy-by-turn
-   figure; fixes `opp_likely_ace_spec` hardcoded to True.
-6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03: not step-limit draws at
-   all — `opponents/dragapult_agent.py` crashes 100% of local games (Kaggle-
-   only `cg.api` import unavailable locally), and `training/harness.py`'s
-   `summarize()` miscounted opponent-crash-as-P0 as a tie instead of a win.
-   Both are fixed except the anchor's underlying crash (optional follow-up:
-   vendor `cg/api.py` from the downloadable `kiyotah/cg-lib` Kaggle dataset —
-   confirmed it's plain ~26KB Python, not urgent). The `dragapult` column in
-   `training/gauntlet_results.csv` has never reflected real play for any prior
-   version; disregard it until the anchor itself is fixed.
+   figure. **Phase A DONE 2026-07-04:** 92.3% held-out accuracy, 99.1% by
+   turn 1 (clears the >90%-by-turn-3 target two turns early), beats the
+   data-derived key-card baseline at both gate turns (99.1% vs 80.2% at
+   turn 1; 100% vs 85.7% at turn 2). 93,006 rows across 5 labels
+   (lucario/dragapult/abomasnow/starmie/alakazam-mirror), weights exported
+   to `training/belief/belief_weights.json`. **Caveat:** this is the "easy"
+   5-fixed-bot classification, not the real ladder — Phase B (real
+   archetype library + `unknown` mass) is the honest test, unstarted.
+   `opp_likely_ace_spec` still hardcoded `True` — not wired yet (Phase C,
+   depends on Phase B). See `docs/belief-model.md` and `docs/report-log.md`
+   2026-07-04 entry.
+6. ~~Dragapult step-limit ties~~ DIAGNOSED 2026-07-03, **partially corrected
+   2026-07-04:** the "`opponents/dragapult_agent.py` crashes 100% of local
+   games" claim below was WRONG — confirmed 0/20 errors in a direct
+   spot-check and 22,137 clean rows collected from it during Stage 3 data
+   collection; it has a working try/except fallback around its Kaggle-only
+   `cg.api` import. The `training/harness.py` `summarize()` opponent-crash-
+   as-tie miscount is still a real, separately-fixed bug (2026-07-03), it
+   just wasn't the reason for prior dragapult anomalies. **The `dragapult`
+   column in `training/gauntlet_results.csv` may be trustworthy again** —
+   not re-verified via a full gauntlet re-run; user should decide whether to
+   re-run the gauntlet with dragapult included.
 
 ---
 

@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-04 (Stage 2 direct-self-play AWR line CLOSED: both β=1.0 and β=0.5 gate negative — needs search to exceed teacher parity)
+**Last updated:** 2026-07-04 (Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative — needs search to exceed teacher parity)
 
 ---
 
@@ -53,6 +53,73 @@ protocol, one-line keep/reject verdict each).
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-04 — Stage 3 Phase A: archetype classifier, 92.3% held-out, gate cleared
+
+**Hypothesis:** the opponent's archetype leaks fast from public board state
+(active/bench Pokemon, discard, energy types) — early enough and reliably
+enough that a simple multinomial logistic regression beats a hand-written
+key-card lookup, especially at turns 1-2 where partial evidence is all
+either method has to go on.
+
+**Method (plain English):** `training/belief/collect.py` plays `main.py`
+(us) vs each of 4 opponent bots (lucario, dragapult, abomasnow, starmie) plus
+a `main.py`-vs-`main.py` mirror (label=alakazam), 2000 games each. For every
+game it walks the FULL step trace and extracts, from OUR OWN observation,
+the opponent's public board state at each turn boundary: revealed card ids
+(active/bench Pokemon + their pre-evolution chain + tools + discard pile —
+a monotonically-growing public snapshot, not a windowed log parse) plus
+simple counts (bench/discard/hand size, prizes taken, energy-type counts).
+`training/belief/train.py` fits a multinomial `LogisticRegression` over a
+`DictVectorizer` multi-hot of these features, split by game (not row) to
+avoid same-game leakage across turns.
+
+**Data:** 93,006 total rows across the 5 labels (lucario 18,685; dragapult
+22,137; abomasnow 17,912; starmie 8,235 — shorter games, not a bug, verified
+via turn-count distribution; alakazam 26,037).
+
+**Result — gate cleared decisively:**
+- Overall held-out accuracy: **92.3%** (pulled down almost entirely by
+  turn-0 rows, before any cards are played, where there's genuinely no
+  evidence yet — 28.5% there, matching chance-ish expectations).
+- **Accuracy by turn: turn 1 = 99.1%, turn 2+ = ~100%** — clears the design
+  doc's ">90% by turn 3" target by two turns early.
+- **Beats the key-card baseline at both gate turns** (baseline derived from
+  training data, not hand-guessed): turn 1 classifier 99.1% vs baseline
+  80.2%; turn 2 classifier 100% vs baseline 85.7%.
+- Confusion matrices at turns 1/2/3/5: diagonal from turn 1 on, one small
+  leak (14 alakazam→dragapult at turn 1) fully resolved by turn 3.
+- Posterior entropy collapses from ~1.55 nats (turn 0, near-maximum
+  uncertainty over 5 classes) to ~0 by turn 2, mirroring the accuracy curve.
+
+**Caveat, stated plainly for the report:** this is the "easy" 5-bot
+classification with fixed, maximally-distinctive decklists — not the real
+ladder, which has partial/noisy evidence and off-meta decks. Phase B (real
+ladder archetype library + explicit `unknown` mass) is the honest test and
+is unstarted. 92% here validates the pipeline and feature design; it is not
+a ladder-readiness claim.
+
+**Decision:** Phase A done, gate cleared. Weights exported
+(`training/belief/belief_weights.json`, plain dict — pure-python dot product
+at inference, no sklearn needed) but NOT yet wired into `main.py`
+(`opp_likely_ace_spec` still hardcoded `True`) — that's Phase C, gated on
+Phase B's real-archetype library existing first per the phase plan.
+
+**Side-finding (not part of this experiment, logged since it corrects prior
+project state):** `opponents/dragapult_agent.py` does not actually crash
+locally — confirmed 0/20 errors in a direct spot-check and 22,137 clean rows
+collected here. The existing "crashes 100% of local games" claim
+(`CLAUDE.md` item 6) is stale; it has a working try/except fallback around
+its Kaggle-only `cg.api` import. The gauntlet's dragapult column may be
+trustworthy again — not re-verified via a full gauntlet re-run, flagged for
+the user to decide.
+
+**Report relevance:** target figure #1 (archetype-identification accuracy by
+turn) is now real data, not a placeholder — this is the report's stated
+"originality centerpiece" (`docs/belief-model.md`) delivering its first
+concrete result.
 
 ---
 

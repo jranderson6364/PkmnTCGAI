@@ -1145,6 +1145,19 @@ def _choose(obs):
         players=cur.get('players',[])
         me=players[me_idx] if len(players)>me_idx else{}
         opp=players[1-me_idx] if len(players)==2 else{}
+        if ctx==42:
+            # MULLIGAN (ladder-only; local engine auto-resolves instead): cg-lib
+            # api.py documents it as "Would you like to redraw the cards?". Both
+            # ladder sightings (replays 83358041, 83455146) hit an opening hand
+            # with zero Basic Pokemon. Redraw a dead hand (no Basic = cannot set
+            # up), keep anything with a Basic -- the draw-prompt logic below
+            # answers on deck count, not hand contents, and would say YES here.
+            has_basic=any((c or{}).get('id') in BENCHABLE_BASIC_IDS
+                          for c in me.get('hand') or[])
+            want=NO if has_basic else YES
+            pick=[i for i,o in enumerate(opts) if o.get('type')==want]
+            if pick: return pick[:1]
+            return[0]
         deck_count=me.get('deckCount',99) or 99
         hand_n=_hand_size(cur,me_idx)
         opp_hp=(_active(opp) or{}).get('hp',99999) or 99999

@@ -2586,3 +2586,10 @@ to the natural game-to-game/day-to-day variance this ladder has shown
 throughout this session, so treat "v28 is a real, if modest, improvement
 over v25c" as the working conclusion, not a certainty. v28 remains the
 active submission; no further ship needed today.
+
+**Further reads confirm a stable RANGE rather than one exact point (expected
+given real match-to-match variance, not the earlier unbounded settling
+noise): v28 829.8->840.4 (~830-840 band), isolation 743.1->718.1 (~720-745
+band).** Both bands are now narrow relative to the earlier 100-300+ point
+swings. Conclusion stands: v28 sits modestly above v25c's 818.3, and
+clearly above the board-thinning-only isolation candidate.

@@ -4,7 +4,7 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-04 (ladder replay bulk download DONE, 680 replays, real meta-share survey; Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative; Stage 5 search-at-inference CLOSED negative after 5 gates/3 bugs/1 architectural fix — third load-bearing negative result; Stage 3 Phase B signature extension + archetype library DONE, 78.7% honest ladder-opponent recognition)
+**Last updated:** 2026-07-04 (ladder replay bulk download DONE, 680 replays, real meta-share survey; Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative; Stage 5 search-at-inference CLOSED negative after 5 gates/3 bugs/1 architectural fix — third load-bearing negative result; Stage 3 Phase B signature extension + archetype library DONE, 78.7% honest ladder-opponent recognition; literature review DONE — negatives are literature-predicted, ranked next options logged)
 
 ---
 
@@ -53,6 +53,188 @@ protocol, one-line keep/reject verdict each).
 | **PFSP** (prioritized fictitious self-play) | Choose sparring partners you currently *lose to* more often, instead of uniformly. Prevents overfitting to your own latest self. |
 | **SPSA** | Gradient-free tuning: nudge all ~20 heuristic weights randomly up/down together, measure win-rate difference, step toward whichever perturbation won. Cheap unattended weight search. |
 | **Expert iteration** | The AlphaZero loop: search (MCTS) produces a policy better than the raw net; train the net toward the search output; repeat. Our Stage 5 aspiration, gated on Kaggle's `search_begin` API. |
+
+---
+
+## 2026-07-04 — Stage 3 Phase C: belief posterior wired into main.py
+
+**Hypothesis:** wiring the Phase A archetype posterior into the heuristic
+(replacing the v14-era hardcoded `opp_likely_ace_spec=True` and adding
+Mist/Rocky *anticipation*) is a cheap, published-precedent upgrade (DouZero+
+got +5-7% from belief inputs) that must at minimum not regress vs the
+pre-wiring pilot.
+
+**Data first (new, this session):** a 679-replay per-archetype tech survey
+(scratch script; supersedes guessing from bot decklists) — wall energy
+(Mist #11 / Rock #20) is revealed by **crustle 35.8%** and the
+**unrecognized long tail 29.0%**, vs **0-3% for all five classifier
+archetypes** (lucario 2.7% rock, starmie 2.4% mist, rest ~0). Ace-spec
+reveal rates: rockets-mewtwo/raging-bolt 71%, alakazam 63%, lucario 60%,
+archaludon 48%, abomasnow 48%, dragapult 46%, starmie 29%, overall 44.6%.
+Design consequence: Mist anticipation must key on crustle/unknown reads and
+revealed-wall evidence, NOT the 5-class posterior alone (its classes don't
+tech walls).
+
+**Method (all in `main.py`, pure Python, no new deps):**
+1. Phase A logistic weights embedded (~4KB, 71 features × 5 classes);
+   `_belief_posterior(opp, turn)` mirrors `training/belief/collect.py`
+   feature extraction (board+discard revealed ids incl. preEvolution+tools,
+   fresh energy-type counts, scalar counts); sparse dot product + softmax;
+   returns `(None, False, False)` on any failure → all consumers fall back
+   to pre-Phase-C behavior. Pure — honors `_main_phase_features`' search
+   purity contract.
+2. `opp_likely_ace` = observed-in-logs OR posterior-confidence<0.8 (keeps
+   the conservative True default) OR archetype ace rate ≥0.35. Net change:
+   only a confident starmie read (0.29) demotes the Genesect+tool bench
+   priority.
+3. `mist_threat` = wall energy revealed anywhere on their side (discard or
+   attached, incl. bench — old `opp_mist` only saw the active) OR
+   Crustle/Dwebble line seen OR classifier can't place the deck at ≥0.8 by
+   turn 2+. Two surgical consumers: (a) Boss *chip* savoring — when a wall
+   is anticipated but not present, don't spend Boss on optional mega chip
+   damage (hold it as the wall escape); (b) Enhanced Hammer at 36 (vs base
+   3) when a wall energy is parked on their BENCH — strip the wall being
+   prepared before it promotes (the existing select scorer already targets
+   Mist/Rocky first).
+
+**Verification:** synthetic-board sanity (lucario/starmie/alakazam boards →
+0.996 correct posterior; crustle board → 0.325 max = correctly unknown-ish
++ both threat flags; empty board diffuse; None input → fallback path).
+Smoke: 10 games each vs lucario (9-1) + starmie (10-0), 0 errors.
+
+**Pre-registered gate (docs/belief-model.md §Phase C):** 400-game A/B vs
+pre-wiring main.py (`training/main_pre_phasec.py` = git HEAD copy) — must
+not regress; then ladder confirm. NOTE the A/B is neutral-by-construction
+on the mist_threat path (the anchor bots tech no walls and classify at
+0.996 confidence) — it gates the ace-spec change + any accidental
+regression; the wall-anticipation payoff is only observable on ladder vs
+crustle/unknown (~29% of the field combined).
+
+**Result:** **GATE PASSED — 50.7% ± 4.9% (95% CI) over 400 games, 0 errors**
+(203W-197L, per-seat 104-96 / 99-101 — no seat asymmetry). Non-regression
+confirmed; as predicted, the A/B is statistically a mirror match since the
+anchor pool never exercises the wall-anticipation path. Shipped for ladder
+confirm same day (see ladder_history.csv).
+
+**Report relevance:** the belief model's first deployed consumer (the
+originality centerpiece goes live); the tech-survey table is report
+material on its own (data-driven tech-rate priors per archetype).
+
+---
+
+## 2026-07-04 — Literature review: how learned agents actually exceed strong teachers
+
+**Hypothesis (motivating question):** after three load-bearing negatives
+(DAgger plateau, AWR, PIMC 0/50), is "learned can't beat this heuristic" a
+fact about our methods or about the problem? Ran a three-thread literature
+survey (self-play RL feasibility; privileged-info/offline-RL theory; Kaggle
+competitive intelligence) via parallel research agents.
+
+**Method:** web survey with citations, focused on imperfect-info card games
+with strong heuristic baselines and solo-desktop compute. Full reports in
+session transcript; key sources: DouZero (arXiv:2106.06135), DouZero+
+(2204.02558), PerfectDou (2203.16406), Suphx (2003.13590), VLOG (ICLR'22),
+OADMCDou (IJCAI'24), Kumar et al. offline-RL-vs-BC (2204.05618),
+"Is Value Learning the Bottleneck" (2406.09329), Minimax Exploiter
+(2311.17190), ISMCTS/strategy-fusion literature, Kaggle threads 711644 /
+717697, github.com/wmh/ptcg-abc.
+
+**Result — five findings:**
+1. **Our negatives are predicted, not anomalous.** Kumar et al.: with
+   near-expert-only data, no offline algorithm can provably beat BC; AWR is
+   specifically identified as a weak policy extractor; value saturation at
+   ±1 under sparse terminal reward from a deterministic expert is the
+   textbook picture. The whole Kaggle field replicates it (thread 711644:
+   BC 10%, PPO-league 25% vs teacher; best public pure-RL claim ~top 30th
+   percentile, below v25c).
+2. **Every published success at exceeding a strong baseline injected
+   information the baseline lacked**: hidden state at training time
+   (Suphx oracle guiding; PerfectDou's oracle *critic* — critic sees both
+   hands, policy doesn't, beat DouZero in ~1.5M steps; VLOG; OADMCDou) or
+   belief posteriors at inference (DouZero+: +5-7% win rate from feeding a
+   predicted opponent-hand distribution into the decision net — published
+   precedent for our Phase C wiring).
+3. **From-scratch Deep Monte-Carlo is desktop-feasible**: DouZero used
+   4×1080Ti/48 cores, beat a strong heuristic in half a day, prior SOTA in
+   10 days; key transferable trick is action-as-input-features Q-network
+   (fits our variable action space). No imitation ceiling by construction.
+   Caveat: v25c is a far better-tuned baseline than DouDizhu's bots were.
+4. **Confirmed dead ends at our scale**: DeepNash/R-NaD (cluster-scale,
+   optimizes unexploitability not ladder strength), ReBeL/Student of Games
+   (representation-infeasible for a TCG — infostate enumeration), NFSP
+   (feasible but never exceeded expert systems). PIMC's 0/50 has a named
+   cause (strategy fusion + non-locality) — our Stage 5 closure is evidence
+   against *determinized* search, not search per se.
+5. **Exploiter reframing** (Minimax Exploiter, AAMAS'24): train a net only
+   to beat frozen v25c — a one-fixed-policy target, much easier than the
+   ladder. Productive even on failure: every exploiter win is a
+   machine-found v25c blind-spot replay feeding the v25b/v25c fix loop;
+   a failure is quantitative unexploitability evidence for the report.
+Competitive intel: ladder top-8 ≈ 1114+, v25c ~880 ≈ rank 545/4252; field
+consensus is heuristics dominate the visible top; our local-engine unlock
+is a real edge (96-vote thread shows most teams lack it); public
+wmh/ptcg-abc repo ships an Alakazam Powerful Hand agent (Elo 836) → expect
+mirrors + Mist tech to grow.
+
+**Decision:** the pre-registered diverse-data value head plan (below) stands
+and is upgraded by finding 2: add **privileged critic features** (opponent's
+true hand/deck, free in self-play) to the value-head retrain, and treat
+Phase C belief wiring as the published-precedent cheap win to do first.
+Ranked options handed to user: (1) Phase C belief wiring into the heuristic,
+(2) oracle-critic value head + pre-registered evaluator-in-search gate,
+(3) v25c exploiter, (4) scaled-down DMC from scratch as the long-shot
+background run. DeepNash/ReBeL/SoG/NFSP formally closed without trial.
+
+**Report relevance:** finding 1 turns the negative-results trilogy into a
+literature-corroborated narrative (cite 2204.05618 + thread 711644 as
+external replication); findings 2-5 justify whichever next line is chosen
+as research-backed rather than ad hoc.
+
+---
+
+## 2026-07-04 — PRE-REGISTRATION: diverse-data value head → learned-evaluator search
+
+**Hypothesis (research-backed):** the common root cause behind all three of
+today's negative results (AWR's saturated value head, PIMC's no-signal
+rollouts) is that every value signal so far was built exclusively from
+Alakazam-mirror self-play — a distribution where the net never saw a
+non-Alakazam board or a genuinely contested cross-archetype state. The
+literature on card-game MCTS says the winning recipe at our scale is
+search + a **learned state evaluator trained on (state, outcome) pairs
+from diverse games** (Świechowski & Tajmajer, "Improving Hearthstone AI by
+Combining MCTS and Supervised Learning", arXiv:1808.04794; Zhang & Buro on
+learned rollout policies; ISMCTS literature on why weak rollouts fail in
+long card games), not search + rollouts, and not belief-state methods
+(ReBeL/Student of Games — sound but far beyond a 6-week window).
+
+**Supporting local evidence (value_signal_probe.py, 2026-07-04):** on 48
+games vs the 4 diverse anchors (v25c won essentially all), the dagger_r2
+value head scored a quarter of sampled states below −0.90 — confidently
+predicting LOSSES in games that were won — with no difference between
+contested and blowout games (73.8% vs 67.0% |v|>0.95). The head is not
+"correctly decisive," it is **confidently wrong out-of-distribution** — a
+training-data artifact, which retroactively explains AWR's null result and
+is fixable with data that exists today.
+
+**Method:** (1) collect ~400 games × 4 anchors via `bc_collect.py
+--opponent` (diverse boards + real losses; dragapult is the known-hardest
+matchup); (2) parse the 680 real ladder replays into (state, outcome)
+samples via new `tools/replay_to_bc.py` — DONE: 85,657 samples, 692 of
+our seats, **44.4% seat win-rate (nearly balanced labels)**; (3) retrain
+warm-started from `ptcg_dagger_r2.pth` on the combined corpus; (4) **gate
+the evaluator itself before any game gate**: re-run `value_signal_probe`
+(want frac_extreme down, correct sign on won games) + held-out
+outcome-prediction accuracy on ladder games; (5) only if (4) passes, plug
+in as the leaf evaluator in the existing `training/nn/mcts.py` search
+(shallow rollout → evaluate, which also removes the 600s/game rollout
+cost) and run one pre-registered gate vs v25c.
+
+**Pre-registered success criteria:** step 4: held-out ladder outcome
+accuracy ≥65% AND probe shows the majority of contested-state values
+off the ±0.95 rails with correct sign tendency on won/lost games. Step 5
+gate: ≥55% vs v25c over 50+ games → continue to a larger confirm;
+otherwise this line closes too and the session's story is the
+negative-results trilogy + belief model.
 
 ---
 

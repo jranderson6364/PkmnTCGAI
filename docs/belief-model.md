@@ -5,7 +5,7 @@ plays, turn)`, then sampling their unseen zones from the inferred archetype's
 decklist. The report's originality centerpiece. This file is the canonical home
 for the design, the phase plan, and (as they land) the results.*
 
-**Last updated:** 2026-07-04 (Phase A DONE — 92.3% held-out accuracy, 99%+ by turn 1; Phase B replay-download blocker resolved — 680 replays on disk, real meta share surveyed)
+**Last updated:** 2026-07-04 (Phase A DONE — 92.3% held-out accuracy, 99%+ by turn 1; Phase B replay-download blocker resolved — 680 replays on disk, real meta share surveyed; Phase C consumer 1 WIRED into main.py — 400-game A/B gate running)
 
 ---
 
@@ -207,6 +207,21 @@ The ladder is not 4 bots. Two additions:
    `main.py` (weights dict embedded; pure Python). Gate: 400-game A/B vs
    pre-wiring main.py — must not regress; ladder confirm. Kills outstanding
    item on the hardcoded flag.
+
+   **WIRED 2026-07-04 (gate pending):** `_belief_posterior(opp, turn)` in
+   `main.py` — embedded Phase A weights (~4KB), feature extraction mirrors
+   `collect.py`, pure + exception-safe (failure → pre-Phase-C behavior).
+   Consumers: (a) `opp_likely_ace` = observed OR conf<0.8 OR archetype ace
+   rate ≥0.35 (rates from a new 679-replay tech survey — see report-log
+   Phase C entry); (b) `mist_threat` = wall revealed anywhere / Crustle line
+   seen / unconfident read by turn 2+ — drives Boss-chip savoring and
+   bench-wall Enhanced Hammer (36 vs base 3). Key survey fact shaping the
+   design: walls are teched by crustle (35.8%) and the unknown tail (29.0%),
+   NOT the 5 classifier archetypes (0-3%) — so anticipation keys on
+   crustle/unknown evidence, not the posterior argmax. **Gate PASSED
+   2026-07-04: 50.7% ± 4.9% over 400 games, 0 errors (non-regression;
+   mirror-by-construction on the anticipation path). Shipped for ladder
+   confirm — v26 (see ladder_history.csv).**
 2. Determinization sampler for the Stage 5 MCTS spike (Kaggle-gated with the
    rest of search).
 3. Ablation runs for the report: key-card baseline vs classifier; placeholder

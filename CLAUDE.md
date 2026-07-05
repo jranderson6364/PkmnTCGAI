@@ -196,11 +196,17 @@ sequencing, pivoted to Stage 3 Phase B same day: signature extension
 re-clustering — genuine long tail, not more signatures away) and
 archetype library (`training/archetype_decks.json`, reconstructed from
 real replay evidence) both DONE — see item 5 below and
-`docs/belief-model.md` §Phase B. **Not started: Phase C** — wire the
-belief posterior into `main.py`'s `opp_likely_ace_spec` (still hardcoded
-`True`) + Mist/Rocky anticipation, and build the determinization sampler
-for any future search work. Gate: 400-game A/B vs pre-wiring `main.py`,
-must not regress; ladder confirm.
+`docs/belief-model.md` §Phase B. **Phase C consumer 1 DONE + SHIPPED
+2026-07-04 (v26, submission 54346817, ladder pending):** belief posterior
+wired into `main.py` — `opp_likely_ace_spec` now belief-driven, Mist/Rock
+wall anticipation keyed on crustle/unknown reads per a new 679-replay tech
+survey (walls: crustle 35.8%, unknown tail 29.0%, the 5 classifier
+archetypes 0-3%). Gate passed: 400-game A/B 50.7%±4.9%, 0 errors. Next:
+ladder confirm for v26, then per the 2026-07-04 literature review
+(report-log): oracle-critic value head retrain (PerfectDou-style
+privileged critic + diverse data, upgrades the pre-registered plan) and a
+v25c exploiter as the parallel track. Determinization sampler (Phase C
+item 2) still unbuilt.
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 

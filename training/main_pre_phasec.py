@@ -167,7 +167,8 @@ def _analyze_logs(obs_dict, me_idx):
     opp_has_ace_spec = any(
         C.get(cid) and getattr(C.get(cid), 'aceSpec', False)
         for cid in opp_played)
-    return opp_played, bench_damage_received, we_were_kod_last_turn, opp_has_ace_spec
+    opp_likely_ace_spec = True
+    return opp_played, bench_damage_received, we_were_kod_last_turn, opp_likely_ace_spec
 
 def _pk_id(pk): return (pk or {}).get('id',-1)
 def _energies(pk): return (pk or {}).get('energies') or []
@@ -188,134 +189,6 @@ def _opp_has_blocking_energy(opp_active):
     for ec in (opp_active.get('energyCards') or []):
         if ec.get('id') in (MIST_ENERGY, ROCK_ENERGY): return True
     return False
-
-# ---- Stage 3 Phase C: archetype belief model (docs/belief-model.md) ----
-# Phase A logistic-regression weights (training/belief/train.py), embedded so
-# the submission stays a single dependency-free file. Inference is a sparse
-# dot product + softmax over just the features present this decision.
-_BELIEF_CLASSES=['abomasnow', 'alakazam', 'dragapult', 'lucario', 'starmie']
-_BELIEF_INTERCEPT=[3.6972,-13.9598,3.4858,4.3845,2.3923]
-_BELIEF_COEF={
- 'card_1030':(-1.6093,-2.0067,-1.0127,-0.8535,5.4823),
- 'card_1031':(-0.3760,-0.2426,-0.0696,-0.0163,0.7045),
- 'card_1071':(-0.6380,-0.9967,3.3556,-0.6908,-1.0300),
- 'card_1079':(-0.1592,0.1880,0.2210,-0.1622,-0.0876),
- 'card_1080':(-0.0642,-0.0413,0.2111,-0.0847,-0.0208),
- 'card_1081':(-0.2300,1.5441,-0.8033,-0.2518,-0.2590),
- 'card_1086':(-0.7273,0.0711,0.3475,-0.3196,0.6283),
- 'card_1097':(-0.2998,-0.1298,0.4002,-0.1516,0.1809),
- 'card_1102':(-0.1612,-0.1813,-0.2128,0.5981,-0.0428),
- 'card_1120':(-0.1754,-0.2313,0.6789,-0.1959,-0.0763),
- 'card_1121':(0.1163,-0.2989,0.3812,-0.4025,0.2040),
- 'card_1123':(-0.1153,-0.0986,-0.1569,0.3985,-0.0277),
- 'card_1126':(0.4494,-0.1648,-0.1196,-0.1057,-0.0592),
- 'card_1129':(-0.0463,0.1489,-0.0566,-0.0270,-0.0190),
- 'card_1141':(-0.1681,-0.1361,-0.2254,0.5781,-0.0484),
- 'card_1142':(-0.1599,-0.1826,-0.2086,0.5925,-0.0414),
- 'card_1146':(-0.0277,0.0803,-0.0319,-0.0146,-0.0062),
- 'card_1152':(-0.4481,0.0622,0.4874,0.1958,-0.2973),
- 'card_1156':(-0.1114,-0.3169,0.6368,-0.1264,-0.0821),
- 'card_1159':(-0.0780,-0.0770,-0.1020,0.2752,-0.0181),
- 'card_1161':(-0.4762,2.2399,-1.0466,-0.3546,-0.3626),
- 'card_1182':(-0.5774,1.4469,-0.2799,-0.2101,-0.3795),
- 'card_1184':(-0.0167,0.0720,-0.0297,-0.0156,-0.0101),
- 'card_119':(-0.9974,-1.3342,4.6081,-0.9459,-1.3307),
- 'card_1192':(-0.1778,-0.2764,-0.4494,0.1865,0.7171),
- 'card_1198':(-0.1603,-0.4678,0.8769,-0.1837,-0.0651),
- 'card_120':(-0.1611,-0.3324,0.7406,-0.1959,-0.0511),
- 'card_121':(-0.1332,-0.1489,0.4891,-0.1653,-0.0417),
- 'card_1210':(-0.2257,-0.2067,0.4775,-0.1363,0.0912),
- 'card_1225':(-0.1097,0.5067,-0.1838,-0.0922,-0.1210),
- 'card_1227':(0.2629,-0.9058,0.4827,0.1064,0.0538),
- 'card_1231':(-0.0729,0.3130,-0.1159,-0.0674,-0.0568),
- 'card_1252':(-0.0569,-0.0346,-0.0701,0.1713,-0.0097),
- 'card_1256':(-0.1103,-0.2322,0.5103,-0.1038,-0.0639),
- 'card_1262':(0.0887,-0.1398,-0.1762,-0.1365,0.3638),
- 'card_13':(-0.0207,0.0907,-0.0273,-0.0155,-0.0273),
- 'card_140':(-1.4882,3.0688,2.0158,-1.5750,-2.0214),
- 'card_142':(-0.8622,4.4454,-1.2781,-1.0592,-1.2459),
- 'card_184':(-0.6768,-1.0155,3.4719,-0.7185,-1.0612),
- 'card_19':(-0.1237,0.4879,-0.1747,-0.0861,-0.1034),
- 'card_2':(-0.1585,-0.4050,0.8307,-0.1801,-0.0870),
- 'card_235':(-0.8030,-1.1330,3.9113,-0.8302,-1.1451),
- 'card_3':(0.8316,-1.3201,-0.6358,-0.3415,1.4658),
- 'card_305':(-1.1519,5.1270,-1.3307,-1.2522,-1.3921),
- 'card_343':(-0.8381,4.3288,-1.2361,-1.0143,-1.2403),
- 'card_5':(-0.4774,0.9052,0.1570,-0.3684,-0.2164),
- 'card_6':(-0.1851,-0.1843,-0.2404,0.6628,-0.0531),
- 'card_66':(-0.0358,0.1355,-0.0405,-0.0291,-0.0301),
- 'card_673':(-0.7785,-0.8822,-0.8680,3.6639,-1.1352),
- 'card_674':(-0.1067,-0.0763,-0.1485,0.3568,-0.0252),
- 'card_675':(-0.7794,-1.0258,-0.8766,3.8579,-1.1761),
- 'card_676':(-0.9059,-0.9769,-0.9723,4.1075,-1.2524),
- 'card_677':(-0.9320,-0.9377,-0.9911,4.1270,-1.2663),
- 'card_678':(-0.1295,-0.1512,-0.1867,0.4979,-0.0306),
- 'card_721':(4.5619,-0.8983,-1.0592,-0.9764,-1.6281),
- 'card_722':(4.9754,-0.9643,-1.1832,-1.1094,-1.7185),
- 'card_723':(0.6568,-0.1137,-0.1999,-0.1723,-0.1708),
- 'card_741':(-1.4255,6.2033,-2.0198,-1.3126,-1.4454),
- 'card_742':(-0.1017,0.5202,-0.2496,-0.0797,-0.0893),
- 'card_743':(-0.0864,0.3866,-0.1405,-0.0776,-0.0821),
- 'card_858':(-0.8104,4.1247,-1.1835,-0.9561,-1.1746),
- 'energy_0':(-0.0021,0.0155,-0.0051,-0.0032,-0.0051),
- 'energy_2':(-0.1628,-0.3699,0.8553,-0.2020,-0.1206),
- 'energy_3':(1.4939,-1.2081,-0.6295,-0.5068,0.8505),
- 'energy_5':(-0.3017,0.2192,0.7092,-0.3459,-0.2808),
- 'energy_6':(-0.2714,-0.2535,-0.4088,1.0222,-0.0886),
- 'opp_bench_n':(-0.8345,1.8342,-0.0563,-0.3744,-0.5690),
- 'opp_discard_n':(0.2012,0.0345,0.0536,-0.0474,-0.2419),
- 'opp_hand_n':(-0.6089,2.3041,-0.5815,-0.7374,-0.3762),
- 'opp_prizes_taken':(0.0559,-0.2472,0.0926,0.1285,-0.0298),
- 'turn':(0.0096,-0.5821,0.1320,0.0106,0.4299),
-}
-# Ace-spec reveal rate by archetype across 679 real ladder replays (tech
-# survey 2026-07-04 -- see docs/report-log.md Phase C entry).
-_ACE_RATE={'lucario':0.60,'alakazam':0.63,'dragapult':0.46,'abomasnow':0.48,'starmie':0.29}
-# Dwebble/Crustle line: the one recognized archetype that meaningfully techs
-# Mist/Rock (35.8% of its 53 tagged ladder replays; every other recognized
-# archetype is 0-3%). The unrecognized long tail techs 29.0%.
-_CRUSTLE_LINE_IDS={344,345,532,533}
-
-def _belief_posterior(opp, turn):
-    """P(archetype | opponent's public board+discard). Mirrors
-    training/belief/collect.py's feature extraction: revealed card ids from
-    active/bench (self + preEvolution chain + tools) + discard; energy TYPE
-    counts read fresh from the board; scalar counts. Returns (posterior dict,
-    wall_energy_revealed, crustle_line_seen); (None, False, False) on any
-    failure so callers fall back to pre-Phase-C behavior. Pure -- safe under
-    score_options_main's thousands-of-calls contract."""
-    try:
-        z=list(_BELIEF_INTERCEPT)
-        def add(name,val):
-            w=_BELIEF_COEF.get(name)
-            if w:
-                for k in range(5): z[k]+=w[k]*val
-        seen=set(); energy={}; wall=False
-        for pk in list(opp.get('active') or[])+list(opp.get('bench') or[]):
-            if not pk: continue
-            if pk.get('id'): seen.add(pk['id'])
-            for pre in pk.get('preEvolution') or[]:
-                if (pre or{}).get('id'): seen.add(pre['id'])
-            for t in pk.get('tools') or[]:
-                if (t or{}).get('id'): seen.add(t['id'])
-            for et in pk.get('energies') or[]:
-                energy[et]=energy.get(et,0)+1
-            for ec in pk.get('energyCards') or[]:
-                if (ec or{}).get('id') in(MIST_ENERGY,ROCK_ENERGY): wall=True
-        for c in opp.get('discard') or[]:
-            if (c or{}).get('id'): seen.add(c['id'])
-        if MIST_ENERGY in seen or ROCK_ENERGY in seen: wall=True
-        for cid in seen: add('card_%d'%cid,1.0)
-        for et,cnt in energy.items(): add('energy_%d'%et,float(cnt))
-        add('turn',float(turn))
-        add('opp_bench_n',float(len(opp.get('bench') or[])))
-        add('opp_discard_n',float(len(opp.get('discard') or[])))
-        add('opp_hand_n',float(opp.get('handCount') or 0))
-        add('opp_prizes_taken',float(6-len(opp.get('prize') or[])))
-        m=max(z); exps=[math.exp(v-m) for v in z]; s=sum(exps)
-        return ({c:e/s for c,e in zip(_BELIEF_CLASSES,exps)},
-                wall, bool(seen&_CRUSTLE_LINE_IDS))
-    except: return None,False,False
 
 def _opt_card_id(o,hand,my_active,bench):
     ot=o.get('type')
@@ -731,19 +604,8 @@ def _main_phase_features(obs,sel):
     # stops mattering relative to just building toward lethal.
     we_have_ex=any((p or{}).get('ex',False) for p in([my_active]+bench) if p)
     desperation=opp_prizes<=1 or(opp_prizes<=2 and we_have_ex)
-    opp_played, bench_dmg_received, we_were_kod, opp_ace_observed = _analyze_logs(obs, me_idx)
+    opp_played, bench_dmg_received, we_were_kod, opp_likely_ace = _analyze_logs(obs, me_idx)
     opp_mist=_opp_has_blocking_energy(opp_active)
-    # ---- Stage 3 Phase C: belief-driven reads (docs/belief-model.md §Phase C) ----
-    turn_n=cur.get('turn') or 0
-    belief_post,opp_wall_revealed,opp_crustle_seen=_belief_posterior(opp,turn_n)
-    if belief_post:
-        b_top=max(belief_post,key=belief_post.get); b_conf=belief_post[b_top]
-    else:
-        b_top=None; b_conf=0.0
-    # Ace-spec read: observed (logs) beats inferred; a low-confidence read keeps
-    # the pre-Phase-C conservative True default; a confident read uses the
-    # archetype's real ladder ace-spec reveal rate (679-replay tech survey).
-    opp_likely_ace=opp_ace_observed or b_conf<0.8 or _ACE_RATE.get(b_top,1.0)>=0.35
     opp_hp=(opp_active or{}).get('hp',99999) or 99999
     attack_available=any(o.get('type')==ATTACK for o in opts)
     active_is_alak=_pk_id(my_active)==ALAKAZAM
@@ -757,16 +619,6 @@ def _main_phase_features(obs,sel):
     can_ko=active_can_attack and opp_active is not None and my_dmg>=opp_hp and not opp_mist
     opp_bench=opp.get('bench') or[]
     opp_bench_empty=len([b for b in opp_bench if b])==0
-    opp_bench_wall=any(_opp_has_blocking_energy(b) for b in opp_bench if b)
-    # Mist/Rocky ANTICIPATION (not just reaction, which opp_mist covers): real-
-    # ladder walls live almost entirely in crustle decks and the unrecognized
-    # long tail (tech survey 2026-07-04: crustle 35.8%, unknown 29.0%, the 5
-    # classifier archetypes 0-3%). Threat = wall energy already revealed
-    # anywhere on their side, a Crustle/Dwebble line, or a deck the classifier
-    # can't confidently place by turn 2+. On belief failure (belief_post None)
-    # this stays reactive-only -- pre-Phase-C behavior.
-    mist_threat=(opp_wall_revealed or opp_bench_wall or opp_crustle_seen or
-                 (belief_post is not None and b_conf<0.8 and turn_n>=2))
     # Cheap, rough lookahead (deliberately NOT a real turn simulation): if the
     # opponent has nothing but their Active in play, a big enough hand ends
     # their turn staring at an empty board, which is worth spending reserved
@@ -1000,10 +852,6 @@ def _main_phase_features(obs,sel):
         if ot==PLAY:
             if cid==ENHANCED_HAMMER:
                 if opp_mist: return W['hammer_mist']
-                # Phase C: a wall energy parked on their BENCH is a wall being
-                # prepared -- strip it before it promotes (the select scorer
-                # already prefers Mist/Rocky targets).
-                if opp_bench_wall: return 36.0
                 return 3.0
             if cid==BATTLE_CAGE:
                 if bench_dmg_received: return W['cage_reactive']
@@ -1027,11 +875,7 @@ def _main_phase_features(obs,sel):
                 # instead of firing unconditionally.
                 if boss_target_exists:
                     return 199.0 if phase==PHASE_CLOSING else W['boss_target']
-                if boss_can_damage_mega:
-                    # Phase C Mist anticipation: mega chip damage is optional;
-                    # vs wall-teching decks Boss is the escape of last resort,
-                    # so hold it until the wall question is settled.
-                    return 4.0 if (mist_threat and not opp_mist) else W['boss_mega_chip']
+                if boss_can_damage_mega: return W['boss_mega_chip']
                 if opp_mist and ready_alak_exists: return W['boss_mist_escape']
                 return 4.0
             if can_ko: return 1.0

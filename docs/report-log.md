@@ -241,6 +241,21 @@ be revisited at the 2026-07-19 checkpoint with all 3 data points as
 evidence; if the rate hasn't inflected upward by then, close it as the
 6th converging negative.
 
+**One bounded methodological check (not a new collection round — reused
+existing round-1+round-2 data, no new games): does class imbalance explain
+the slow climb?** Win-outcome samples are a small minority of the combined
+corpus (13,306/154,425 = 8.6%), a classic sparse-positive-signal problem
+for regression. Retrained with wins oversampled 6x (36.1% of the balanced
+set) — same architecture, same warm start, no new data collection.
+**Result: 2.0% (4/200) vs. frozen v25c — statistically indistinguishable
+from round 3's 2.5%.** Class imbalance is not the bottleneck; whatever is
+capping the climb is more fundamental (state representation, insufficient
+state-diversity in the self-play data itself, or genuinely needing far
+more total samples/rounds as DMC's own published recipe implies). Does
+not change the decision above — line stays paused to the 2026-07-19
+checkpoint — but rules out one specific, cheap fix so a future session
+doesn't re-try it.
+
 ---
 
 ## 2026-07-05 — Exploiter-win replay mining: 18/18 losses are the SAME failure mode (deck-out/board-thinning race)

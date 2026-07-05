@@ -2561,3 +2561,12 @@ settling ~750-756), this is NOT being treated as a confirmed "beats v25c"
 result yet. Isolation candidate holds essentially stable: 750.3->756.5.
 Need at least one more read, ideally showing v28 stabilize near or above
 this level rather than falling back, before drawing any conclusion.
+
+**v28 fourth read: 829.8 (down from 910.7)** -- still moving, not settled
+despite the prior read looking stable. Now very close to v25c's original
+818.3 (within ~12 points), suggesting possible convergence toward
+near-parity rather than a decisive win -- but with an 81-point swing just
+observed, one more read is needed before concluding even "roughly even."
+Isolation candidate held steady a second consecutive time (743.1,
+unchanged) -- that one looks genuinely settled now. Continuing to hold on
+v28 specifically.

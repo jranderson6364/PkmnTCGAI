@@ -82,20 +82,27 @@ The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
 **re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
 challengers; tier 2: pilot floor flattens everything — see report-log).
 **Current agent:** v28 — board-thinning fix + Phase C + confidence
-recalibration (submission 54356683, shipped 2026-07-05). **RETRACTED
-2026-07-05: an earlier "confirmed settled at 829.8" claim was premature —
-a subsequent pull showed v28 at 724.4, a 116-point swing, back below both
-v25c's 818.3 and the isolation candidate's concurrent read.** This
-ladder's `publicScore` has not converged to a fixed value after ~4+ hours
-of observation across multiple submissions — it may be a genuinely live
-metric (reflecting an ever-changing opponent pool) rather than one that
-settles the way a fixed offline benchmark would. **No confident ranking
-between v28, the isolation candidate, and v25c is currently possible from
-`publicScore` reads alone** — treat any future "it settled" claim from a
-single or double read with real skepticism; a proper ranking needs either
-much longer observation or a direct large-n offline A/B (which IS
-trustworthy for relative comparisons per Design Principle #1, even though
-single-model `publicScore` snapshots are not). **Context (why this took
+recalibration (submission 54356683, shipped 2026-07-05). **Honest current
+state (2026-07-05): no confirmed evidence v28 beats v25c.** Live
+`publicScore` reads bounced repeatedly (an earlier "confirmed settled at
+829.8" claim was retracted after a subsequent read showed 724.4, a
+116-point swing) and never converged after 4+ hours — this ladder's score
+may be a genuinely live metric, not one that settles like a fixed offline
+benchmark. **Pivoted to a trustworthy measurement instead: a 400-game
+offline mirror A/B, v28's exact code vs. pure v25c, came back 50.2%±4.9%
+— statistically indistinguishable from parity.** The board-thinning fix
+alone had shown a real edge in its own isolated tests (54.3%, 56.0%), but
+that signal isn't observable in the combined v28-vs-v25c mirror test,
+plausibly because Phase C's payoff needs non-mirror wall/unknown-archetype
+opponents a mirror match doesn't surface. **Takeaway for future sessions:
+do not trust any single or double `publicScore` read as confirmation of
+anything on this ladder — it has been wrong twice this session.** A real
+ranking needs either much longer live observation or a properly-powered
+offline test against non-mirror opponents (not yet done). v28 remains
+shipped (harmless, reasoned basis at ship time) with no confirmed
+improvement or regression established.
+
+**Context (why this took
 several ships to (partially) untangle):** v26 and v27's `publicScore` reads
 initially appeared to decline same-day (818.3→726.2→695.1), prompting a
 panic revert — a follow-up pull then showed a plain v25c revert scoring
@@ -112,8 +119,10 @@ confirmed correct against 725 real replays (82.4% archetype agreement,
 0.9% wall false-positive rate), and a real confidence miscalibration
 (only 39.3% of true-unknown decks correctly read as low-confidence) was
 found and fixed via a data-driven threshold change (0.8→0.97). Full
-detail: `docs/report-log.md` 2026-07-05 "CORRECTION" through the final
-"confirmed stable" entry, `docs/version-history.md` v27/v28 entries.
+detail: `docs/report-log.md` 2026-07-05 entries in order (CORRECTION →
+v28 shipped → CORRECTION #2, which retracts the settled claim and lands
+on the 50.2%±4.9% offline result as the trustworthy number), and
+`docs/version-history.md` v27/v28 entries.
 Before that, v25c
 (`main.py` + `deck.csv`, submission 54282648, shipped
 2026-07-03, user-reported ladder Elo peaked ~900, settled ~880; gauntlet gElo

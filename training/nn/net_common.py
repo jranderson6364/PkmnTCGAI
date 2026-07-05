@@ -22,7 +22,14 @@ def load_model(ckpt_path):
     m = _models.get(ckpt_path)
     if m is None:
         m = PTCGNet()
-        m.load_state_dict(torch.load(ckpt_path, map_location=DEVICE))
+        state = torch.load(ckpt_path, map_location=DEVICE)
+        # older checkpoints' value_head was narrower (no oracle features) —
+        # drop only the mismatched keys rather than error; a fresh value head
+        # still gives usable (if uncalibrated) values, and the policy path
+        # (unaffected by the oracle widening) loads and behaves unchanged.
+        own = m.state_dict()
+        state = {k: v for k, v in state.items() if k in own and v.shape == own[k].shape}
+        m.load_state_dict(state, strict=False)
         m.eval()
         _models[ckpt_path] = m
     return m

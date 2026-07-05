@@ -12,7 +12,13 @@ import random
 import torch
 from torch.utils.data import Dataset
 
-from encode import encode_sample, MAX_ACTIONS
+from encode import encode_sample, MAX_ACTIONS, CARD_VOCAB
+
+# probability of zeroing an available oracle in collate() (regularizes the
+# value head so it doesn't collapse onto always expecting the oracle feature
+# at inference, where main.py never supplies one). Eval scripts that want the
+# pure oracle/no-oracle path unconditionally can override: dataset.ORACLE_DROPOUT = 0
+ORACLE_DROPOUT = 0.25
 
 
 def _opener(path):
@@ -82,7 +88,11 @@ class BCDataset(Dataset):
         # value-head estimate at s_t); BC samples have none, so advantage is
         # None there and train_sp.py falls back to a flat policy-loss weight.
         advantage = (value - d["v_pred"]) if "v_pred" in d else None
-        return enc, label, float(value or 0), policy_target, advantage
+        # oracle: privileged opponent-hand card ids (vd_collect.py only; absent
+        # on plain BC/DAgger/SP samples, which fall back to no-oracle training).
+        opp_hand = d.get("opp_hand") or []
+        opp_hand = [min(c, CARD_VOCAB - 1) for c in opp_hand if c]
+        return enc, label, float(value or 0), policy_target, advantage, opp_hand
 
 
 def collate(batch):
@@ -101,8 +111,10 @@ def collate(batch):
     policy_targets = torch.zeros(B, MAX_ACTIONS, dtype=torch.float)
     advantages = torch.zeros(B, dtype=torch.float)
     has_advantage = torch.zeros(B, dtype=torch.float)
+    oracle_ids = torch.zeros(B, 20, dtype=torch.long)
+    oracle_flag = torch.zeros(B, 1, dtype=torch.float)
 
-    for i, (enc, label, outcome, policy_target, advantage) in enumerate(batch):
+    for i, (enc, label, outcome, policy_target, advantage, opp_hand) in enumerate(batch):
         board_ids[i] = torch.tensor(enc["board_ids"], dtype=torch.long)
         h = enc["hand_ids"][:20]
         hand_ids[i, :len(h)] = torch.tensor(h, dtype=torch.long)
@@ -125,6 +137,10 @@ def collate(batch):
         if advantage is not None:
             advantages[i] = advantage
             has_advantage[i] = 1.0
+        oh = opp_hand[:20]
+        if oh and random.random() >= ORACLE_DROPOUT:
+            oracle_ids[i, :len(oh)] = torch.tensor(oh, dtype=torch.long)
+            oracle_flag[i, 0] = 1.0
 
     return {
         "board_ids": board_ids, "hand_ids": hand_ids, "discard_ids": discard_ids,
@@ -133,4 +149,5 @@ def collate(batch):
         "action_mask": action_mask, "labels": labels, "values": values,
         "policy_targets": policy_targets,
         "advantages": advantages, "has_advantage": has_advantage,
+        "oracle_ids": oracle_ids, "oracle_flag": oracle_flag,
     }

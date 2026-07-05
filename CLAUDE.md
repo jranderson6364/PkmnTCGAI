@@ -202,10 +202,21 @@ wired into `main.py` — `opp_likely_ace_spec` now belief-driven, Mist/Rock
 wall anticipation keyed on crustle/unknown reads per a new 679-replay tech
 survey (walls: crustle 35.8%, unknown tail 29.0%, the 5 classifier
 archetypes 0-3%). Gate passed: 400-game A/B 50.7%±4.9%, 0 errors. Next:
-ladder confirm for v26, then per the 2026-07-04 literature review
-(report-log): oracle-critic value head retrain (PerfectDou-style
-privileged critic + diverse data, upgrades the pre-registered plan) and a
-v25c exploiter as the parallel track. Determinization sampler (Phase C
+ladder confirm for v26. **Oracle-critic value head (PerfectDou-style)
+CLOSED, negative, 2026-07-04:** privileged opponent-hand critic built,
+retrained (161k samples after an OOM fix — see report-log), pre-registered
+gate `value_holdout_eval` came back **62.5% sign-acc, below the 65%
+threshold** (mid-game 56.5%, barely above coinflip — the segment privilege
+should help most). Root-cause ON/OFF diagnostic confirmed the critic does
+learn a real but modest signal from oracle info (0.870 vs 0.8425 sign-acc)
+that doesn't survive dropout to the oracle-free deployment path well
+enough to clear the bar. **Fourth load-bearing negative alongside DAgger,
+AWR, PIMC search** — not integrated into `mcts.py`. Full data:
+`docs/report-log.md` 2026-07-04 oracle-critic entry. **Now running:** v25c
+exploiter collection (`training/nn/exploiter_collect.py --games 1000
+--temp 1.0`, launched 2026-07-05, background) — orthogonal track, trains
+directly against a frozen v25c teacher rather than extracting more signal
+from the existing self-play distribution. Determinization sampler (Phase C
 item 2) still unbuilt.
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.

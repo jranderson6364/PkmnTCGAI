@@ -56,6 +56,111 @@ protocol, one-line keep/reject verdict each).
 
 ---
 
+## 2026-07-04 — PRE-REGISTRATION + BUILD: oracle-critic value head (PerfectDou-style)
+
+**Hypothesis (literature-backed, upgrades the earlier diverse-data value-head
+pre-registration below):** the value head's saturation/OOD failure is partly
+an *information* problem, not just a data-diversity problem. PerfectDou
+(arXiv:2203.16406) beat DouZero by letting the CRITIC see hidden state during
+training while the policy stays legal; Suphx and OADMCDou independently
+converged on the same trick. In our local self-play harness the opponent's
+true hand is free (both seats' observations are recorded in every step
+trace), so a privileged value head costs only plumbing.
+
+**Method (built 2026-07-04, Sonnet implementation to a fixed design, reviewed):**
+1. `training/nn/model.py`: `oracle_embed` EmbeddingBag over opponent-hand
+   card ids + presence flag, concatenated into the VALUE head input only
+   (`Linear(256+128+1,1)`); policy path verified bit-identical with/without
+   oracle input. Old checkpoints load via shape-filtered `strict=False`
+   (`net_common.py`); policy argmax on `ptcg_dagger_r2.pth` verified
+   unchanged pre/post model change.
+2. `training/nn/vd_collect.py`: diverse corpus (4 anchors + mirror, both
+   seats) with a **validated backward-walk oracle join** — opponent hand
+   taken from the most recent opponent observation whose own-hand length
+   exactly equals the opp handCount we observe at the decision; no exact
+   match → oracle flag 0 (only verifiably-current privileged info is used).
+   Exact-match rate 87.6%; misses are concentrated (46/61) in turn-0/1
+   setup states where no intermediate opponent observation exists —
+   correctly degraded, near-complete mid-game coverage.
+3. `training/nn/dataset.py`: `oracle_ids`/`oracle_flag` batching +
+   `ORACLE_DROPOUT=0.25` (Suphx-style, trains the no-oracle path so the
+   same head evaluates ladder states and determinized search leaves).
+4. `training/nn/train_value.py`: warm-start `ptcg_dagger_r2.pth`
+   (value_head reinitialized), loss = Huber value + 0.1×policy CE
+   regularizer, saves on best val sign-accuracy.
+
+**Pre-registered gates (unchanged from the earlier entry):** (a) evaluator
+gate — `value_signal_probe` must show contested-state values off the ±0.95
+rails with correct sign tendency, AND ≥65% held-out ladder outcome
+sign-accuracy (`value_holdout_eval`, no-oracle path); (b) only if (a)
+passes: plug in as leaf evaluator in `training/nn/mcts.py` (shallow
+rollout→evaluate) and gate ≥55% vs v25c over 50+ games, else this line
+closes and the story is the negative-results trilogy + belief model.
+
+**Result: GATE NOT MET — closing this line as inconclusive-negative.**
+
+Collection: `vd_collect.py`, 2000 games vs 4 anchors + mirror,
+`our_winrate=0.889`, 252,823 samples, 3 shards, oracle exact-match rate
+83.05% (backward-walk join; misses concentrated in unrecoverable turn-0/1
+opening-hand states, as designed).
+
+**OOM during first retrain attempt, diagnosed and fixed:** the full-corpus
+run (`vd_diverse*.pkl.gz` + `vd_ladder_train.pkl.gz`) exited 0 with zero
+training-progress output — a silent OOM kill, the same `dataset.py::
+load_shards`-reads-full-shards-before-`--limit` pattern documented
+elsewhere in this project's history. Confirmed via a working `--limit 4000`
+run (val_sign_acc 0.955, proving the code path itself was correct) plus a
+memory probe (`mem_probe.py`): 39.6GB total RAM, 15.1GB available, ~58KB/
+sample measured directly, projecting ~16.1GB needed for the full 293k-sample
+corpus — over budget. Fix: deterministic 1-in-3 seeded subsample
+(`subsample_vd.py`) → `vd_diverse_sub.pkl.gz` (84,168 samples, oracle
+fraction 0.809 preserved). Retrain on subsample + ladder-train (161,065
+samples total) completed cleanly: `epoch 0: val_sign_acc=0.7567`,
+`epoch 1: 0.7970`, `epoch 2: 0.8248` (best, saved).
+
+**Pre-registered gate (a):** `value_holdout_eval.py` on
+`vd_ladder_holdout.pkl.gz` (4000 real-ladder samples, never trained on) —
+**ALL sign_acc=0.625** (EARLY turn≤4: 0.525 near-coinflip as expected;
+MID turn 5-10: **0.565**, barely above coinflip; LATE turn≥11: 0.776).
+**0.625 < the 0.65 threshold — gate fails.** `value_signal_probe.py` on the
+4-anchor diverse set: frac_extreme(|v|>0.95)=57.1%, mean=0.709 (inflated by
+the 88.9% win rate vs those anchors, not evidence of calibration).
+
+**Root-cause check (advisor-directed, before accepting the negative):**
+does the gate fail because the privileged info was useless, or because it
+doesn't survive to the oracle-free inference path the gate (correctly)
+tests? Discovered `net_common.py::encode_batch` / `value_estimate` never
+pass oracle features at all — **the evaluator gate is structurally
+oracle-blind by construction**, which is actually the right test (ladder
+inference and search leaves never have the opponent's true hand either).
+Built a direct ON/OFF diagnostic (`oracle_onoff_diag.py`) on 800
+oracle-hand-populated samples from the diverse set: **oracle-ON sign_acc
+=0.870 vs oracle-OFF=0.8425** — a real, positive, but modest gap
+(+2.75pp), and this set was itself part of the training mix so the
+absolute numbers are optimistic; the gap is the informative part. Verdict:
+the privileged critic does learn something from opponent-hand info, but
+what survives Suphx-style dropout to the oracle-free deployment path is
+too weak to clear the 65% ladder-holdout bar, and is weakest exactly where
+it should matter most (mid-game, 0.565) — consistent with the value head
+still not carrying much decision-relevant nuance beyond coarse
+board-state, echoing the AWR finding (Stage 2, 2026-07-04: "value head
+saturates near ±1 on most states").
+
+**Decision:** do not integrate into `mcts.py` (gate (b) is conditional on
+(a) passing). Close this line — fourth data point (after DAgger, AWR,
+PIMC-search) that value/policy signal built from this self-play data,
+even with privileged information added, plateaus at-or-below teacher
+parity rather than exceeding it. Given three prior negatives in adjacent
+territory, further oracle-critic iteration (e.g. lower dropout, explicit
+distillation loss) is deprioritized in favor of the v25c exploiter track
+(orthogonal: trains directly against a frozen strong teacher rather than
+trying to extract more signal from the same self-play distribution) and,
+if that also plateaus, the report should treat "no operator in this
+toolkit exceeds a strong heuristic teacher without external search/
+verification" as a load-bearing finding rather than a gap to keep closing.
+
+---
+
 ## 2026-07-04 — Stage 3 Phase C: belief posterior wired into main.py
 
 **Hypothesis:** wiring the Phase A archetype posterior into the heuristic

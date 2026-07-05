@@ -66,6 +66,24 @@ explicit "don't touch main.py — isolation experiments in flight" —
 this is investigation only); candidate next Phase C work once the current
 isolation ships settle. Raw per-replay data: `training/phasec_replay_check.csv`.
 
+**Follow-up (same session, still read-only/no ship): a data-driven
+candidate fix for the miscalibration.** Swept the confidence threshold
+against the same 725-replay data (`belief_conf` distribution by ground
+truth): known-archetype confidence is extremely peaked near 1.0
+(p25=0.992, median≈1.0), while unknown-deck confidence spreads out but
+still often lands high. Raising the threshold from 0.8 to **0.97** nearly
+doubles the unknown-catch-rate (39.3%→60.1%) while only modestly
+increasing the false-low rate on known archetypes (19.2%→21.1% — a safe
+direction, since "low confidence" just triggers the pre-Phase-C
+conservative default, not a wrong action). About 10.3% of all 725 real
+games have their fallback behavior flip under this change — meaningful,
+not overwhelming. Drafted as `training/baselines/v27_recalibrated.py`
+(one two-line diff: both `b_conf<0.8` occurrences → `b_conf<0.97`) —
+**NOT applied to `main.py` and NOT shipped**, per the standing instruction
+to leave the current isolation experiments (v25c-revert, v25c+boardthin)
+uncontaminated until their ladder reads settle. Ready to A/B-gate and
+ship once that's done.
+
 ---
 
 ## 2026-07-05 — CORRECTION: the "v26/v27 ladder regression" was age-confounded, not real

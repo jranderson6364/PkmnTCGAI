@@ -2553,3 +2553,11 @@ own score to climb/settle before drawing any conclusion about it.
 climb pattern seen in every prior fresh submission. Isolation candidate
 holds stable: 748.0->750.3. Still too early to compare v28 against
 anything; continuing to wait for it to finish climbing/settling.
+
+**v28 third read: 910.7 (up from 709.1)** -- notably ABOVE v25c's original
+settled 818.3. Per the established pattern this session (every submission
+has overshot before narrowing -- the isolation candidate hit 878.9 before
+settling ~750-756), this is NOT being treated as a confirmed "beats v25c"
+result yet. Isolation candidate holds essentially stable: 750.3->756.5.
+Need at least one more read, ideally showing v28 stabilize near or above
+this level rather than falling back, before drawing any conclusion.

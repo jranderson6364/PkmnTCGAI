@@ -2593,3 +2593,48 @@ noise): v28 829.8->840.4 (~830-840 band), isolation 743.1->718.1 (~720-745
 band).** Both bands are now narrow relative to the earlier 100-300+ point
 swings. Conclusion stands: v28 sits modestly above v25c's 818.3, and
 clearly above the board-thinning-only isolation candidate.
+
+## 2026-07-05 — CORRECTION #2: v28 was NOT actually settled; DMC more-epochs also negative
+
+**v28 ladder score correction:** the prior "CONFIRMED SETTLED: 829.8, held
+across 2 consecutive pulls" conclusion was premature. A subsequent pull
+showed v28 at **724.4** — a swing of -116 points, back below both v25c's
+818.3 and even below the isolation candidate's own concurrent read
+(753.3). Two consecutive identical reads is not the same as true
+convergence; this ladder's `publicScore` may not converge to a fixed
+value at all within the timeframe available (possibly a genuinely live
+metric reflecting an ever-changing pool of opponents, not settling toward
+one true number the way a fixed offline benchmark would). **Retracting
+the "v28 modestly beats v25c, confirmed" claim** — the honest state is:
+v28, the isolation candidate, and v25c's original 818.3 are all within a
+noisy band roughly 720-910 that has not stopped moving after ~4 hours of
+observation. No confident ranking between them is currently possible from
+`publicScore` alone. This is now the second time this session a "looks
+settled" read turned out not to be (the earlier age-confound correction
+being the first) — **the corrected methodology note stands even more
+strongly: single or even double-confirmed `publicScore` reads cannot be
+trusted for ranking submissions on this ladder within a same-day
+timeframe.** A real ranking needs either much longer observation (days,
+matching how long the original v25c reading had to mature) or a
+direct large-n offline A/B (which IS trustworthy per this project's
+Design Principle #1 for relative comparisons, even though single-model
+`publicScore` reads are not).
+
+**DMC more-epochs (8 vs. round 3's 2, same existing data, no new
+collection): 2.0% (4/200) vs. frozen v25c** — statistically identical to
+round 3 (2.5%) and the oversampling variant (2.0%), despite in-distribution
+val_sign_acc jumping substantially (0.9377→0.9684). **This is another
+instance of the "wrong measured quantity" pattern recurring throughout
+this session** (the oracle-critic gate script that never passed oracle
+features; temp-1.0 vs argmax exploiter measurement) — in-distribution
+validation accuracy on the training data's own outcome labels does not
+predict actual greedy-policy game performance, almost certainly because it
+reflects memorizing/overfitting the specific self-play distribution rather
+than learning transferable Q-value structure. **Confirms DMC's bottleneck
+is data-limited (needs more diverse self-play rounds), not undertrained**
+— training longer on the same narrow data just overfits harder without
+improving actual play. No further training-recipe tweaks on existing data
+are likely to help; the only lever left is more collection rounds, which
+stays paused to the 2026-07-19 checkpoint per the standing pre-registration.
+
+---

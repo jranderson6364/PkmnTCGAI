@@ -134,6 +134,17 @@ regression/improvement claims from this API need either (a) reads taken
 at matched submission age, or (b) corroborating replay/behavioral evidence,
 not a single score delta.
 
+**Update, ~2h after this correction:** re-pulled scores again — the
+isolation candidate (`54354935`, v25c+boardthin) has moved 600.0 → 877.9
+(now numerically ABOVE v25c's original 818.3), while the plain v25c-revert
+(`54354862`) has moved 600.0 → 468.0 → 714.1. This is not a clean monotone
+settling curve either — it's genuinely high-variance, swinging by
+100-300+ points within a couple hours for unchanged code. **Do not read
+877.9 as "the fix beats v25c"** — that would repeat the exact mistake this
+correction entry describes, just in the opposite direction. Continuing to
+wait for the swings to damp down before drawing any conclusion; no further
+ships until there's a real basis to compare.
+
 ---
 
 ## 2026-07-05 — PRE-REGISTRATION: DMC (Deep Monte Carlo), the one remaining bounded learned-policy shot

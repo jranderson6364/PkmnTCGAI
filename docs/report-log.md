@@ -2494,3 +2494,16 @@ deltas -74 and -16, vs. the earlier +278/-37/-16). Isolation has now read
 above the revert in 3 of 4 pulls. Still holding: not calling this settled
 or drawing a conclusion yet, but the trend is consistent with genuine
 convergence rather than pure noise. Will re-check per the scheduled wakeup.
+
+**Bug-check (code review, no training/collection): confirmed dmc_agent.py's
+action selection is not the cause of the low numbers.** Diffed against
+`selfplay_agent.py` (the code path underlying the exploiter's already-
+verified 10.6% baseline) — both share the identical `encode_batch`/`clamp`
+pipeline; the only differences are argmax-over-Q vs softmax-sampling-over-
+policy-logits and which checkpoint is loaded, exactly as intended. No
+indexing/decode bug. The DMC trajectory (1.0%/1.7%/2.5%/2.0%) is a genuine
+signal, not an artifact — consistent with the literature's warning that
+cold-start Q-regression is markedly less sample-efficient early on than
+cross-entropy imitation. This closes the cheap/available diagnostic space
+for this line without new data collection; nothing further to check before
+the 2026-07-19 checkpoint.

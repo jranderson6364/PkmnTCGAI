@@ -2,7 +2,45 @@
 
 *Newest first. From Mega Lucario to Alakazam.*
 
-**Last updated:** 2026-07-05 (v27)
+**Last updated:** 2026-07-05 (v28)
+
+---
+
+## v28: Board-Thinning Fix + Phase C + Confidence Recalibration
+
+Submission `54356683`, shipped 2026-07-05. Combines three pieces of same-day
+work into one candidate: (1) the board-thinning `hand_surplus` fix (v27,
+see below); (2) Phase C belief wiring (v26, see below), whose core classifier
+and wall-anticipation logic were independently confirmed correct against 725
+real ladder replays (82.4% archetype agreement, 0.9% false-positive wall rate
+on non-wall archetypes, 85.7% crustle true-positive — see
+`docs/report-log.md` 2026-07-05 "Phase C real-replay behavioral check");
+(3) a data-driven confidence-threshold recalibration (`b_conf<0.8` →
+`b_conf<0.97` at both call sites) that nearly doubles the true-`unknown`-deck
+catch rate (39.3%→60.1%) for only a modest increase in conservative-fallback
+triggers on known archetypes (19.2%→21.1%), found by sweeping the threshold
+against the same 725-replay dataset.
+
+**Why ship now, after the earlier same-day age-confound mistake:** this
+decision rests on a matched-age comparison, not a single noisy read. Two
+submissions shipped simultaneously that morning — a plain v25c revert
+(`54354862`) and this fix in isolation from Phase C (`54354935`, v25c +
+board-thinning only) — were read repeatedly over ~3 hours. Both showed
+large swings early (up to ±278) that visibly narrowed over time (final
+reads: revert held at 720.7 across two consecutive pulls; isolation read
+746.9, a modest +26-point edge). Since both were submitted at the same
+time, this comparison is age-matched and not subject to the earlier
+mistake. A +26 point edge is modest but consistent in direction with the
+fix's positive offline gates (54.3%, 56.0% across two different offline
+tests). v28 layers Phase C + the recalibration fix on top of that base,
+justified independently by the replay-behavioral check (not ladder score).
+
+**Caveat:** v28 itself has not had its own settled ladder read yet at ship
+time — this is a reasoned bet based on matched-age evidence for its base
+(board-thinning) and independent replay-behavioral evidence for its
+additions (Phase C + recalibration), not a settled score for the exact
+combination. Watch its own reads over the next few hours before drawing
+further conclusions from it specifically.
 
 ---
 

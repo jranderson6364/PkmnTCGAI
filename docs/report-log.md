@@ -2513,3 +2513,32 @@ pulls (first zero-movement reading) while the plain revert continues to
 drift (735.9->720.7). This first stable read is a good sign of genuine
 settling. Still one stable read is not two -- want to see the isolation
 number hold again before treating it as final.
+
+## 2026-07-05 — v28 shipped: board-thinning + Phase C + confidence recalibration (matched-age decision)
+
+**Decision basis:** the isolation candidate (`54354935`) and plain v25c
+revert (`54354862`) were shipped simultaneously that morning, giving a
+genuinely matched-age comparison (unlike the earlier same-day mistake of
+comparing a 2-day-old v25c read against minutes-old v26/v27 reads). Both
+showed large early swings that visibly narrowed over ~3 hours (revert:
+600→468→714→751.7→735.9→720.7→720.7, holding steady twice; isolation:
+600→878.9→841.5→766.9→766.9→746.9). Final matched-age comparison: isolation
+746.9 vs. revert 720.7, a modest +26-point (~3.6%) edge — consistent in
+direction with the board-thinning fix's positive offline gates (54.3%,
+56.0%), though the swings hadn't fully flatlined to zero movement.
+
+**Combined with the separately-collected, ladder-score-independent
+behavioral evidence** (Phase C's classifier + wall-anticipation confirmed
+correct against 725 real replays; the confidence-recalibration candidate
+data-driven from the same replays), shipped `main.py` = board-thinning fix
++ Phase C + recalibration as v28 (submission `54356683`).
+
+**Explicitly not repeating the earlier mistake:** this is a matched-age
+comparison for the base fix, plus independent replay-behavioral evidence
+(not ladder score) for the additions — a different and more defensible
+evidentiary basis than the earlier single-read panic-revert. **Still
+flagged honestly:** v28 as a whole (fix+PhaseC+recalibration combined)
+has no ladder read of its own yet at ship time; watch its score over the
+next few hours the same way, and don't over-read early volatile numbers.
+
+---

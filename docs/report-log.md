@@ -2487,3 +2487,10 @@ each other and toward v25c's 818.3, more consistent with genuine settling
 now than pure noise, though one more data point still isn't proof. Holding
 the same stance: no ship, no conclusion, until the swings visibly damp out
 further (scheduled wakeup will re-check).
+
+**Update, ~3h after the correction:** isolation candidate 841.5→766.9,
+plain revert 751.7→735.9 — swing amplitude visibly narrowing (last two
+deltas -74 and -16, vs. the earlier +278/-37/-16). Isolation has now read
+above the revert in 3 of 4 pulls. Still holding: not calling this settled
+or drawing a conclusion yet, but the trend is consistent with genuine
+convergence rather than pure noise. Will re-check per the scheduled wakeup.

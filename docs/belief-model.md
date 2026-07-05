@@ -5,7 +5,7 @@ plays, turn)`, then sampling their unseen zones from the inferred archetype's
 decklist. The report's originality centerpiece. This file is the canonical home
 for the design, the phase plan, and (as they land) the results.*
 
-**Last updated:** 2026-07-04 (Phase A DONE — 92.3% held-out accuracy, 99%+ by turn 1; Phase B replay-download blocker resolved — 680 replays on disk, real meta share surveyed; Phase C consumer 1 WIRED into main.py — 400-game A/B gate running)
+**Last updated:** 2026-07-05 (Phase C consumer 1 gate passed + shipped as v26; real-replay behavioral check DONE — classifier + wall-anticipation confirmed correct on 725 real replays, but found and fixed a confidence-miscalibration issue on unrecognized decks, shipped as part of v28; determinization sampler deprioritized, no live consumer)
 
 ---
 
@@ -222,8 +222,34 @@ The ladder is not 4 bots. Two additions:
    2026-07-04: 50.7% ± 4.9% over 400 games, 0 errors (non-regression;
    mirror-by-construction on the anticipation path). Shipped for ladder
    confirm — v26 (see ladder_history.csv).**
+
+   **Real-replay behavioral check DONE 2026-07-05** (`docs/report-log.md`
+   2026-07-05 "Phase C real-replay behavioral check" entry): ran the
+   shipped `_belief_posterior` against 725 real ladder replays (ground
+   truth via `tools/meta_survey.py`'s signature classifier). Classifier-
+   archetype agreement 82.4% (360/437) — reasonably close to Phase A's
+   92.3% (that number was the easier 5-fixed-bot setup) and above the
+   78.7% honest recognition ceiling. Wall-anticipation false-positive rate
+   on the 5 non-wall archetypes: 0.9% (4/437) — correctly quiet. Crustle
+   true-positive: 85.7% (48/56). **Real miscalibration found:** only 39.3%
+   (64/163) of true `other/unknown` games correctly read below the 0.8
+   confidence threshold — the `b_conf<0.8` fallback under-triggers on
+   ~61% of the ladder's unrecognized long tail, a known general failure
+   mode (softmax classifiers are often confidently wrong on OOD inputs,
+   not appropriately uncertain). **Fix drafted + validated same session:**
+   swept the threshold against the same 725-replay data — known-archetype
+   confidence is extremely peaked near 1.0 (p25=0.992), so raising the
+   threshold 0.8→0.97 nearly doubles the unknown-catch-rate (39.3%→60.1%)
+   for only a modest false-low increase on known archetypes (19.2%→21.1%,
+   a safe direction since it just triggers the conservative default).
+   ~10.3% of all 725 games have their fallback behavior flip under this
+   change. Shipped as part of **v28** (submission 54356683, 2026-07-05,
+   ladder score pending) alongside the board-thinning fix.
 2. Determinization sampler for the Stage 5 MCTS spike (Kaggle-gated with the
-   rest of search).
+   rest of search). **Deprioritized 2026-07-05** per Fable design consult
+   (`docs/report-log.md` 2026-07-05 "DESIGN DECISION" entry) — its only
+   consumer (determinized search) is closed with a named cause; no live
+   consumer justifies building it now.
 3. Ablation runs for the report: key-card baseline vs classifier; placeholder
    vs belief determinization (once search exists).
 

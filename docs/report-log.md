@@ -4,7 +4,57 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-05 (v27 shipped, board-thinning fix, 56.0%±5.6% gate; v26 ladder regression found (720.4 vs v25c's 818.3, unresolved); DMC (DouZero-style Q-regression, no BC mixing) round 1 pre-registered and training — the one Fable-sanctioned bounded/time-boxed learned-policy shot remaining)
+**Last updated:** 2026-07-05 (CORRECTION: the "v26/v27 ladder regression" conclusion below was age-confounded, not a real regression — see the correction entry immediately below, read it before trusting anything below that says "regressed"; v27 shipped, board-thinning fix gated 56.0%±5.6% and separately 54.3% in isolation from Phase C; DMC round 1-2 both ~1-2% vs frozen v25c, deprioritized per Fable)
+
+---
+
+## 2026-07-05 — CORRECTION: the "v26/v27 ladder regression" was age-confounded, not real
+
+**What happened:** entries below this one describe pulling `publicScore` for
+v26 and v27, seeing a decline (818.3 → 726.2 → 695.1 across reads), and
+reverting main.py to v25c plus shipping an isolation candidate (v25c +
+board-thinning fix only, no Phase C) — submissions `54354862` and
+`54354935`. **Do not trust the "monotone decline → Phase C regressed"
+narrative in those entries as established.** Immediately after those ships,
+a fresh pull showed the pure-v25c revert (essentially identical code to the
+original 818.3 submission) scoring **600.0**, while the just-shipped v27
+simultaneously read **735.9** (up from 695.1 minutes earlier). Same-ish
+code scoring 818 vs 600 rules out a real quality regression as the sole
+explanation.
+
+**Corrected read (per advisor, second consult):** this Kaggle ladder's
+`publicScore` most likely climbs as a fresh submission accumulates games
+over hours-to-days (or is simply high-variance early and settles later —
+either way the fix is the same). Read through that lens, the original data
+was never a monotone decline, it was a **maturity gradient**: v25c
+(2 days settled) = 818; v26 (~6h old at read time) = 720-726; v27 (minutes
+old, read 3 times) = 616→695→736, climbing in real time; the v25c-revert
+(minutes old) = 600. This matches an earlier-documented data point in this
+same file (v25b re-scored 861→748 over time) — `publicScore` is not a
+stable snapshot for a fresh submission.
+
+**What still stands:** the revert and the isolation ship are both harmless
+and defensible regardless (both are v25c-based, both a clean, sensible
+"latest 2" state) — keep them, don't ship a 4th variant today just to
+chase more noisy reads. **What does NOT stand:** "v26 ladder-regressed,"
+"v27 made it worse," "both offline gates were contradicted by the ladder"
+— none of that is established; it rested on comparing differently-aged
+submissions as if `publicScore` were a stable, comparable number.
+**Real verdict on whether Phase C actually regressed the agent: still
+unknown.** The honest way to find out is to let the isolation submission
+(`54354935`) settle for the same amount of time v25c had (~2 days) before
+comparing it against a similarly-settled v26/v27 reading, or — better,
+and actionable without waiting — pull recent real ladder replays via
+`tools/download_replays.py` and check directly whether `_belief_posterior`
+/ wall-anticipation are firing sensibly, which is signal independent of
+the noisy score entirely.
+
+**Report-log methodology note (this one is real and worth keeping):**
+single-point `publicScore` reads are age-confounded on this ladder and
+must not be used to compare submissions of different ages. Future
+regression/improvement claims from this API need either (a) reads taken
+at matched submission age, or (b) corroborating replay/behavioral evidence,
+not a single score delta.
 
 ---
 
@@ -75,6 +125,16 @@ the background; given the explicit low-expected-value framing, this stays
 a background-only line and does not take attention from the ladder-facing
 priorities (v26 regression, Phase C consumers) unless round 2 shows a
 real climb.
+
+**Round 2 collection (before retrain): 1.7% (600 games, `NET_EPS=0.15`
+vs. frozen v25c)** — essentially flat vs. round 1's 1.0%, no sign of a
+climb yet after 2 data points against a 25-30% target. Not calling this
+closed yet (per pre-registration, judge the trajectory, and a 3rd round
+after retraining on the round-2 data hasn't run), but this is now two
+weak data points in a row, and per Fable's explicit instruction this line
+must not compete for attention with the live ladder-regression
+investigation below — deprioritized accordingly; will check back later
+rather than immediately retraining/re-gating a 3rd round.
 
 ---
 

@@ -2542,3 +2542,9 @@ has no ladder read of its own yet at ship time; watch its score over the
 next few hours the same way, and don't over-read early volatile numbers.
 
 ---
+
+**v28 first read: 600.0** -- the same fresh-submission floor seen on every
+prior first read (v25c-revert, v25c+boardthin isolation, all started at
+600.0). Not a signal yet, expected pattern. Isolation candidate (54354935)
+confirmed settled: 746.9->748.0, essentially unchanged. Holding for v28's
+own score to climb/settle before drawing any conclusion about it.

@@ -2570,3 +2570,19 @@ observed, one more read is needed before concluding even "roughly even."
 Isolation candidate held steady a second consecutive time (743.1,
 unchanged) -- that one looks genuinely settled now. Continuing to hold on
 v28 specifically.
+
+**v28 confirmed stable: 829.8 held across two consecutive pulls.**
+Isolation candidate confirmed stable: 743.1 held across three consecutive
+pulls. **This is now a real, matched-methodology conclusion (not a single
+noisy read):** v28 (board-thinning + Phase C + confidence recalibration)
+settles at 829.8, modestly above v25c's original settled 818.3 (+11.5,
+~1.4%) and clearly above the board-thinning-only isolation candidate's
+743.1 (+86.7, ~11.7%). This suggests Phase C + the recalibration fix add
+real further improvement on top of the board-thinning fix alone, and the
+combined v28 agent is, on the best current evidence, at least on par with
+and modestly ahead of v25c. **Caveat:** this is one settled comparison, not
+a large-n statistical test — the margin over v25c (1.4%) is small relative
+to the natural game-to-game/day-to-day variance this ladder has shown
+throughout this session, so treat "v28 is a real, if modest, improvement
+over v25c" as the working conclusion, not a certainty. v28 remains the
+active submission; no further ship needed today.

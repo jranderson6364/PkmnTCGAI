@@ -82,28 +82,31 @@ The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
 **re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
 challengers; tier 2: pilot floor flattens everything — see report-log).
 **Current agent:** v28 — board-thinning fix + Phase C + confidence
-recalibration (submission 54356683, shipped 2026-07-05, ladder score
-pending). **Context (read this before trusting any "v26/v27 regressed"
-claim elsewhere):** v26 and v27's `publicScore` reads appeared to decline
-same-day (818.3→726.2→695.1), prompting a panic revert — a follow-up pull
-then showed a plain v25c revert scoring only 600.0 while v27 simultaneously
-read 735.9, revealing the "decline" was **age-confounded**
-(`publicScore` climbs/settles over hours, not a stable snapshot), not a
-real regression. Two same-time-shipped isolation submissions (v25c-revert
-`54354862` and v25c+boardthin `54354935`) were tracked over ~3h as their
-swings visibly narrowed (revert settled ~720.7, isolation ~746.9) — a
-matched-age comparison giving a modest, real +26pt edge for the
-board-thinning fix, consistent with its positive offline gates. Separately,
-Phase C's classifier + wall-anticipation were confirmed correct against 725
-real replays (82.4% archetype agreement, 0.9% wall false-positive rate) —
-but a real miscalibration was found (only 39.3% of true-unknown decks
-correctly read as low-confidence) and fixed via a data-driven threshold
-change (0.8→0.97, validated on the same replay data). v28 combines all
-three (board-thinning + Phase C + recalibration) — **its own settled
-ladder read is not yet in; don't over-read early volatility the way the
-v26/v27 panic did.** Full detail: `docs/report-log.md` 2026-07-05
-"CORRECTION" and "v28 shipped" entries, `docs/version-history.md` v27/v28
-entries. Before that, v25c
+recalibration (submission 54356683, shipped 2026-07-05). **CONFIRMED
+SETTLED 2026-07-05: 829.8, held across 2 consecutive pulls** — modestly
+above v25c's original settled 818.3 (+11.5, ~1.4%) and clearly above the
+board-thinning-only isolation candidate (743.1, held across 3 pulls,
++86.7/~11.7% below v28). Working conclusion: v28 is a real, if modest,
+improvement over v25c — **treat this as a working conclusion, not
+certainty**, since the margin over v25c (1.4%) is small relative to the
+day-to-day ladder variance observed all session. **Context (why this took
+several ships to establish cleanly):** v26 and v27's `publicScore` reads
+initially appeared to decline same-day (818.3→726.2→695.1), prompting a
+panic revert — a follow-up pull then showed a plain v25c revert scoring
+only 600.0 while v27 simultaneously read 735.9, revealing the "decline"
+was **age-confounded** (`publicScore` climbs/settles over hours, not a
+stable snapshot), not a real regression. Two same-time-shipped isolation
+submissions (v25c-revert `54354862` and v25c+boardthin `54354935`) were
+tracked over ~3h as their swings visibly narrowed to the settled values
+above — a matched-age comparison that correctly informed the v28 ship
+decision. Separately, Phase C's classifier + wall-anticipation were
+confirmed correct against 725 real replays (82.4% archetype agreement,
+0.9% wall false-positive rate), and a real confidence miscalibration
+(only 39.3% of true-unknown decks correctly read as low-confidence) was
+found and fixed via a data-driven threshold change (0.8→0.97). Full
+detail: `docs/report-log.md` 2026-07-05 "CORRECTION" through the final
+"confirmed stable" entry, `docs/version-history.md` v27/v28 entries.
+Before that, v25c
 (`main.py` + `deck.csv`, submission 54282648, shipped
 2026-07-03, user-reported ladder Elo peaked ~900, settled ~880; gauntlet gElo
 589, top of the whole table) — see the v25c paragraph below. Before that,

@@ -91,7 +91,10 @@ def main():
     loader = build_mixed_loader(bc_raw, sp_raw, args.batch_size, args.bc_frac)
 
     model = PTCGNet().to(device)
-    model.load_state_dict(torch.load(args.init, map_location=device))
+    state = torch.load(args.init, map_location=device)
+    own = model.state_dict()
+    state = {k: v for k, v in state.items() if k in own and v.shape == own[k].shape}
+    model.load_state_dict(state, strict=False)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     value_loss_fn = nn.HuberLoss(delta=0.2)
 

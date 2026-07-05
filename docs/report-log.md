@@ -4,7 +4,93 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-04 (ladder replay bulk download DONE, 680 replays, real meta-share survey; Stage 3 Phase A archetype classifier DONE, 92.3% held-out / 99%+ by turn 1, gate cleared; Stage 2 direct-self-play AWR line CLOSED negative; Stage 5 search-at-inference CLOSED negative after 5 gates/3 bugs/1 architectural fix — third load-bearing negative result; Stage 3 Phase B signature extension + archetype library DONE, 78.7% honest ladder-opponent recognition; literature review DONE — negatives are literature-predicted, ranked next options logged)
+**Last updated:** 2026-07-05 (Stage 3 Phase C belief wiring shipped, v26; oracle-critic value head CLOSED negative — 4th load-bearing negative alongside DAgger/AWR/PIMC-search; v25c exploiter (winner-only-vs-frozen-main.py) round 1 pre-registered and running — first operator in this project that routes learning signal through actual terminal outcome against a fixed target rather than imitation or a saturated value head)
+
+---
+
+## 2026-07-05 — PRE-REGISTRATION: v25c exploiter, round 1 (winner-only vs frozen main.py)
+
+**Hypothesis:** DAgger (imitation, caps at teacher parity), AWR (reward routed
+through a value head that saturates near ±1), and PIMC search (built on the
+same saturated value/policy) all failed to exceed v25c. None of them optimize
+directly against a fixed target with a real win/loss signal. Winner-only
+self-play specifically vs. a FROZEN `main.py` (not a mirror, not the ladder)
+gives a cheap, different operator: keep only the trajectories the net actually
+won, retrain on those (uniform weight, no AWR advantage-shaping), and rerun —
+an iterated best-response only against the exact deck/pilot we're trying to
+beat.
+
+**Method:** `training/nn/exploiter_collect.py` runs the current checkpoint
+(temp 1.0, exploration on) vs. frozen `main.py`, seats alternated, and records
+only the net's own actions/outcome (no teacher relabeling). Round 1: 1000
+games from `ptcg_dagger_r2.pth` → **106/1000 wins (10.6%)**, 138,693 samples
+(`training/exploiter_r1.pkl.gz` + `.part1`). Retrain via
+`training/nn/train_sp.py --winner-only` (filters to `outcome>0`, uniform
+weight, BC pool still mixed at `--bc-frac 0.4` for policy grounding).
+
+**Pre-registered gate (set BEFORE retraining, per advisor guidance — don't
+run multiple rounds and then look):** collect a fresh 200-400 game batch of
+the round-1-retrained net vs. frozen `main.py` (same seat balance). Compare
+win rate to the round-0 baseline (10.6%):
+- **~10-13%: flat/asymptoting like the prior three lines — do not commit to
+  further rounds** without a different lever (larger collection, softer
+  filter, or close as a 5th negative).
+- **≥20%: real single-round improvement — round 2 is justified**, and this
+  becomes the leading live candidate.
+**Caveat (both outcomes):** offline win-rate vs. a frozen main.py is a
+necessary but not sufficient signal — an exploiter finds `main.py`'s
+specific blind spots by construction, which may not transfer to the ladder's
+actual deck diversity (Design Principle #1: offline overrates, v5 was 64%
+offline / 0-5 live). A pass here queues a ladder-realistic gauntlet check,
+not a direct ship.
+
+**Result: GATE NOT MET — round 1 flat, matches the "asymptoting" bucket.**
+
+Retrain hit the same checkpoint-widening `strict=True` load failure as the
+oracle-critic work (`model.py`'s value_head is now permanently wider from
+that change) — fixed identically in `train_sp.py` (shape-filtered
+`strict=False` load). Also hit a **second live OOM** during this session:
+the first retrain attempt (unbounded `--bc-data`, 579k v25c BC samples)
+silently died, and — new failure mode — `Stop-Process` by the MSYS/cygwin
+PID (1606) reported "not found" while the real Windows PID (32264) kept
+running and holding 24.5GB, starving the retry. Root-caused via
+`Get-Process | Select Id,WorkingSet64` (PowerShell) showing the true PID/
+memory; killed correctly, then reran with `--bc-limit 100000`, which
+completed cleanly (100,000 BC + 14,679 winner-only SP samples, 3 epochs,
+`ptcg_exploiter_r1.pth`).
+
+Gate batch (temp=1.0, matching how the 10.6% baseline was measured): 300
+games, **12.3% win rate vs main.py** (vs 10.6% baseline) — inside the
+pre-registered 10-13% "flat" bucket, not the ≥20% bar for round 2.
+**Follow-up per advisor** (a sampled win-rate at temp=1.0 measures the
+exploring policy, not the deployable one): re-measured both checkpoints at
+temp=0.1 (argmax/deployment-mode), 300 games each — **exploiter_r1 12.7%
+vs baseline dagger_r2 10.7%**. Same ~2pp gap at both temperatures — the
+negative is not a measurement artifact.
+
+**Scoped claim (per advisor, to avoid overclaiming in the report):** this
+result licenses "cheap single-round winner-only self-imitation against a
+frozen teacher does not meaningfully improve on it" — not "no learned
+exploiter operator can beat the heuristic." At a 10.6% base rate, a large
+share of "wins" in the training pool are plausibly main.py mulliganing or
+dead-drawing rather than the net outplaying it (a variance trap flagged
+before the run), and `--bc-frac 0.4` spends 40% of every training batch
+pulling the policy back toward imitating `main.py`, which works against
+the stated goal of exploiting it — this is close to the weakest possible
+version of "train an exploiter," not a rigorous test of the idea.
+
+**Decision:** do not commit to further winner-only rounds (lower `bc-frac`,
+more games) without a different lever — per pre-registration this is
+5th-negative territory for that narrow method, but the broader
+"can a learned exploiter beat v25c" question is not yet closed; escalated
+to Fable as an overarching design-change decision (2026-07-05) given 4-5
+negatives now converging on what the 2026-07-04 literature review
+predicted, and the choice between closing the learned-policy thesis vs.
+investing in a genuinely different operator (e.g. real iterated
+best-response with fresh collection per round and low/no BC anchoring, or
+reward-weighted policy gradient) affects the report's spine.
+
+---
 
 ---
 
@@ -137,14 +223,20 @@ Built a direct ON/OFF diagnostic (`oracle_onoff_diag.py`) on 800
 oracle-hand-populated samples from the diverse set: **oracle-ON sign_acc
 =0.870 vs oracle-OFF=0.8425** — a real, positive, but modest gap
 (+2.75pp), and this set was itself part of the training mix so the
-absolute numbers are optimistic; the gap is the informative part. Verdict:
-the privileged critic does learn something from opponent-hand info, but
-what survives Suphx-style dropout to the oracle-free deployment path is
-too weak to clear the 65% ladder-holdout bar, and is weakest exactly where
-it should matter most (mid-game, 0.565) — consistent with the value head
-still not carrying much decision-relevant nuance beyond coarse
-board-state, echoing the AWR finding (Stage 2, 2026-07-04: "value head
-saturates near ±1 on most states").
+absolute numbers are optimistic; the gap is the informative part, and
+because this is TRAINING data, memorization should inflate the ON/OFF gap
+to its maximum — a gap this small (+2.75pp) at best-case measurement
+conditions means the value head extracts little decision-relevant signal
+from the opponent's hand beyond what board state already gives it, not
+that a real signal failed to survive dropout. (Corrected read, per
+advisor, from an earlier draft of this entry that over-read the gap as
+"real but dropout-blocked" — that framing would incorrectly invite
+retrying with less dropout.) This is consistent with the value head still
+not carrying much decision-relevant nuance beyond coarse board-state,
+echoing the AWR finding (Stage 2, 2026-07-04: "value head saturates near
+±1 on most states"), and it is weakest exactly where opponent-hand info
+should matter most if it mattered at all (mid-game holdout sign-acc
+0.565).
 
 **Decision:** do not integrate into `mcts.py` (gate (b) is conditional on
 (a) passing). Close this line — fourth data point (after DAgger, AWR,

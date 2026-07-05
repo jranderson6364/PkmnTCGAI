@@ -2466,3 +2466,9 @@ in a row here.
 | Engine reverse-engineering | Options are positional (0/1,287 carried cardId); deck searches are NOT blind; area enum 6=PRIZE not discard; setup-active field never populated (live bug since v7) | Credibility material — engine understood at a depth most entrants won't reach |
 | Heuristic version arc | v22 beat v21 56.3%±4.9% (400 games); baselines 94% Lucario / 94% Abomasnow / 79% Starmie / 50W-0L-50T Dragapult | Teacher-quality context for the BC/DAgger sections |
 | Dragapult step-limit ties | 50/100 local games tie in one seat direction | Open question; ties are half-losses on ladder rating |
+**Update, ~2.5h after the correction:** another pull — isolation candidate
+878→841.5, plain revert 714.1→751.7. Both readings are narrowing toward
+each other and toward v25c's 818.3, more consistent with genuine settling
+now than pure noise, though one more data point still isn't proof. Holding
+the same stance: no ship, no conclusion, until the swings visibly damp out
+further (scheduled wakeup will re-check).

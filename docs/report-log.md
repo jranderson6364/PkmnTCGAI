@@ -4,7 +4,77 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-05 (v25c exploiter round 1 CLOSED flat — 5th converging negative; Fable design consult: re-spine the report as hybrid (belief model + falsification program), not "pure learned policy beats heuristic"; reprioritized to Phase C consumers + exploiter-replay heuristic mining; mined all 18 sampled exploiter wins — 100% are the SAME failure mode, deck-out/board-thinning race loss, not tactical mistakes, quantifying an already-known open bug)
+**Last updated:** 2026-07-05 (v27 shipped, board-thinning fix, 56.0%±5.6% gate; v26 ladder regression found (720.4 vs v25c's 818.3, unresolved); DMC (DouZero-style Q-regression, no BC mixing) round 1 pre-registered and training — the one Fable-sanctioned bounded/time-boxed learned-policy shot remaining)
+
+---
+
+## 2026-07-05 — PRE-REGISTRATION: DMC (Deep Monte Carlo), the one remaining bounded learned-policy shot
+
+**Per the Fable design-consult decision above:** at most one more learned-
+policy operator gets attention, and it must be genuinely different from
+the five already-closed negatives (BC, DAgger, AWR, PIMC-search,
+oracle-critic) plus the flat exploiter-round-1 result. DMC (DouZero's
+actual recipe) is that operator: train the network's per-action score as a
+true Q-value via direct regression to the game's Monte Carlo return
+(+1/-1/0), with NO BC/teacher-imitation data mixed in at all (unlike every
+prior attempt, which all anchored back toward imitating `main.py` to some
+degree) and epsilon-greedy exploration instead of temperature-sampling a
+softmax policy.
+
+**Method:** reused the existing action-conditioned architecture as-is — the
+model already scores each legal action via `action_mlp`+`logit_mlp`
+(originally trained as policy logits); DMC repoints the SAME output at a
+regression target instead. New code: `training/nn/train_dmc.py` (Huber
+loss between the taken action's logit and the episode outcome, warm-started
+shape-filtered from `ptcg_dagger_r2.pth` for feature representations only —
+the training objective itself has zero imitation signal) and
+`training/nn/dmc_agent.py` (epsilon-greedy: prob ε uniform-random legal
+action, else argmax over Q). Collection reuses the existing
+`exploiter_collect.py` infra unchanged (self-play vs. frozen `main.py`,
+seats alternated, outcome-labeled decisions) — round 1 bootstraps on
+already-collected `exploiter_r1*.pkl.gz` data; round 2+ will collect fresh
+games with `dmc_agent.py` against the round-1 checkpoint.
+
+**Pre-registered gate (set before seeing results, per the discipline that
+has held for every prior line in this file):** a **trajectory** gate, not
+an endpoint gate — win rate vs. **frozen v25c specifically** (not v26/v27,
+to keep the target fixed and comparable to the other 5 closed lines) must
+show a **monotone climb crossing ~25-30%** within the time budget, checked
+at each round. **Hard stops:** first checkpoint by ~2026-07-19, absolute
+stop end of July 2026 regardless of outcome — per Fable's explicit warning
+that DouZero's own published recipe needed substantially more compute
+against much weaker baselines than v25c, so the honest expected value here
+is low and this must never compete for attention with the ladder-scoring
+work (Phase C consumers, the v26 regression investigation, more
+replay-mining) that Fable ranked as primary. Runs in the background only.
+
+**Result — round 1: 1.0% (2/200) vs frozen v25c.** Training itself ran
+cleanly (`training/nn/train_dmc.py` on 222,341 raw / 131,610 usable
+samples from the already-collected `exploiter_r1*.pkl.gz` — bootstrapped
+from the OLD dagger_r2 policy's self-play, not yet a real DMC iteration):
+`epoch 0 avg_loss=0.7593 val_sign_acc=0.8986`, `epoch 1 avg_loss=0.1541
+val_sign_acc=0.9132`. That validation split is in-distribution (a random
+split of the same self-play data, not a held-out game distribution) and
+high sign-accuracy over states does not guarantee good argmax-over-action
+decisions — confirmed exactly that gap: gated the resulting greedy
+(`NET_EPS=0.0`) policy for 200 games vs. a reconstructed frozen-v25c
+snapshot (`training/baselines/v25c.py`, pulled from git history at commit
+`cb0a526`, verified pre-dates Phase C / the board-thinning fix) —
+**1.0% win rate, 0 engine errors** (so not a crash-driven floor; a quick
+synthetic-input sanity check of `dmc_agent.py` didn't turn up an obvious
+bug either, though this wasn't exhaustively ruled out). This is far below
+even the exploiter's already-weak 10.6%, consistent with Fable's warning
+that a single round of regression from limited, policy-skewed data is a
+classic DMC cold-start failure mode (state-level sign-accuracy ≠ a good
+greedy action ranking within a state). Per the pre-registered trajectory
+gate, one round this low doesn't itself close the line — the protocol
+calls for watching the trajectory across rounds — but it is a very weak
+start against a 25-30% target. Launched round 2 (fresh collection with
+the round-1 checkpoint, `NET_EPS=0.1`, vs. frozen v25c, then retrain) in
+the background; given the explicit low-expected-value framing, this stays
+a background-only line and does not take attention from the ladder-facing
+priorities (v26 regression, Phase C consumers) unless round 2 shows a
+real climb.
 
 ---
 

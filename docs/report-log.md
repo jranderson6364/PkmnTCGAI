@@ -2638,3 +2638,27 @@ are likely to help; the only lever left is more collection rounds, which
 stays paused to the 2026-07-19 checkpoint per the standing pre-registration.
 
 ---
+
+**Pivoted to a trustworthy measurement: large-n offline A/B (v28's exact
+main.py vs pure v25c, 400-game mirror, seats alternated) — 50.2% ± 4.9%
+(95% CI). Statistically indistinguishable from parity.** This is the
+first low-noise, controlled comparison of the actual combined v28 changes
+against v25c (the live ladder reads are not low-noise, per the correction
+above). Honest current state: **there is no confirmed evidence v28 beats
+v25c.** The board-thinning fix alone showed a real edge in its own
+isolated tests (54.3%, 56.0%), but combined with Phase C + recalibration
+in a mirror match against pure v25c, that edge is not observable at n=400
+— plausibly because (a) Phase C's payoff specifically depends on facing
+non-mirror decks with walls or misclassified archetypes, which a v25c
+mirror match doesn't reliably surface (the same caveat noted for the v26
+gate back on 2026-07-04), diluting the combined test's power to detect
+the board-thinning fix's real but narrow-state effect, or (b) genuine
+noise at this sample size. **Decision:** stop treating any individual
+live `publicScore` read (or even a same-value pair of reads) as
+conclusive for this project going forward — it has now been shown wrong
+twice. The offline 50.2%±4.9% is the most trustworthy number available
+right now, and it says: no confirmed win, not a confirmed loss either.
+v28 remains shipped (harmless, reasoned basis at the time); no further
+ships today without either much longer ladder observation or a properly
+powered offline test that specifically includes non-mirror wall/unknown-
+archetype opponents (which none of today's offline gates did).

@@ -2507,3 +2507,9 @@ cold-start Q-regression is markedly less sample-efficient early on than
 cross-entropy imitation. This closes the cheap/available diagnostic space
 for this line without new data collection; nothing further to check before
 the 2026-07-19 checkpoint.
+
+**Update: isolation candidate held exactly at 766.9 across two consecutive
+pulls (first zero-movement reading) while the plain revert continues to
+drift (735.9->720.7). This first stable read is a good sign of genuine
+settling. Still one stable read is not two -- want to see the isolation
+number hold again before treating it as final.

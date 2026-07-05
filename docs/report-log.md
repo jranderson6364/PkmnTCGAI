@@ -2548,3 +2548,8 @@ prior first read (v25c-revert, v25c+boardthin isolation, all started at
 600.0). Not a signal yet, expected pattern. Isolation candidate (54354935)
 confirmed settled: 746.9->748.0, essentially unchanged. Holding for v28's
 own score to climb/settle before drawing any conclusion about it.
+
+**v28 second read: 709.1 (up from 600.0)** -- following the expected
+climb pattern seen in every prior fresh submission. Isolation candidate
+holds stable: 748.0->750.3. Still too early to compare v28 against
+anything; continuing to wait for it to finish climbing/settling.

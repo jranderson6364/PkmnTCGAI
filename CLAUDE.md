@@ -179,9 +179,27 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-04, per user `/goal` directive — "ML model
-beats latest heuristic"): Stage 5 search-at-inference CLOSED, negative;
-Stage 3 Phase B DONE; next is Phase C.** `training/nn/mcts.py`
+**>>> NEXT STEP (as of 2026-07-05, per Fable design consult): re-spined the
+report thesis — hybrid (belief model + rigorous falsification program), not
+"pure learned policy beats heuristic."** Five independent operators (BC,
+DAgger, AWR, PIMC search, oracle-critic) plus a 6th (v25c exploiter round 1,
+flat ~12% vs ~11% baseline) have now converged on the same literature-
+predicted outcome. Reprioritized: (1) more Phase C belief-model consumers in
+`main.py` — each is ladder-A/B-gatable and directly evidences the hybrid
+claim; (2) the real-replay accuracy-by-turn figure (Phase A's 92.3% is the
+easy 5-bot version; the honest number against the 78.7% recognition ceiling
+isn't built yet); (3) mine the 106 exploiter-round-1 win replays for v25c
+blind spots (nearly free, already collected — replay-verified heuristic
+fixes have been the single most productive lever in this project's history).
+At most one bounded/background shot remains open: DMC (DouZero-style
+action-as-input Q-network vs. frozen v25c, no BC mixing) — pre-registered
+gate ~2026-07-19, hard stop end of July regardless of outcome. Full
+reasoning: `docs/report-log.md` 2026-07-05 "DESIGN DECISION" entry. Skip the
+determinization sampler (Phase C item 2, no live consumer). Prior next-step
+history below, for context:
+
+**(2026-07-04) Stage 5 search-at-inference CLOSED, negative; Stage 3 Phase B
+DONE; pivoted to Phase C.** `training/nn/mcts.py`
 (heuristic-guided PIMC, 100% local dev via `training/setup_local_search.py`)
 went through five gates and three real bug fixes (weak-teacher rollout,
 strategy fusion, `_STALL_MEMO` global-state corruption in two different

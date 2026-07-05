@@ -4,7 +4,68 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-05 (Stage 3 Phase C belief wiring shipped, v26; oracle-critic value head CLOSED negative — 4th load-bearing negative alongside DAgger/AWR/PIMC-search; v25c exploiter (winner-only-vs-frozen-main.py) round 1 pre-registered and running — first operator in this project that routes learning signal through actual terminal outcome against a fixed target rather than imitation or a saturated value head)
+**Last updated:** 2026-07-05 (v25c exploiter round 1 CLOSED flat — 5th converging negative; Fable design consult: re-spine the report as hybrid (belief model + falsification program), not "pure learned policy beats heuristic"; reprioritized to Phase C consumers + exploiter-replay heuristic mining, with at most one bounded/time-boxed DMC-vs-frozen-v25c shot)
+
+---
+
+## 2026-07-05 — DESIGN DECISION (Fable consult): re-spine the report, deprioritize pure learned-policy chase
+
+**Context:** five independent operators have now converged on the same
+outcome — BC (17% vs teacher), DAgger (fidelity 73%→82%, win-rate flat
+~15-17%, paused not closed), AWR (15.8%/11.5% vs teacher, worse with more
+aggressive weighting, closed negative), PIMC search-at-inference (0W-50L,
+closed negative), oracle-critic value head (62.5% sign-acc vs 65%
+threshold, closed negative), and now v25c exploiter round 1 (winner-only
+self-imitation, flat ~12% vs ~11% baseline at both temp 1.0 and argmax,
+closed negative for that specific method). This matches the 2026-07-04
+literature review's prediction and an external data point (a Kaggle forum
+thread: best public pure-RL agent for this competition sits ~30th
+percentile, below v25c).
+
+**Consulted Fable** (full transcript context: this file + CLAUDE.md) on
+whether to (a) close the "pure learned policy exceeds heuristic" framing
+and re-spine the report around a hybrid claim, (b) invest in a genuinely
+different exploiter operator (real iterated best-response, low/no BC
+anchoring), or (c) something else, given ~6 weeks of ladder time and ~10
+weeks to the report remaining.
+
+**Recommendation (adopted):** reject the binary framing — the team already
+has a shipped, load-bearing learned component (the Stage 3 belief model,
+driving v26's `opp_likely_ace_spec` and wall anticipation, gated 50.7% over
+400 games). The report's 70%-model-approach axis should be won on: (1) a
+hybrid agent whose learned belief module measurably improves piloting
+decisions (published precedent: DouZero+ +5-7% from belief inputs), and (2)
+a systematic, pre-registered, literature-corroborated falsification program
+across five independent learned-piloting operators — itself strong
+model-approach content, and something almost no competitor will have.
+
+**Reprioritization (effective immediately):**
+1. **Primary:** more Phase C belief-model consumers in `main.py` (each is
+   independently ladder-A/B-gatable and directly evidences "learned model
+   improves the agent"); the real-replay accuracy-by-turn figure (target
+   figure #1 — Phase A's 92.3% is the easy 5-bot version, the honest number
+   against the 78.7% recognition ceiling isn't built yet); mining the 106
+   exploiter-round-1 win replays for v25c blind spots (nearly free, already
+   collected, and replay-verified heuristic fixes have been the single most
+   productive lever in this project's entire history — 861.8→~880-900
+   ladder Elo came from that loop, not ML).
+2. **Skip:** the determinization sampler (Phase C item 2) — its only
+   consumer (determinized search) is closed with a named cause; building it
+   now is speculative infrastructure against CLAUDE.md's simplicity rule.
+3. **At most one bounded, background, pre-registered shot** at a genuinely
+   different learned-policy operator: Deep Monte Carlo with action-as-input
+   Q-network (DouZero's actual recipe — the one operator in the literature
+   review never tried), continuous training against a FROZEN v25c, no BC
+   mixing, no value-head mediation, epsilon-greedy exploration, Monte Carlo
+   returns. Must be pre-registered with a trajectory gate (monotone climb
+   crossing ~25-30% win-rate vs. frozen v25c) and a hard wall-clock stop
+   (gate check ~2026-07-19, absolute stop end of July regardless of
+   outcome) — expected value is low (DouZero's own recipe needed
+   substantially more compute against weaker baselines) so it must not
+   compete for attention with the ladder-scoring work above.
+4. **Explicitly ruled out:** further oracle-critic variants, DAgger rounds
+   3+, AWR beta sweeps, exploiter round 2 with tweaked hyperparameters —
+   re-rolls inside an already-converged negative family.
 
 ---
 

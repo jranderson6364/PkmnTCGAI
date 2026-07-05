@@ -13,3 +13,8 @@ timestamp,path_a,path_b,n_requested,a_wins,b_wins,ties,errors,a_wins_p0,a_wins_p
 2026-07-04T15:46:10,main.py,training/nn/mcts_agent.py,12,11,1,0,0,6,5,0,1,0,0,0.9167,0.1564
 2026-07-04T17:12:28,main.py,training/nn/mcts_agent.py,50,50,0,0,0,25,25,0,0,0,0,1.0,0.0
 2026-07-04T21:43:37,main.py,training\main_pre_phasec.py,400,203,197,0,0,104,99,96,101,0,0,0.5075,0.049
+2026-07-05T03:17:26,main.py,opponents/lucario_agent.py,20,19,1,0,0,9,10,1,0,0,0,0.95,0.0955
+2026-07-05T03:17:39,main.py,opponents/starmie_agent.py,20,20,0,0,0,10,10,0,0,0,0,1.0,0.0
+2026-07-05T03:19:16,main.py,C:/Users/jande/AppData/Local/Temp/main_before_fix.py,300,168,132,0,0,89,79,61,71,0,0,0.56,0.0562
+2026-07-05T03:20:26,main.py,training/baselines/v23.py,200,114,86,0,0,58,56,42,44,0,0,0.57,0.0686
+2026-07-05T03:20:37,main.py,opponents/abomasnow_agent.py,40,38,2,0,0,20,18,0,2,0,0,0.95,0.0675

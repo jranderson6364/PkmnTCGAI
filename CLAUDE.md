@@ -81,9 +81,20 @@ alternatives; **no report claim without a pre-registered trial** in `docs/report
 The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
 **re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
 challengers; tier 2: pilot floor flattens everything — see report-log).
-**Current agent:** v25c (`main.py` + `deck.csv`, submission 54282648, shipped
+**Current agent:** v27 (`main.py` + `deck.csv`, submission 54354278, shipped
+2026-07-05, ladder score pending). Broadens the `hand_surplus` draw-
+suppression gate to also engage mid-rebuild (attacker just KO'd, no bench
+backup), fixing part of a board-thinning/deck-out race quantified by mining
+18 exploiter-vs-frozen-v25c replays (18/18 losses = this failure mode).
+Gate: 300-game mirror A/B vs v26, 56.0%±5.6%. **Watch closely:** v26
+(submission 54346817, shipped 2026-07-04) pulled a real ladder publicScore
+of 720.4 — DOWN from v25c's 818.3 — not yet root-caused; v27 ships on top
+of v26's code so its ladder score will show whether this fix recovers that
+regression or whether v26 has a separate unfound problem. Full detail:
+`docs/report-log.md` 2026-07-05 entries, `docs/version-history.md` v27
+entry. Previously v25c (`main.py` + `deck.csv`, submission 54282648, shipped
 2026-07-03, user-reported ladder Elo peaked ~900, settled ~880; gauntlet gElo
-589, top of the whole table) — see the v25c paragraph below. Previously
+589, top of the whole table) — see the v25c paragraph below. Before that,
 v25b — v23 deck (reverted from v24 on
 2026-07-03; v24's ladder reading (680) prompted a user call to revert ahead of
 the 48h decision checkpoint) + 5 heuristic logic fixes from a full retreat/

@@ -2,7 +2,36 @@
 
 *Newest first. From Mega Lucario to Alakazam.*
 
-**Last updated:** 2026-07-03 (v25c)
+**Last updated:** 2026-07-05 (v27)
+
+---
+
+## v27: Broaden `hand_surplus` Draw-Suppression Gate (Board-Thinning Fix)
+
+Ships the top-priority fix identified by mining 18 exploiter-vs-frozen-v25c
+replays (`docs/report-log.md` 2026-07-05 "Exploiter-win replay mining"
+entry): `main.py`'s `hand_surplus` gate (suppresses further draw/search once
+hand already clears the KO threshold) required `ready_attacker_exists`,
+which is false during a rebuild turn (attacker just KO'd, no bench backup)
+— exactly when hand is already 2-3x `cards_needed` from earlier banking.
+Powerful Hand's damage is capped by opponent HP regardless of attacker
+readiness, so a hand this far over `cards_needed` is already-wasted value;
+confirmed in two replays (`win_001`, `win_010`) burning the deck to 0 in a
+single turn via repeated Poffin/Dawn/Hilda/Poké Pad plays at hand_n=16-23
+vs `cards_needed`=7 while stuck on a non-attacker. Fix: added
+`hand_grossly_over = opp_hp<99999 and hand_n>=cards_needed+6`, OR'd into the
+existing gate condition — one line, no new call sites (all 7 existing
+`hand_surplus` consumers benefit uniformly).
+
+**Scope caveat:** only addresses the deck-out sub-mode where the attacker
+line is complete/near-complete (~4-5 of the 18 mined replays); does not fix
+the "never builds the attacker at all" pattern or 2 anomalous short
+`OTHER`-cause games — those need separate investigation.
+
+**Gate:** 300-game mirror A/B (fixed vs. frozen pre-fix `main.py`) —
+**56.0% ± 5.6%** (95% CI [50.4%, 61.6%]) — modest but real, CI clears 50%.
+Smoke tests: 20 games vs `lucario_agent` (95%) and `abomasnow_agent` (95%),
+0 errors/crashes across ~580 total games run during validation.
 
 ---
 

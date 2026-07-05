@@ -65,6 +65,58 @@ ship-able as a heuristic fix without needing further ML experiments.
 
 ---
 
+## 2026-07-05 — v27 shipped: `hand_surplus` gate broadened (board-thinning fix), + v26 ladder-score regression flagged
+
+**Fix (delegated investigation, reviewed):** root-caused the deck-out
+sub-mode of the board-thinning pattern above to `main.py`'s `hand_surplus`
+gate requiring `ready_attacker_exists`, which is false during a rebuild
+turn (attacker just KO'd, no bench backup) — exactly when hand is already
+2-3x `cards_needed` from earlier banking. Powerful Hand's damage is capped
+by opponent HP regardless of attacker readiness, so a hand this far over
+`cards_needed` is already-wasted value; confirmed directly in two replays
+(`win_001`, `win_010`) burning the deck to 0 in a single turn via repeated
+Poffin/Dawn/Hilda/Poké Pad plays at hand_n=16-23 vs `cards_needed`=7 while
+stuck on a non-attacker. Fix: `hand_grossly_over = opp_hp<99999 and
+hand_n>=cards_needed+6`, OR'd into the existing gate — one line, all 7
+existing `hand_surplus` consumers benefit uniformly, no new call sites.
+
+**Scope caveat (important, do not overclaim):** this addresses only the
+"attacker line complete/near-complete but hand-surplus gate didn't engage"
+sub-mode — confirmed directly in 2 of the 18 mined replays. It does NOT
+address the "never builds the attacker at all" pattern (the majority
+symptom in the other 16) or 2 anomalous short `OTHER`-cause games where the
+terminal-cause classifier itself may have a gap (`tools/analyze_replay.py`,
+not confirmed). Board-thinning is only partially closed by this fix.
+
+**Gate:** 300-game mirror A/B (fixed vs. frozen pre-fix `main.py`, i.e. vs
+v26) — **56.0% ± 5.6%** (95% CI [50.4%, 61.6%]) — modest but real, clears
+50%. Smoke: 20 games vs `lucario_agent` (95%) + `abomasnow_agent` (95%), 0
+errors across ~580 games during validation.
+
+**Shipped:** submission `54354278` (v27), 2026-07-05.
+
+**Important flag, found while shipping:** pulled `v26`'s actual ladder
+`publicScore` for the first time — **720.4, DOWN from v25c's 818.3.** The
+v26 gate (400-game A/B, 50.7%±4.9%) was explicitly a non-regression check
+against anchor bots that don't exercise the wall-anticipation path — per
+Design Principle #1 ("offline overrates"), the ladder is the only honest
+evaluator, and this is exactly the failure mode that principle warns
+about. **v26's ladder regression is NOT yet root-caused.** v27 ships on
+top of v26 (same Phase C code, plus the fix above) — its own ladder score
+needs to be watched closely to tell apart two possibilities: (a) the
+board-thinning fix recovers some or all of the v26 regression, or (b) v26
+has a separate, still-unfound problem (e.g. the belief posterior
+misfiring against real ladder archetypes it wasn't validated against,
+unlike the classifier's 5 training archetypes) that persists in v27 too.
+**Next step once v27's score is in:** if still regressed vs 818.3, do a
+targeted investigation of Phase C's real-ladder behavior specifically
+(pull fresh ladder replays post-v26, check whether `_belief_posterior`
+or the wall-anticipation triggers are firing sensibly against real
+opponent decks) rather than assuming the board-thinning fix alone
+explains any change.
+
+---
+
 ## 2026-07-05 — DESIGN DECISION (Fable consult): re-spine the report, deprioritize pure learned-policy chase
 
 **Context:** five independent operators have now converged on the same

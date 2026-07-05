@@ -873,8 +873,16 @@ def _main_phase_features(obs,sel):
     # Threshold discipline (§4/§10 piloting-guide): once a ready attacker exists and the
     # hand is already at the KO threshold, more draw is pure deck-out risk -> stop drawing.
     ready_attacker_exists=active_can_attack or bench_has_alak_ready
+    # Board-thinning root cause (replays win_001/win_010): this gate previously required
+    # ready_attacker_exists, so it never engaged mid-rebuild (attacker just KO'd, no bench
+    # backup) -- exactly when hand was already 2-3x cards_needed from earlier banking.
+    # Powerful Hand's damage is capped by opp_hp regardless of attacker readiness, so a
+    # hand this far over cards_needed is already-wasted value no matter what; confirmed
+    # both replays burn the deck to 0 in a single turn via Poffin/Dawn/Hilda/Poke Pad
+    # spam at hand_n=16-23 vs cards_needed=7 while stuck on a non-attacker.
+    hand_grossly_over=opp_hp<99999 and hand_n>=cards_needed+6
     hand_surplus=(
-        ready_attacker_exists and opp_hp<99999 and hand_n>=cards_needed and
+        (ready_attacker_exists or hand_grossly_over) and opp_hp<99999 and hand_n>=cards_needed and
         not boss_snipe_plan and not emergency_draw and not desperation and
         not lone_active_opportunity)
     # Down to a single Pokemon in play (no bench at all) is a distinct existential

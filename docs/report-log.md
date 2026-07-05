@@ -4,7 +4,67 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-05 (CORRECTION: the "v26/v27 ladder regression" conclusion below was age-confounded, not a real regression — see the correction entry immediately below, read it before trusting anything below that says "regressed"; v27 shipped, board-thinning fix gated 56.0%±5.6% and separately 54.3% in isolation from Phase C; DMC round 1-2 both ~1-2% vs frozen v25c, deprioritized per Fable)
+**Last updated:** 2026-07-05 (CORRECTION: the "v26/v27 ladder regression" conclusion was age-confounded, not real — see correction entry below; board-thinning fix gated positively both ways it's been tested; DMC rounds 1-3 show a real but far-too-slow climb (1.0%→1.7%→2.5%), paused to the 2026-07-19 checkpoint; Phase C real-replay behavioral check DONE — belief model is accurate and wall-anticipation is well-calibrated, but a real miscalibration found: only 39% of true-unknown decks correctly read as low-confidence)
+
+---
+
+## 2026-07-05 — Phase C real-replay behavioral check (read-only, no code changes)
+
+**Why:** the re-spined report thesis rests on "the belief model measurably
+improves piloting" — and per the corrected entry above, the noisy
+`publicScore` reads can't currently confirm or deny that. Per advisor
+guidance, checked the belief model's actual *behavior* against real ladder
+replays instead of chasing more score deltas — signal independent of the
+unstable score.
+
+**Method:** downloaded all available ladder replay episodes via
+`tools/download_replays.py` (725 replays with our team present, on disk
+`replays/bulk/`). For each, computed a ground-truth archetype via
+`tools/meta_survey.py`'s existing signature classifier (revealed cards →
+name match), and separately ran `training/baselines/v27.py`'s
+`_belief_posterior` (the exact shipped Phase C code) over every step of the
+game, taking the last (most-informed) posterior. Purely a replay/behavior
+read — no `main.py` changes, no ships.
+
+**Results:**
+- **Classifier-archetype agreement: 82.4% (360/437)** — real ladder replays
+  where the true deck is one of the 5 classifier archetypes (lucario/
+  dragapult/abomasnow/starmie/alakazam), the posterior's top class matches
+  82.4% of the time. In the right ballpark of Phase A's 92.3% (that number
+  was on the "easy" 5-fixed-bot setup, not real ladder decks, so some drop
+  is expected) and comfortably above the honest 78.7% recognition ceiling
+  reported for the archetype-library work — **the classifier itself is
+  working reasonably well on real ladder data.**
+- **Wall-anticipation false-positive rate on the 5 classifier archetypes:
+  0.9% (4/437)** — very close to the tech survey's expected 0-3% true wall
+  rate for those archetypes. Anticipation is NOT misfiring broadly against
+  decks that don't run walls — this looks correctly calibrated.
+- **Crustle wall-detection true-positive: 85.7% (48/56)** — correctly
+  flags wall threat on crustle games most of the time.
+- **Real finding — a genuine miscalibration: only 39.3% (64/163) of
+  true `other/unknown` games show the posterior correctly below the 0.8
+  confidence threshold.** The other ~61% of real ladder decks the
+  classifier has no training signature for still produce a confident
+  (≥0.8) — and therefore wrong — top-class guess. This is the deck-
+  recognition long tail (the honest 78.7%/21.3% split documented in Phase
+  B) behaving worse than assumed when the model is actually put in front
+  of it: `opp_likely_ace`'s `b_conf<0.8` fallback path, meant to catch
+  exactly this case and default to the conservative pre-Phase-C behavior,
+  triggers far less often than the ~21-29% unknown-deck share would
+  predict, because the softmax is often confidently wrong rather than
+  appropriately uncertain on OOD (out-of-distribution) inputs — a known
+  general failure mode of softmax classifiers, not something specific to
+  this implementation, but not previously measured here.
+
+**Report/decision relevance:** this is real, replay-verified evidence for
+the hybrid-report thesis (the classifier + wall-anticipation genuinely
+work on ladder-realistic data, independent of the noisy score), AND a
+concrete, scoped follow-up target: tighten or recalibrate the confidence
+threshold (or add an explicit OOD/novelty signal) so `other/unknown` decks
+correctly fall back more often. Not fixed this session (per advisor's
+explicit "don't touch main.py — isolation experiments in flight" —
+this is investigation only); candidate next Phase C work once the current
+isolation ships settle. Raw per-replay data: `training/phasec_replay_check.csv`.
 
 ---
 
@@ -133,6 +193,10 @@ climb yet after 2 data points against a 25-30% target.
 **Round 3 (retrained on round-1 + round-2 combined, 267,906 raw / 154,425
 usable samples, `train_dmc.py` → `ptcg_dmc_r2.pth`, in-distribution
 val_sign_acc 0.9377): 2.5% (5/200, greedy/`NET_EPS=0.0`) vs. frozen v25c.**
+Note: the *monotone* shape (not flat) across 3 retrains also rules out the
+"always picks a degenerate fixed action" bug hypothesis — a gross bug would
+sit flat, not climb; the signal is genuinely flowing, just at cold-start
+speed.
 
 **Trajectory so far: 1.0% → 1.7% → 2.5%** — a real, monotone-so-far climb,
 but at roughly +0.7-1pp per round. At this rate, reaching the pre-

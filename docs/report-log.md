@@ -128,13 +128,25 @@ real climb.
 
 **Round 2 collection (before retrain): 1.7% (600 games, `NET_EPS=0.15`
 vs. frozen v25c)** — essentially flat vs. round 1's 1.0%, no sign of a
-climb yet after 2 data points against a 25-30% target. Not calling this
-closed yet (per pre-registration, judge the trajectory, and a 3rd round
-after retraining on the round-2 data hasn't run), but this is now two
-weak data points in a row, and per Fable's explicit instruction this line
-must not compete for attention with the live ladder-regression
-investigation below — deprioritized accordingly; will check back later
-rather than immediately retraining/re-gating a 3rd round.
+climb yet after 2 data points against a 25-30% target.
+
+**Round 3 (retrained on round-1 + round-2 combined, 267,906 raw / 154,425
+usable samples, `train_dmc.py` → `ptcg_dmc_r2.pth`, in-distribution
+val_sign_acc 0.9377): 2.5% (5/200, greedy/`NET_EPS=0.0`) vs. frozen v25c.**
+
+**Trajectory so far: 1.0% → 1.7% → 2.5%** — a real, monotone-so-far climb,
+but at roughly +0.7-1pp per round. At this rate, reaching the pre-
+registered 25-30% target would take on the order of 30+ further
+collect/train/gate rounds — far outside both the compute budget and the
+hard-stop schedule (first checkpoint ~2026-07-19, absolute stop end of
+July). **Decision:** this is not grounds to close the line early — the
+pre-registered protocol set a date checkpoint, not a "stop when the rate
+looks slow" rule — but per Fable's explicit framing (must not compete for
+attention with ladder-scoring work) and the now-evident rate, this line is
+paused here rather than actively grinding rounds 4+ this session. It will
+be revisited at the 2026-07-19 checkpoint with all 3 data points as
+evidence; if the rate hasn't inflected upward by then, close it as the
+6th converging negative.
 
 ---
 

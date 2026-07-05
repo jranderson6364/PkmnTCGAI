@@ -4,7 +4,64 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-05 (v25c exploiter round 1 CLOSED flat — 5th converging negative; Fable design consult: re-spine the report as hybrid (belief model + falsification program), not "pure learned policy beats heuristic"; reprioritized to Phase C consumers + exploiter-replay heuristic mining, with at most one bounded/time-boxed DMC-vs-frozen-v25c shot)
+**Last updated:** 2026-07-05 (v25c exploiter round 1 CLOSED flat — 5th converging negative; Fable design consult: re-spine the report as hybrid (belief model + falsification program), not "pure learned policy beats heuristic"; reprioritized to Phase C consumers + exploiter-replay heuristic mining; mined all 18 sampled exploiter wins — 100% are the SAME failure mode, deck-out/board-thinning race loss, not tactical mistakes, quantifying an already-known open bug)
+
+---
+
+## 2026-07-05 — Exploiter-win replay mining: 18/18 losses are the SAME failure mode (deck-out/board-thinning race)
+
+**Method:** dumped a fresh sample of games where the exploiter net
+(`ptcg_exploiter_r1.pth`, temp 1.0) beat frozen `main.py`, alternating seats,
+via a one-off script (`training/nn/_scratch_replay_dump.py`, `keep_steps=True`)
+until 18 wins were collected across 5 batches of 40. Ran the existing
+`tools/analyze_replay.py` (already built for this purpose from earlier
+sessions) on all 18 to get human-readable decision logs — output kept at
+`replays/exploiter_wins/win_*_summary.txt`.
+
+**Finding:** every single one of the 18 examined games — not most, all —
+ends the same way: `main.py`'s side is at deck=0-10 cards (8/18 hit the
+harness's explicit `DECK_OUT` terminal cause; the other 10 are recorded as
+`OTHER` but end in the identical state — deck count in single digits, or in
+one case, `win_011`, the active slot goes fully empty, `you=NONE`, meaning
+every Pokémon was already KO'd with nothing left on the bench to promote),
+while the opponent sits comfortably on a fully-fueled `Alakazam(743) 140/140`
+needing only 1 more prize. `main.py`'s side, in every case, is stuck on a
+tech/non-attacker (`Kadabra`, `Genesect`, `Shaymin`, `Psyduck`, `Dunsparce`)
+— it never completes its own Alakazam evolution+fueling line before running
+out of resources. One clean example (`win_009`): by turn 11, hand size 11
+(220 damage available via Powerful Hand if it could attack), 3 copies of
+`Kadabra` sitting dead in hand the entire game because no `Abra` was ever
+in play to evolve onto, while `main.py` played `Hilda` twice (a Stage-1/2 +
+energy searcher that cannot fetch a Basic) instead of a Basic-capable
+searcher — the game stalls out with zero prizes taken by either side before
+hitting the step/time limit.
+
+**This is not a set of newly-discovered tactical bugs** — it is a tight,
+quantified confirmation of the already-flagged, still-open CLAUDE.md item:
+*"board-thinning (ending up with 1-2 Pokémon in play and a bloated dead hand
+after the attacker line gets repeatedly KO'd)."* The exploiter net's entire
+10.6% win rate against `main.py` appears to be substantially explained by
+triggering this one race condition (deck-out or full board wipe before the
+attacker line comes online), not by out-playing `main.py` tactically —
+consistent with the exploiter itself being a weak, still-mostly-imitating
+policy (per the round-1 report entry above) that cannot win on skill, only
+by exploiting a structural weakness that shows up often enough at a 10.6%
+base rate.
+
+**Report relevance:** this is strong, concrete, replay-verified material for
+the report's model-approach section — it demonstrates the falsification
+program surfaced a real, quantifiable weakness in the shipped heuristic
+(not just negative ML results), and gives a precise, evidence-backed target
+for the highest-priority next heuristic fix: harden `main.py`'s resource/
+deck management to avoid completing the evolution line too late relative
+to remaining deck depth, and/or fix Hilda-vs-Dawn-style search prioritization
+when no Abra is in play (the v25c changelog already fixed one instance of
+this exact Hilda/Dawn issue — `win_009` suggests it is not fully closed).
+
+**Decision:** treat "harden the deck-out/board-thinning race" as the
+top-priority next action item (ahead of scoping a new Phase C consumer,
+per the reprioritization above) — it is evidence-backed, concrete, and
+ship-able as a heuristic fix without needing further ML experiments.
 
 ---
 

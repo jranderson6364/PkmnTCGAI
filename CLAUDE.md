@@ -121,6 +121,13 @@ whole table (above v25b's 559, v24's 516, v23's 499). See
 unconfirmed lead: `main.py` has no handling for the MULLIGAN select context.
 Open, unfixed pattern: "board-thinning" (ending up with 1-2 Pokémon in play
 and a bloated dead hand after the attacker line gets repeatedly KO'd).
+**Quantified 2026-07-05:** mined 18 games where the v25c exploiter (a weak,
+mostly-imitating net) beat frozen `main.py` — **18/18 end the same way**:
+`main.py` at deck=0-10 cards (or a fully empty active slot) stuck on a
+non-attacker tech Pokémon, opponent sitting on a fully-fueled mirror
+Alakazam needing 1 prize. This is now the top-priority next heuristic-fix
+target (evidence: `docs/report-log.md` 2026-07-05 "Exploiter-win replay
+mining" entry, replays at `replays/exploiter_wins/`).
 **Roadmap (canonical: `docs/competition-strategy.md` §Master Plan):**
 Stage 0 deck freeze + Gauntlet baseline → Stage 0b heuristic tuning → **Stage 0c
 deck bake-off (DONE — freeze re-closed) + method bake-off (DONE)** → Stage 1

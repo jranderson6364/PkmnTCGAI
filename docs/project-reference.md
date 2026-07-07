@@ -6,7 +6,7 @@ engine API, the deck list, `main.py` internals, packaging/shipping, or the NN
 architecture. Keep it in sync: any change to code, deck, or plans updates the
 matching section here in the same session.*
 
-**Last updated:** 2026-07-03
+**Last updated:** 2026-07-06
 
 ---
 
@@ -31,35 +31,36 @@ docs/
   EN_Card_Data.csv   ← official card text/IDs reference (opponent decks + replay analysis)
 training/
   README.md          ← local training rig guide (setup, workflows, opponent pool,
-                       curriculum/reward-shaping notes, discipline)
+                       reward-shaping notes, discipline)
   harness.py         ← run local games in parallel (kaggle_environments cabt)
   ab_test.py         ← A/B two agent files, alternating seats, 95% CI
-  gauntlet.py        ← fixed 8-anchor panel + Bradley-Terry fit → gElo scale;
+  gauntlet.py        ← fixed anchor panel + Bradley-Terry fit → gElo scale;
                        results accumulate in gauntlet_results.csv
+  bakeoff.py         ← round-robin over (agent, deck) pairs (Stage 0c/method bake-off)
+  generic_pilot.py   ← deck-agnostic greedy pilot (bake-off control/floor)
+  manifests/         ← bake-off entry lists (tier1.csv, tier2.csv) + deck manifests
   ladder_history.csv ← realized ladder Elo per shipped version (gElo calibration)
-  bc_collect.py      ← BC warmup data collection (teacher self-play → bc_data.pkl.gz)
-  weight_search.py   ← SPSA tuning of main.W scoring constants vs frozen v21
-  overnight_tune.py  ← budgeted overnight SPSA + gauntlet finals; crash-safe
-                       (tune_ckpt.json auto-resume, tune_log.jsonl); winner →
-                       variants/v24_tuned.py
-  curriculum.py      ← bad-hand games + tight-position mining
+  bc_collect.py      ← BC warmup data collection (teacher self-play → pkl.gz shards)
+  setup_local_search.py ← assemble local search-capable cg package (local_cg/, gitignored)
+  archetype_decks.json ← reconstructed archetype 60-card lists (belief model, Stage 3)
   random_agent.py    ← uniform-random opponent (baseline gate + gauntlet anchor)
-  baselines/         ← frozen v21.py, v22_pre_refactor.py, v23.py (A/B refs + anchors)
-  nn/                ← NN track: selfplay_agent.py, selfplay_collect.py, train_sp.py,
-                       dataset.py, prior_blend.py — see docs/nn-training.md
-  kaggle_notebook/   ← throwaway Kaggle spikes (e.g. mcts-spike.ipynb, search API probe)
-  kaggle_upload/     ← Kaggle dataset staging (dataset-metadata.json only; data files
-                       are copied in from training/ at upload time)
-  ptcg_bc_v1.pth     ← trained BC checkpoint (10 epochs, 85.9% held-out accuracy; OLD deck)
-  bc_data*.pkl.gz    ← BC warmup dataset (v22 self-play, ~547k decisions; OLD deck)
-  sp_data*.pkl.gz    ← self-play collection shards (Phase 1)
+  baselines/         ← frozen v21.py, v22_pre_refactor.py, v23.py (anchors) + v25c.py (A/B ref)
+  belief/            ← archetype classifier: collect.py, train.py, exported weights + figure
+  nn/                ← NN track: encode/model/dataset, collectors (mcts_collect.py,
+                       dmc_collect.py, selfplay_collect.py, dagger_collect.py,
+                       exploiter_collect.py), trainers (train_bc/train_sp/train_dmc),
+                       gates (dmc_replay_gate.py), search (mcts.py,
+                       mcts_leafeval_agent.py), Φ baseline (phi_baseline.py,
+                       threat.py) — see docs/nn-training.md
+  *.pth              ← local reference checkpoints (gitignored): ptcg_bc_v1/v2,
+                       ptcg_dagger_r2, ptcg_dmc_r2, ptcg_dmc_p0_v2_n1_richenc_v2,
+                       ptcg_exploiter_r1
+  mcts_p2_r3.pkl.gz  ← fixed Phase-2 self-play-with-search corpus (pending retrain)
 opponents/
   lucario_agent.py   ← Mega Lucario ex (official Kaggle sample; real deck embedded)
   dragapult_agent.py ← Dragapult ex Stage 2 spread (official Kaggle sample; real deck embedded)
   abomasnow_agent.py ← Mega Abomasnow ex energy mill (official Kaggle sample; real deck embedded)
   starmie_agent.py   ← Mega Starmie ex spread (stub with real IDs: Staryu=1030, Starmie ex=1031)
-  samples/           ← official Kaggle sample rule-based agent notebooks (Dragapult ex,
-                       Mega Abomasnow ex, Mega Lucario ex) — source material for opponents/
 tools/
   analyze_replay.py  ← kaggle-env replay decoder/auditor (missed lethals, bad retreats,
                        bad Boss targets, wasted energy attaches, timeouts). Usage:
@@ -74,14 +75,10 @@ tools/
   meta_survey.py     ← classify opponent archetype per replay JSON → ladder meta
                        share table (decision-rule weights, Stage 3 labels, report
                        figure). `python tools/meta_survey.py --all --csv training/meta_survey.csv`
-variants/
-  README.md          ← deck-variant workflow (Stage 0): copy of main.py with DECK
-                       edited, A/B'd vs current main.py; scratch dir, losers deleted
 replays/
-  v22/, v23/         ← saved ladder replays grouped by agent version, for
-                       `tools/analyze_replay.py` forensics. Summaries (*_summary.txt)
-                       are tracked; raw JSONs are git-ignored (local only —
-                       re-download from Kaggle if needed)
+  bulk/              ← bulk-downloaded ladder replays (tools/download_replays.py);
+                       raw JSONs are git-ignored (local only)
+  exploiter_wins/    ← 18 mined exploiter-win summaries (board-thinning evidence)
 ```
 
 ---
@@ -268,7 +265,7 @@ def _detect_phase(cen, can_ko, at_threshold, opp_prizes_left, hand_n):
   scoring (DAgger teacher labels + MCTS prior blending)
 - `_safe_return(sel)` — always returns a valid legal action (fallback)
 - `agent(obs_dict)` — entry point
-- `W` — tunable scoring-weight dict (`weight_search.py` / `overnight_tune.py`)
+- `W` — tunable scoring-weight dict (mutated in-process by tuning harnesses; the submission never reads env/files)
 
 ### Prize Value Logic
 ```python

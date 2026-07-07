@@ -92,7 +92,16 @@ def compute_value_targets(model, decisions, outcome, mcts_root_values=None):
     ]
     rewards = [0.0] * n
     for t in range(n - 1):
-        rewards[t] = shaped_reward(decisions[t]["obs"], decisions[t + 1]["obs"], 0)
+        # 2026-07-06 fix: me_idx was hardcoded 0, but `decisions` comes from
+        # extract_decisions(steps, seat=net_seat) and net_seat is 1 for half
+        # of any collection run that alternates seats (as mcts_collect.py and
+        # dmc_collect.py both do) -- for those games this silently computed
+        # the shaped reward from the OPPONENT's perspective (swapping "my"
+        # and "opp" prize/hand progress). Read the real seat from each
+        # decision's own obs instead of assuming 0. Same bug class as the
+        # one already found and fixed in dmc_nstep.py's _phi_at this session.
+        me_idx = (decisions[t]["obs"].get("current") or {}).get("yourIndex", 0)
+        rewards[t] = shaped_reward(decisions[t]["obs"], decisions[t + 1]["obs"], me_idx)
     for t in range(n):
         G = 0.0
         disc = 1.0

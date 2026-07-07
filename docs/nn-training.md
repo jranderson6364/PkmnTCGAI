@@ -3,9 +3,16 @@
 *Running log of NN architecture, training status, and the phased roadmap for the
 learned-piloting agent (the 70%-weighted "model approach" axis).*
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-06
 **Evidence rule:** method claims route through the pre-registered method bake-off —
 see `docs/competition-strategy.md` → Method Bake-off Protocol and `docs/report-log.md`.
+**>>> ACTIVE PLAN: AlphaZero-style push (user-directed 2026-07-05) — Phase 1
+(encoding enrichment) RESOLVED 2026-07-06: a warm-start confound explained
+the earlier regression; fixed, richer encoding now ties the plain baseline
+(harmless, not yet proven better) and is ADOPTED. Phase 2
+(`mcts_collect.py` self-play-with-search infra) is next. See
+"AlphaZero-Style Push" section below. Supersedes/extends the Phase 0
+framing (still active in parallel — see "Phase 0" section).**
 **Status:** RESTARTED. All prior training data was lost, but the engine now runs
 **fully locally** (`training/README.md`) — data collection no longer needs Kaggle
 or even the Vivobook (the Vivobook multiplies throughput). Teacher is now v25c
@@ -77,6 +84,448 @@ to Stage 3 Phase B next regardless of outcome. Full writeup:
 `docs/report-log.md` 2026-07-04 "Stage 5 search-at-inference" entries
 (multiple, same day). See "Resume Here" for the full AWR writeup this
 decision responds to.
+
+---
+
+## AlphaZero-Style Push (2026-07-06 — Phase 1 RESOLVED+adopted; Phase 2 infra DONE; bug found in first real training pass, fix collected, retrain PAUSED — see Resume Here below)
+
+**>>> RESUME HERE:** a third instance of the "hardcoded seat index" bug
+(same class as `dmc_nstep.py`'s `_phi_at`) was found and fixed in
+`selfplay_collect.py::compute_value_targets`'s `shaped_reward` call (was
+hardcoded `me_idx=0`, now reads the real seat from each decision's own
+obs). The fixed 300-game corpus is already collected
+(`training/mcts_p2_r3.pkl.gz`, 22,167 samples, 0 relabel errors,
+match_rate=0.831, label self-consistency 98.5%). **Not yet run, paused at
+the user's explicit request:** retrain via `train_sp.py` on this corpus
+(`--bc-data training/bc_data.pkl.gz --bc-limit 10 --bc-frac 0 --epochs 8
+--steps-per-epoch 165 --init training/ptcg_dmc_p0_v2_n1_richenc_v2.pth
+--out training/ptcg_sp_p2_r2_fixed.pth`) and gate via `dmc_replay_gate.py
+--value-source head`. Compare against: pre-training baseline (0.606 ALL),
+the pre-fix buggy result (0.428 ALL/0.375 LATE, or 0.630/0.639 negated), Φ
+v2 (0.604/0.696), best DMC checkpoint (0.609/0.700). Full diagnostic story:
+`docs/report-log.md` 2026-07-06 "Real training gate reveals a THIRD
+instance of the 'hardcoded me_idx' bug" entry.
+
+**Why:** the user directed a genuine push toward AlphaZero-style training —
+self-play generated via real search with MCTS visit-count policy targets
+fed back into training — rather than the current setup, where a DMC-trained
+value net and an inference-only search wrapper (`mcts_leafeval_agent.py`)
+never actually talk to each other during training. The user specifically
+named two levers: richer situational/belief information into the network,
+and substantially more training, not just inference-time search.
+
+**Plan (per an ml-engineer consult, sequenced to keep results
+interpretable):**
+1. **Encoding enrichment first, standalone-gated** — DONE 2026-07-05,
+   result flat-to-slightly-worse (see below). Isolated so a later Phase 2
+   result isn't confounded between "features helped" and "search helped."
+2. **Phase 2 — DONE 2026-07-06: `mcts_collect.py`**, the infrastructure-
+   validation milestone — asymmetric self-play (search on our side only via
+   `mcts_leafeval_agent.py`, reduced sims=40 not eval-time's 100; opponent
+   side via `selfplay_agent.py`'s plain temperature-sampled net policy,
+   same checkpoint — true self-play), extracting real MCTS visit-count
+   policy targets + search-backed root values into the ALREADY-EXISTING but
+   previously-unused plumbing in `train_sp.py`/`dataset.py`/
+   `selfplay_collect.py` (`policy_target` soft cross-entropy,
+   `mcts_root_values` override, `compute_value_targets`). Built:
+   `MCTSSearcher.choose_with_stats()` (exposes visit counts N + root value,
+   `choose()`'s existing contract unchanged), `mcts_leafeval_agent.py`'s
+   new `MCTS_COLLECT_LOG` hook (logs one record per real search decision),
+   `mcts_collect.py` itself (runs serially, `workers=1`, for correct
+   game/outcome correlation on this first validation — a wrong correlation
+   would be a silent, hard-to-detect training-data bug). **A real bug found
+   and fixed along the way:** matching collected records to game decisions
+   by raw obs content initially gave 0% matches — traced to
+   `remainingOverageTime`/`step` being inconsistently populated between the
+   live agent-facing obs and the same state reconstructed from `env.steps`
+   afterward; fixed by keying matches on only `current`+`select` (the
+   stable game-state/options parts) via `json.dumps(sort_keys=True)`, not
+   raw pickle bytes (which is itself unsafe — dict insertion order can
+   differ between `==`-equal dicts). **Validation: 30 games, 0 relabel
+   errors, 2336 samples, match_rate=0.847** (the ~15% gap is trivial/
+   multiselect decisions that never involve real search, by design, not a
+   bug) — clears the success bar this milestone was scoped to (the plumbing
+   works, zero relabel errors, matching the bar DAgger's own collector was
+   held to). Full data: `docs/report-log.md` 2026-07-06 "Phase 2 built and
+   validated" entry.
+   **PARALLELIZED same day (2026-07-06, per a Claude Fable sequencing
+   consult):** `harness.py`'s `run_matches`/`_worker` extended with
+   optional per-job `extra_envs` (backward compatible — verified existing
+   callers unaffected), `mcts_leafeval_agent.py` embeds a new
+   `MCTS_GAME_ID` per record, and `mcts_collect.py` now correlates records
+   to games by that ID instead of serial submission order — enabling real
+   `workers>1`. **Validated at 300 games/15 workers: 0 relabel errors,
+   21,143 samples, match_rate=0.838** — consistent with every smaller-scale
+   run this session (0.794-0.847), no degradation from parallelism, and at
+   the actual scale (300 games) this project's trustworthy results have
+   historically needed. Full data: `docs/report-log.md` 2026-07-06
+   "Parallel game_id collection mechanism" entry. **A second real latent
+   bug found via the smoke-test discipline while first exercising this
+   pipeline through `train_sp.py`:** `dataset.py`'s `collate()` hardcoded
+   `numeric = torch.zeros(B, 13, ...)` instead of importing `NUM_FEATS`
+   from `encode.py` — harmless before Phase 1's 13→25 feature change, a
+   hard crash once exercised. Fixed. Next: an actual (not just plumbing)
+   training pass on the 21,143-sample corpus.
+3. **Gating between generations** (once real training is attempted): 400+
+   games minimum, given this project's repeated history of 30-game gates
+   being later retracted (see the 40%→19% correction above).
+
+**Phase 1 result: flat-to-slightly-worse, not the hoped-for improvement.**
+Confirmed the hypothesis was well-motivated first: `encode.py::numeric_feats`
+had only 13 raw counters (HP ratios, hand/deck/prize counts, one hardcoded
+Mist flag, turn) — no archetype belief posterior, no opponent-threat
+estimate, no evolution-line progress, despite all three already existing
+elsewhere in the project. Extended to 25 features (belief posterior + wall/
+crustle flags via `main.py`'s own `_belief_posterior`, `threat.net_threat_diff`,
+line progress + `has_alakazam` via `_census`, hand-vs-KO-threshold
+`hand_advantage`). Retrained on the IDENTICAL data/targets as the existing
+round-2 n=1 checkpoint (isolating the encoding as the only variable), gated
+on the same 1356-replay corpus: **ALL 0.586 [0.558,0.612], LATE 0.646
+[0.611,0.678] — WORSE than the 13-feature checkpoint's 0.609/0.700** on
+both metrics (CIs overlap, not a clean statistical loss, but clearly not an
+improvement either). In-distribution training accuracy was actually HIGHER
+with richer features (0.9896 vs 0.9789) — consistent with this project's
+repeated in-distribution-fit-doesn't-predict-generalization pattern.
+Plausible, unconfirmed explanations: more parameters (13→25 input dims)
+without more training data/epochs to constrain them; redundancy with what
+the transformer already extracts from raw board-slot card IDs; belief
+posterior is known near-coinflip early-game (Phase A/B work) and folding it
+in at ALL turns may inject noise in exactly the early states this project
+has repeatedly found near-chance anyway. Single run, not yet replicated.
+
+**Decision (superseded, see below): PAUSED for user input before Phase 2**,
+per the plan's own contingency — proceeding to the much more expensive
+self-play-with-search infrastructure work while carrying an unresolved
+features question forward would make Phase 2's own eventual gate
+uninterpretable. Full data: `docs/report-log.md` 2026-07-05 "AlphaZero-style
+push, Phase 1" entry.
+
+**RESOLVED 2026-07-06 — the regression was a training-harness confound, not
+the features.** Isolated-component ablation (per the same discipline that
+found the two Φ bugs) tested each of the three added feature groups alone
+(`ENCODE_FEATURE_SET=base+threat/base+census/base+belief`): all three landed
+at essentially the SAME regressed accuracy (0.583-0.585 ALL, 0.640-0.643
+LATE) rather than spreading out by feature quality — a strong signal of a
+structural cause, not feature-specific harm. Root cause: any width change to
+`numeric_proj`'s input caused `train_dmc.py`'s shape-mismatch filter to
+discard that whole layer's pretrained weights (fresh random init), while the
+comparison checkpoint (`base13`) kept its already-trained version of that
+same layer (no shape change there) — an unfair, confounded comparison. Fixed
+`train_dmc.py`'s warm-start logic to copy the old weights into the
+original 13 columns and leave only the genuinely new columns at fresh
+init. Retrained the full 25-feature encoding with this fix
+(`ptcg_dmc_p0_v2_n1_richenc_v2.pth`): **ALL 0.608 [0.582,0.634], LATE 0.700
+[0.670,0.728] — essentially IDENTICAL to the 13-feature baseline
+(0.609/0.700)**, closing the gap entirely. **Verdict: the user's hypothesis
+is NOT falsified (the apparent harm was purely a measurement artifact), but
+also not yet PROVEN as an improvement — a clean tie, not a win.** The 12 new
+feature columns still only had 5 epochs, same as everything else, to learn
+from scratch while riding an otherwise-converged network; more
+epochs/data might let them pull ahead, not yet tested given time
+constraints. **Decision: adopt the richer, warm-start-fixed encoding
+going forward (confirmed harmless, philosophically aligned with the
+user's direction, removes a future confound) and PROCEED TO PHASE 2**
+(`mcts_collect.py` self-play-with-search infrastructure milestone) — the
+original blocking condition (an unresolved features question) is now
+resolved. Full data: `docs/report-log.md` 2026-07-06 "Feature-ablation
+isolates the real cause" and "Warm-start fix confirmed" entries.
+
+---
+
+## Phase 0 (2026-07-05 — ACTIVE): n-step value targets + Φ-shaping + diverse self-play
+
+**Status of the line this replaces — DMC (Deep Monte Carlo, DouZero recipe):**
+`training/nn/dmc_agent.py` (epsilon-greedy Q-value agent) + `training/nn/train_dmc.py`
+(regresses the taken action's logit, treated as Q(s,a), to the full-episode
+Monte Carlo outcome — no BC/imitation mixing at all, the one operator in the
+2026-07-04 literature review never tried). Three rounds, all vs. frozen v25c
+only: round 1 `ptcg_dmc_r1.pth` 1.0%, round 2 (fresh temp-0.2 data) 1.7%,
+round 3 (`ptcg_dmc_r2.pth`, retrained on rounds 1+2 combined) 2.5% (5/200,
+greedy). A `--oversample-wins 6x` variant got 2.0% (ruled out class
+imbalance as the bottleneck). Monotone-but-slow climb — genuine learning
+signal (rules out a degenerate fixed-action bug) but at this rate the
+25-30% pre-registered target needs an estimated 30+ more rounds. Full
+numbers: `docs/report-log.md` 2026-07-05 DMC entries.
+
+**Re-architected 2026-07-05** (full reasoning: `docs/report-log.md`
+2026-07-05 "Strategy re-architecture" entry) rather than just running more
+DMC rounds. Diagnosis: DMC/AWR/oracle-critic all share one root cause — a
+single sparse terminal ±1 label backed up uniformly to every one of a
+game's ~158 decisions, most of which are optional sub-plays (unlike chess/
+Go's one-forced-move-per-ply) that didn't actually matter. This is a
+credit-assignment problem, not proof mid-game value is unlearnable.
+
+**Plan amended 2026-07-05 per ml-engineer review** (full transcript reasoning
+below the plan) before implementation started. Five changes from the
+original plan: (a) the calibration gate must beat **Φ-only sign-accuracy on
+the 725 replays**, not the flat 62.5% oracle-critic figure — Φ (hand size +
+prize differential) is outcome-correlated by construction and could clear
+62.5% on its own, telling us nothing about the learned component; also
+verify whether 62.5% was even measured on this same replay set before using
+it as a reference point at all. (b) n-step bootstrapping is a bet *against*
+DouZero's own design rationale (pure MC specifically avoids the
+function-approximation + bootstrapping + off-policy deadly triad) — treat as
+a real hypothesis under tension, not a safe default. (c) run an ablation
+grid (n-step alone / Φ-only / n-step+Φ) so a pass/fail on the combined gate
+is attributable to a specific piece. (d) **before the full week**, run a
+cheap probe: plug the existing `ptcg_dmc_r2.pth` value net as-is into
+leaf-eval search (no new value net needed) and check for any life over raw
+argmax — the value net's main payoff is Phase 1 search, which is an
+explicitly non-automatic stretch goal, so confirm the consumer has legs
+before spending the week polishing its input. (e) use game-level (not
+per-state) bootstrapped CIs for the replay gate — states within one game are
+correlated, and per-state CIs would overstate power on only 725 games.
+
+**Plan (target ~1 week, extends the existing DMC pipeline, no new search
+infra):**
+0. **Cheap probe — DONE 2026-07-05, result: promising vs a weak baseline,
+   decisively negative vs the real teacher.** PUCT/leaf-eval search using
+   `ptcg_dmc_r2.pth`'s existing Q-head as-is (no retraining) —
+   `training/nn/mcts_leafeval_agent.py`, `MCTSSearcher(leaf_eval="net")` in
+   `mcts.py` (plays forward via the real adversarial opponent only until our
+   own next decision, capped at 40 ply, then evaluates max_a Q(s,a) — never
+   queries the net on an opponent-turn state, matching its training
+   distribution). First result: 38W-2L (95%) vs. raw DMC argmax
+   (`training/nn/dmc_agent.py`), 0 errors, 40 games — but the decisive
+   follow-up gate vs. v25c (`main.py`) came back **2W-28L (6.7%)**, 0 errors,
+   30 games, avg ~270-325s/game. Correct read: search reliably amplifies a
+   weak value net's signal (the 95% vs. weak-baseline effect is real and
+   large), but the DMC net itself is too weak (2.5% vs v25c on its own) for
+   search to close the gap to the real teacher. **Conclusion: Phase 1
+   infrastructure is validated and worth keeping, but is a consumer of
+   Phase 0's output, not a shortcut past it** — re-gate once a Phase-0-
+   improved value net exists. Full writeup + correction:
+   `docs/report-log.md` 2026-07-05 "Phase 0 step-0 probe" entry and its
+   same-day correction. Compute-budget flag carried forward: ~270-325s/game
+   at MCTS_SIMS=100 is within the 10-minute match clock on average but needs
+   a real per-move budget check, not just an average, before any ladder use.
+1. **n-step bootstrapped value targets** — **full sweep DONE 2026-07-05
+   (round 1: 300 games/n=5 only; round 2: 1500 games/n∈{1,5,15}).**
+   `training/nn/dmc_nstep.py` (`compute_nstep_targets`, bootstrap =
+   `max_a Q(s,a)` from the DMC convention, not the untrained `value_head`)
+   wired additively into `dmc_collect.py --n-step N --bootstrap-ckpt ...`
+   (default unchanged); `dmc_relabel.py` relabels one shared raw corpus
+   offline into multiple n-step arms (avoids re-playing the same expensive
+   games once per arm), supports multi-shard corpora via glob.
+   **Round-2 result (1500-game corpus, gated against the full 1356-replay
+   corpus):**
+
+   | Arm | ALL | LATE |
+   |---|---|---|
+   | Φ v1 baseline | 0.563 [0.543,0.583] | 0.606 [0.576,0.635] |
+   | Φ v2 baseline (improved, see item 2 below) | 0.604 [0.587,0.620] | 0.696 [0.670,0.723] |
+   | full-MC baseline (matched retrain) | 0.555 [0.535,0.575] | 0.621 [0.594,0.649] |
+   | n=1 | **0.609 [0.583,0.634]** | **0.700 [0.671,0.728]** |
+   | n=5 | 0.607 [0.581,0.631] | 0.698 [0.668,0.726] |
+   | n=15 | 0.603 [0.578,0.626] | 0.686 [0.658,0.713] |
+
+   **Confirmed, robust: n-step beats full-MC across the whole sweep** (not
+   just n=5, as round 1 alone showed) — replicates at 5x scale. n=1/5/15 are
+   statistically indistinguishable from each other (n=1 marginally ahead).
+   **Sobering: none of the n-step arms clearly beats the IMPROVED Φ v2
+   baseline anymore** (heavily overlapping CIs) — round 1's "beats Φ-only"
+   gate pass was against the since-superseded, needlessly-weak Φ v1. The
+   original Phase 0 gate criterion is not currently satisfied against the
+   honest current baseline; n-step training itself remains a real, validated
+   improvement over full-MC, just not (yet) proven to beat a good fixed
+   heuristic. Full data: `docs/report-log.md` 2026-07-05 "Round-2 n-sweep"
+   entry. Caveat unchanged: all n warm-start from a full-MC checkpoint
+   (`ptcg_dmc_r2.pth`), so this doesn't rule out that starting from a
+   genuinely from-scratch or n-step-native pretrain could do better.
+2. **Hand-crafted potential-shaping Φ(s)** — **mechanism DONE 2026-07-05,
+   ablation grid not yet run.** Φ itself (`training/nn/phi_baseline.py`,
+   already gated against 1356 real replays — ALL sign_acc 0.563, LATE
+   0.606, two real bugs found and fixed via isolated-component checks along
+   the way) is now wired into the actual training target via
+   `dmc_nstep.py`'s `compute_nstep_targets(..., use_phi_shaping=True)` —
+   orthogonal to n-step (can be used alone with full-MC, or combined with
+   any n_step value), reusing the SAME `phi()` function rather than a second
+   implementation. `dmc_collect.py --phi-shaping` (combinable with
+   `--n-step`). Formula: `F_k = γΦ(s_{k+1}) - Φ(s_k)`, accumulated over the
+   same window as the n-step target — Ng/Harada/Russell 1999
+   potential-based shaping, provably policy-preserving and can't saturate
+   the way AWR's *learned* value head did, since Φ is never fit to the
+   noisy sparse label. Verified: telescoping sum matches a manual recursive
+   computation exactly; produces genuinely distinct per-decision targets
+   from one flat game outcome (the actual credit-assignment fix); reduces
+   exactly to unchanged full-MC when the flag is off; combines correctly
+   with n-step; three live end-to-end CLI runs (shaping alone, n-step alone,
+   both combined) all completed cleanly. One real bug caught before it could
+   contaminate data: `_phi_at` initially hardcoded the acting seat to 0 —
+   `extract_decisions` does NOT renormalize seats, so this would have
+   silently computed Φ from the wrong player's perspective in half of all
+   collected games; fixed to read `yourIndex` from each sample's own obs.
+   Full writeup: `docs/report-log.md` 2026-07-05 "Potential-shaping Φ built
+   as a training-time target arm" entry. Φ is built from features `main.py`
+   already computes internally: `_hand_size` relative to KO threshold
+   (Powerful Hand damage proxy), prize differential, `_census()`
+   line-progress (Abra→Kadabra→Alakazam), Mist/Rock wall detection.
+3. **Diverse self-play opponent mix from batch one — DONE 2026-07-05.**
+   `dmc_collect.py` now mixes frozen v25c (`main.py`) + real coded bots
+   (`opponents/lucario_agent.py`, `dragapult_agent.py`, `abomasnow_agent.py`,
+   `starmie_agent.py`, via new `--bots`/`--bots-frac`, opt-in like the
+   existing `--pool`/`--pool-frac`, default off so a bare invocation is
+   unchanged) + a rolling checkpoint pool (`dmc_agent_pool.py`, second DMC
+   agent slot reading `NET_CKPT_POOL`). Never mirror-only (mirror-only
+   self-play is exactly what gave PIMC's rollout zero discriminating
+   signal — 90/90 vs mirror-self). Bot games round-robin across the given
+   bot list per chunk the same way the checkpoint pool already does; the
+   per-chunk mix is `n_bots = round(n·bots_frac)`,
+   `n_pool = round(n·pool_frac)`, `n_main = max(0, n - n_pool - n_bots)`.
+   Verified: 3 live end-to-end runs (bots alone with correct per-game CSV
+   opponent attribution; bots + n-step; bots + Φ-shaping), 0 errors. Full
+   writeup: `docs/report-log.md` 2026-07-05 "Diverse opponent pool" entry.
+   `archetype_decks.json` decklists are still explicitly NOT used as
+   opponents (would need `generic_pilot.py`, already shown to go ~80%
+   deck-out in the Stage 0c bake-off — too weak).
+4. **Gate: real-replay value calibration, NOT win-rate.** Value-head
+   sign-accuracy/calibration against the 1361 downloaded real ladder
+   replays' (state, eventual outcome) pairs (1356 usable games after
+   filtering to a valid seat + clean ±1 reward), bucketed by game phase,
+   must beat **the Φ-only baseline computed 2026-07-05 on this same corpus**
+   (`training/nn/phi_baseline.py`, two real bugs found and fixed via
+   isolated-component checks — see report-log) by a statistically
+   meaningful margin, using game-level bootstrapped CIs (amendment (e)).
+   **Φ v1 baseline: ALL sign_acc=0.563 [0.543, 0.583], EARLY (turn≤4)
+   0.507 [0.485, 0.530], MID (5-10) 0.581 [0.559, 0.604], LATE (turn≥11)
+   0.606 [0.576, 0.635]** — this replaces the flat borrowed 62.5%
+   oracle-critic figure (confirmed measured on a different, self-play-
+   derived holdout, not real replays — never actually comparable).
+   **UPDATED, better baseline — Φ v2, 2026-07-05 (`training/nn/threat.py` +
+   `phi_baseline.py --version 2`):** a user design session identified Φ v1
+   was not actually zero-sum (only `prize_diff` is antisymmetric;
+   `hand_advantage`/`wall_penalty`/`line_progress` are one-sided). Rebuilt
+   with `net_threat_diff` (a genuinely antisymmetric term — verified to sum
+   to exactly 0 across both seats on the same state — using the real
+   card/attack database, `min(1, damage/defender_hp)/(1+turns_to_afford)`,
+   maxed over the attacker's known attacks) replacing `hand_advantage`.
+   **Φ v2: ALL sign_acc=0.604 [0.587, 0.620], LATE 0.696 [0.670, 0.723]** —
+   clean, non-overlapping CIs vs v1 on both metrics. A follow-up "v3" hybrid
+   (keep the precise deck-specific `hand_advantage` for our own side, use
+   the generic threat estimate only for the opponent, weight-tuned on a
+   held-out split) did NOT beat v2, and its own weight-tuning failed a
+   real generalization check (best-on-selection-set weight scored WORSE on
+   held-out than no tuning at all — a caught overfitting-to-selection-set
+   result). **Φ v2 is now the gate baseline any learned value head must
+   beat** — this raises the bar (round-1's n=5 result, 0.602/0.690, is now
+   roughly at parity with Φ v2 rather than clearly ahead of Φ v1). Full
+   data: `docs/report-log.md` 2026-07-05 "Φ redesigned for genuine
+   zero-sum consistency" entry. Win-rate at feasible n (100-400 games) has
+   repeatedly failed to resolve effects at this project's scale (DMC's own
+   climb, AWR's saturated value head,
+   oracle-critic's 62.5%) — this gate is designed to not inherit that same
+   measurement-resolution failure. A pass here is necessary but not
+   sufficient — treat as an OOD-generalization check (self-play-trained net
+   evaluated on real ladder trajectories), not a full substitute for
+   eventual win-rate confirmation once measurement resolution allows it.
+   **Ablation grid run 2026-07-05 — GATE CLEARED for n-step, Φ-shaping-in-
+   training is a clean NEGATIVE:** 4 arms (full-MC baseline / n_step=5 /
+   Φ-shaping alone / n_step=5+Φ), all trained identically (3 epochs,
+   warm-started from `ptcg_dmc_r2.pth`) on ONE shared 300-game diverse
+   corpus (bots+main.py), relabeled offline per-arm via new
+   `dmc_relabel.py`, gated via new `dmc_replay_gate.py` on the same 1356-game
+   corpus/methodology as the Φ-only baseline:
+
+   | Arm | ALL | LATE |
+   |---|---|---|
+   | Φ-only baseline | 0.563 [0.543,0.583] | 0.606 [0.576,0.635] |
+   | full-MC (matched retrain) | 0.582 [0.560,0.604] | 0.647 [0.619,0.676] |
+   | **n_step=5** | **0.602 [0.575,0.628]** | **0.690 [0.658,0.719]** |
+   | Φ-shaping alone | 0.488 [0.465,0.510] | 0.483 [0.452,0.514] |
+   | n_step=5 + Φ-shaping | 0.597 [0.570,0.623] | 0.680 [0.649,0.710] |
+
+   n_step=5 beats the matched full-MC baseline (+0.020 ALL, +0.043 LATE,
+   isolating the n-step effect specifically) and clears the gate outright on
+   LATE (non-overlapping CIs vs. Φ-only). Φ-shaping folded into the training
+   target is a clean negative — worst of all 4 arms, at/below chance — even
+   though the same Φ function scores a real 0.563/0.606 as a fixed,
+   unlearned baseline; the failure is specific to the shaping-into-
+   regression-target mechanism, not Φ itself. Combining Φ-shaping with
+   n-step adds no value over n-step alone. **Recommendation: n-step is the
+   priority lever; do not pursue Φ-shaping-as-implemented further without a
+   redesign** (e.g. as a fixed leaf/warm-start prior instead of folded into
+   the loss). Caveats: single run per arm, single n value (5, not the full
+   {1,15} sweep), modest 300-game/3-epoch scale — a real, direction-
+   consistent signal worth more compute, not yet a fully powered result.
+   Full data + discussion: `docs/report-log.md` 2026-07-05 "Phase 0
+   ablation grid" entry.
+5. **Phase 1 (search + value net composition) — CORRECTED 2026-07-05: real
+   ~3x win-rate improvement vs v25c (6.7%→~20-24%), NOT the ~6x "40%"
+   briefly believed from an underpowered check.** Real AlphaZero-style
+   guided search — `training/nn/mcts_leafeval_agent.py` (limited-sim PUCT,
+   leaf evaluation via the value net's `max_a Q(s,a)` directly, no
+   rollout-to-terminal, eliminating PIMC's too-weak-rollout-opponent failure
+   mode since no rollout opponent is needed). Same protocol each time
+   (`mcts_leafeval_agent.py` vs. `main.py`, `MCTS_SIMS=100`, seats
+   alternated), swapping only `NET_CKPT` and (once) game count:
+   - old weak checkpoint (`ptcg_dmc_r2.pth`, pre-Phase-0): **6.7%** (2W-28L,
+     n=30)
+   - round-1 n=5 (300-game corpus, 3 epochs): **20.0%** (6W-24L, n=30) — per
+     a user-directed ml-engineer sequencing consult (re-gate the validated
+     search wrapper with a new value net BEFORE spending compute on a full
+     n-sweep, since this number is the one that tells you if the composed
+     line can plausibly beat v25c at all)
+   - round-2 n=1 (1500-game corpus, 5 epochs), n=30: **40.0%** (12W-18L) —
+     **RETRACTED as a real improvement.** A user-requested larger-n follow-up
+     (n=100) came back **19.0%** (19W-81L) — essentially identical to
+     round-1, not a further jump. Pooled across both runs (130 games, same
+     checkpoint/settings): **23.8% [16.5%, 31.2%]**, comfortably consistent
+     with round-1's 20.0%. The 40.0% reading was an underpowered-sample
+     fluctuation, not a real effect — exactly the failure mode this
+     project's own history warns about (see the several prior "CORRECTION"
+     report-log entries); this session should have run the larger-n check
+     before declaring an improvement, not after.
+
+   **Honest standing result: a real, now twice-independently-replicated ~3x
+   win-rate improvement over the pre-Phase-0 baseline (6.7%→~20-24%)** —
+   round 2's larger corpus and full n-sweep did not produce a FURTHER
+   improvement over round 1, despite appearances. Separately, round-2's n=1
+   checkpoint only tied (didn't clearly beat) the improved Φ v2 baseline on
+   the standalone replay-calibration gate — consistent with the corrected
+   win-rate picture (no further real gain from round 2's larger-scale
+   training on THIS metric either).
+
+   **Compute-budget check: SAFE at MCTS_SIMS=100.** 6,897 real per-decision
+   timings collected during the n=100 gate (via a new `MCTS_TIMING_LOG` env
+   var hook in `mcts_leafeval_agent.py`): mean 3.14s, median 2.90s, p95
+   7.34s, max 21.12s (a real, heavier-than-normal tail on individual
+   decisions). ~69 of our own decisions/game on average; CLT-estimated
+   per-game total think time ≈216s mean, ~292s even at a pessimistic ~5σ
+   tail — comfortably under half the 600s match clock. This was the one
+   open technical risk flagged since the very first step-0 probe; now
+   resolved. (A first attempt at this check via a hand-rolled direct-in-
+   process timing script hit a real engine-state issue — running
+   `kaggle_environments.make("cabt")` + native `cg.api` search repeatedly
+   in one process broke immediately, likely leftover native search-handle
+   state from the local shim; abandoned in favor of reusing the
+   already-proven `ab_test.py`/`harness.py` multiprocess runner instead.)
+
+   **Decision:** the search+value-net line has a real, replicated ~3x
+   win-rate improvement that is compute-safe to run — a meaningful result,
+   just more modest than the retracted headline suggested. Whether ~20-24%
+   vs. v25c is itself worth shipping, vs. continuing to improve the value
+   net or increasing `MCTS_SIMS` now that budget headroom is confirmed, is
+   an open decision, not resolved this session. Full data:
+   `docs/report-log.md` 2026-07-05 "n5 value net re-gated...", "Round-2 n=1
+   checkpoint re-gated...", and "CORRECTION: the 40.0% result was noise..."
+   entries. Re-audit rather than reuse the closed `training/nn/mcts.py`
+   PIMC rollout code path (confirmed `_STALL_MEMO` global-state corruption
+   bug) if extending this further — the `leaf_eval="net"` mode added this
+   session is a separate, simpler code path already free of that bug.
+
+**Engine source note:** the competition's real C++ engine source
+(`ptcg_engine`) was obtained 2026-07-05 from the Kaggle Data page
+(`training/engine_src/`, gitignored — competition-use-only license, do not
+redistribute). Confirms `SearchBegin`/`SearchStep`'s in-memory `State` clone
+is the exact same native path PIMC already used (doesn't change Phase 0/1
+feasibility) and confirms the terminal win-condition logic matches what was
+already understood empirically. Useful going forward for verifying ambiguous
+rules directly rather than empirical probing; a custom native self-play
+harness (bypassing Python/JSON per-step overhead) is a lever available later
+IF self-play throughput becomes an actual bottleneck, not before Phase 0 runs.
+
+Belief-model consumers in `main.py` and exploiter-replay mining continue in
+parallel, unconditionally, regardless of Phase 0's outcome.
 
 ---
 
@@ -384,6 +833,10 @@ Concrete next steps, in order:
 ---
 
 ## Value Targets: n-step Monte Carlo with Bootstrapping
+
+**Superseded by "Phase 0" above (2026-07-05) — that section is the active,
+scoped plan (concrete n sweep, real-replay calibration gate). This section is
+kept as the original pre-DMC design sketch it grew out of.**
 
 Full-game binary win/loss targets are high-variance in 100+ decision games, and
 full playouts inside search are expensive. Instead:

@@ -1,8 +1,8 @@
 """Local game harness for the cabt engine (ships inside kaggle_environments).
 
 Runs full games locally (~0.5-1s each) — no Kaggle session needed. Used by
-ab_test.py (A/B evaluation), bc_collect.py (BC data), weight_search.py (weight
-tuning). Works on any machine with `pip install kaggle_environments --no-deps`
+ab_test.py (A/B evaluation), gauntlet.py, and all training/nn collectors.
+Works on any machine with `pip install kaggle_environments --no-deps`
 (--no-deps avoids a Windows long-path failure in an unrelated dependency).
 
 Agent modules must expose `agent(obs_dict) -> list[int]` and `DECK` (60 ints).
@@ -60,22 +60,49 @@ def play_game(agent0, deck0, agent1, deck1, keep_steps=False, max_steps=None):
 
 def _worker(job):
     """Multiprocessing worker: loads agents fresh in each process (module-level
-    caches like main._STALL_MEMO stay isolated per game batch)."""
-    path0, path1, keep_steps = job
+    caches like main._STALL_MEMO stay isolated per game batch).
+
+    job's optional 4th element (extra_env, a dict or None) is applied via
+    os.environ.update() BEFORE loading either agent -- lets a caller assign
+    a per-job identifier (e.g. a game_id an agent module can read at import
+    time and embed in its own side-channel logging) without changing the
+    job tuple shape for existing callers (extra_env defaults to None,
+    meaning "no change," so every pre-existing 3-tuple job still works)."""
+    path0, path1, keep_steps = job[0], job[1], job[2]
+    extra_env = job[3] if len(job) > 3 else None
+    if extra_env:
+        os.environ.update(extra_env)
     a0, d0, _ = load_agent(path0)
     a1, d1, _ = load_agent(path1)
     try:
-        return play_game(a0, d0, a1, d1, keep_steps=keep_steps)
+        result = play_game(a0, d0, a1, d1, keep_steps=keep_steps)
     except Exception as e:
-        return {"error": repr(e)}
+        result = {"error": repr(e)}
+    if extra_env:
+        # imap_unordered returns results in completion order, not submission
+        # order -- echo the job's own extra_env back so a caller using it to
+        # tag jobs (e.g. a game_id) can tell which job a given result is for.
+        result["extra_env"] = extra_env
+    return result
 
 
-def run_matches(path0, path1, n_games, workers=None, keep_steps=False, progress=True):
+def run_matches(path0, path1, n_games, workers=None, keep_steps=False, progress=True,
+                 extra_envs=None):
     """Play n_games of path0 vs path1 (seat order fixed — caller alternates).
-    Returns list of result dicts."""
+    Returns list of result dicts.
+
+    extra_envs: optional list of length n_games, each a dict of env vars (or
+    None) applied inside that specific job's worker process before agents
+    load -- e.g. mcts_collect.py uses this to assign a unique per-game
+    MCTS_GAME_ID so a search-based collect log can be correlated to game
+    outcomes correctly even when workers>1 interleaves multiple games'
+    decisions across processes. None (default) preserves prior behavior
+    exactly for every other caller."""
     import multiprocessing as mp
 
-    jobs = [(path0, path1, keep_steps)] * n_games
+    if extra_envs is None:
+        extra_envs = [None] * n_games
+    jobs = [(path0, path1, keep_steps, extra_envs[i]) for i in range(n_games)]
     results = []
     if workers is None:
         workers = max(1, (os.cpu_count() or 2) - 1)

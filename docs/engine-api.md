@@ -4,7 +4,7 @@
 and verified against live local games. This supersedes the partial/incorrect notes
 that previously lived in CLAUDE.md.*
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-05
 
 ---
 
@@ -16,6 +16,22 @@ binaries: `cg.dll` Windows, `libcg.so` Linux, `libcg.dylib` macOS, arm64 variant
 runs full games locally at ~0.5s/game. The richer `cg.api` (dataclasses,
 `all_card_data`, `search_begin`) is in the kiyotah/cg-lib Kaggle dataset; the local
 package has `cg.game` (battle functions) and `cg.sim`.
+
+**Real engine source now available (2026-07-05):** the competition posted the
+actual C++20 source (`ptcg_engine`, header-only, VS2022-buildable, no
+third-party deps) on the Kaggle Data page. Downloaded to `training/engine_src/`
+(gitignored — competition-use-only license, don't redistribute; see the
+`README.md`/`LICENSES/` inside that directory). Confirmed directly from
+source (`Export.cpp`, `Search.h`, `State.h`): `SearchBegin`/`SearchStep`
+clone `State` in-memory (a C++ struct copy, no IPC) — this is the exact
+native path the closed-negative PIMC search-at-inference experiment already
+used, so the source doesn't change search feasibility. Terminal-condition
+logic (`State::finishCheck`: prize-empty win, no-active-Pokémon-and-bench
+loss) matches what was already understood empirically. Ongoing value: verify
+ambiguous rules directly from source instead of empirical probing; a custom
+native self-play harness (bypassing Python/JSON per-decision overhead) is a
+lever available later if self-play throughput becomes a bottleneck for
+`docs/nn-training.md` §Phase 0/Phase 1 — not built now.
 
 ---
 

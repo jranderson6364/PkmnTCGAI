@@ -4,22 +4,62 @@ v1 rebuilt design (all prior encoding code was lost with the reset — see
 docs/nn-training.md). Deliberately simpler than the original 22000-vocab
 transformer-decoder sketch: a 13-slot board sequence + hand/discard bag
 embeddings + a small numeric feature vector, and a per-candidate-action
-feature vector for the policy head. No cg-lib dependency — everything is
-read directly off the raw obs_dict, identical to what `main.py` consumes.
+feature vector for the policy head. No cg-lib dependency for the base
+features — everything there is read directly off the raw obs_dict,
+identical to what `main.py` consumes.
 
 CARD_VOCAB / ATTACK_VOCAB are hardcoded upper bounds (real max observed card
 ID is 1267 as of 2026-07-01; enums may grow during the competition per the
 official docs, hence the safety margin) rather than calling all_card_data() —
-this keeps encode.py usable with or without cg-lib attached.
+this keeps the base features usable with or without cg-lib attached.
+
+2026-07-05 (user-directed): added situational-belief features to
+numeric_feats -- the net previously saw only 13 raw counters (HP ratios,
+hand/deck/prize counts, one hardcoded Mist flag, turn) with no archetype
+belief, no opponent-threat estimate, and no evolution-line progress, despite
+all three already existing elsewhere in the project (main.py's own belief
+model, this session's threat.py). This IS a new dependency on `main` (repo
+root) and `threat` (needs cg.api's local shim, training-side only, never
+used by the ladder-submitted main.py itself) -- acceptable here since
+encode.py is training-pipeline-only, unlike main.py's dependency-free
+constraint.
 """
 import math
+import os
+import sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import main as _heuristic  # noqa: E402
+from threat import net_threat_diff as _net_threat_diff  # noqa: E402
 
 CARD_VOCAB = 2000
 ATTACK_VOCAB = 2000
 OPTION_TYPE_VOCAB = 17  # OptionType enum, 0..16
 N_BOARD_SLOTS = 13      # my_active, my_bench x5, opp_active, opp_bench x5, stadium
 MAX_ACTIONS = 64
-NUM_FEATS = 13
+
+# 2026-07-05 ablation (docs/report-log.md "AlphaZero-style push, Phase 1"):
+# the combined 25-feature encoding scored WORSE than the plain 13-feature
+# baseline on the real-replay gate, despite each addition being individually
+# well-motivated. ENCODE_FEATURE_SET isolates which addition (if any) is
+# responsible, matching the isolated-component-before-trusting-the-
+# combination discipline already used for Φ. "full" (default) preserves the
+# already-tested combined behavior unchanged.
+_FEATURE_SET = os.environ.get("ENCODE_FEATURE_SET", "full")
+_FEATURE_SET_SIZES = {
+    "base": 13,
+    "base+threat": 14,
+    "base+census": 16,   # +line_progress, +has_alakazam, +hand_advantage
+    "base+belief": 21,   # +5 posterior probs, +wall_revealed, +crustle_seen, +unavailable flag
+    "full": 25,
+}
+NUM_FEATS = _FEATURE_SET_SIZES[_FEATURE_SET]
 
 
 def _pk_id(pk):
@@ -69,8 +109,29 @@ def discard_ids(obs, cap=20):
     return ids[:cap] or [0]
 
 
+_BELIEF_CLASS_ORDER = _heuristic._BELIEF_CLASSES  # fixed 5-class order, reused for a stable feature layout
+
+
+def _belief_feats(opp, turn):
+    """5 archetype posterior probabilities + wall_revealed + crustle_seen,
+    via main.py's own embedded belief model (the same function main.py
+    itself calls at inference) -- zero-filled + a bit set on failure so a
+    belief-model exception never breaks the whole feature vector."""
+    try:
+        post, wall_revealed, crustle_seen = _heuristic._belief_posterior(opp, turn)
+    except Exception:
+        post, wall_revealed, crustle_seen = None, False, False
+    if post is None:
+        return [0.0] * 5 + [0.0, 0.0, 1.0]  # last 1.0 flags "belief unavailable"
+    probs = [post.get(c, 0.0) for c in _BELIEF_CLASS_ORDER]
+    return probs + [1.0 if wall_revealed else 0.0, 1.0 if crustle_seen else 0.0, 0.0]
+
+
 def numeric_feats(obs):
-    """Fixed-size float feature vector, roughly matching main.py's _census inputs."""
+    """Fixed-size float feature vector, roughly matching main.py's _census inputs,
+    plus situational-belief features added 2026-07-05 (archetype posterior,
+    zero-sum threat estimate, evolution-line progress, hand-vs-KO-threshold
+    advantage) -- see module docstring."""
     cur = obs.get("current") or {}
     me_idx = cur.get("yourIndex", 0)
     pl = cur.get("players") or []
@@ -92,7 +153,27 @@ def numeric_feats(obs):
     for ec in (opp_active or {}).get("energyCards") or []:
         opp_energies.add(ec.get("id"))
     opp_mist = 1.0 if (11 in opp_energies or 20 in opp_energies) else 0.0
-    return [
+    turn = cur.get("turn", 0) or 0
+
+    try:
+        cen = _heuristic._census(my_active, me.get("bench") or [])
+        line_progress = cen["line_count"] / 2.0
+        has_alakazam = 1.0 if cen["has_alakazam"] else 0.0
+    except Exception:
+        line_progress, has_alakazam = 0.0, 0.0
+
+    if opp_hp:
+        cards_needed = math.ceil(opp_hp / _heuristic.PH_DMG_PER_CARD)
+        hand_advantage = max(-1.0, min(1.0, (my_hand_n - cards_needed) / 10.0))
+    else:
+        hand_advantage = min(my_hand_n / 10.0, 1.0)
+
+    try:
+        threat_diff = _net_threat_diff(cur, me_idx)
+    except Exception:
+        threat_diff = 0.0
+
+    base = [
         my_hp / max(my_maxhp, 1),
         opp_hp / max(opp_maxhp, 1),
         min(my_hand_n, 30) / 30.0,
@@ -105,8 +186,21 @@ def numeric_feats(obs):
         1.0 if cur.get("supporterPlayed") else 0.0,
         1.0 if cur.get("energyAttached") else 0.0,
         1.0 if cur.get("retreated") else 0.0,
-        min(cur.get("turn", 0) or 0, 60) / 60.0,
+        min(turn, 60) / 60.0,
     ]
+    census_group = [line_progress, has_alakazam, hand_advantage]
+    threat_group = [threat_diff]
+    belief_group = _belief_feats(opp, turn)
+
+    if _FEATURE_SET == "base":
+        return base
+    if _FEATURE_SET == "base+threat":
+        return base + threat_group
+    if _FEATURE_SET == "base+census":
+        return base + census_group
+    if _FEATURE_SET == "base+belief":
+        return base + belief_group
+    return base + census_group + threat_group + belief_group  # "full"
 
 
 def _opt_card_id(o, hand, bench):

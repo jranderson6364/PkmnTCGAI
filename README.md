@@ -1,16 +1,20 @@
 # PkmnTCGAI
 
 *Pokemon TCG AI Battle Challenge (Kaggle) — Alakazam single-prize heuristic agent
-(ladder placeholder + DAgger teacher) and the learned-piloting neural-net track.*
+(ladder submission + NN teacher) and the learned-piloting neural-net track.*
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-06
 
 ---
 
 ## Current State
 
-- **Active ladder submission:** v24 Alakazam heuristic (`main.py` + `deck.csv`) —
-  shipped 2026-07-02, rating pending; v23 sits at ladder public score 796.3.
+- **Active ladder submission:** v28 Alakazam heuristic (`main.py` + `deck.csv`),
+  shipped 2026-07-05 — board-thinning fix + belief-driven wall anticipation
+  (Phase C) + confidence recalibration.
+- **NN track:** AlphaZero-style push in progress — self-play-with-search
+  collection validated; retrain on the corrected corpus is the next step
+  (`docs/nn-training.md` §Resume Here).
 - **Deadlines:** Ladder ~Aug 16–17 · Report ~Sep 13 · Team merger ~Aug 9, 2026.
 - **Engine runs locally:** `pip install kaggle_environments --no-deps` → ~0.5s/game
   (see `training/README.md`). No Kaggle session needed for self-play or A/B testing.
@@ -30,13 +34,12 @@
 
 | Path | What it is |
 |------|------------|
-| `main.py` + `deck.csv` | The submission: v24 heuristic agent + 60-card deck |
+| `main.py` + `deck.csv` | The submission: v28 heuristic agent + 60-card deck |
 | `docs/` | All project documentation (canonical homes per topic — see table below) |
-| `training/` | Local training & evaluation rig: harness, A/B, gauntlet, SPSA tune, NN track (`training/README.md`) |
-| `opponents/` | Meta opponent pool agents (+ `samples/`: official Kaggle sample notebooks) |
-| `tools/` | `analyze_replay.py` (replay forensics), `deck_audit.py` (per-card utilization) |
-| `variants/` | Scratch dir for deck-variant A/Bs (`variants/README.md`) |
-| `replays/` | Ladder replay forensics by version (summaries tracked; raw JSONs local-only) |
+| `training/` | Local training & evaluation rig: harness, A/B, gauntlet, NN track (`training/README.md`) |
+| `opponents/` | Meta opponent pool agents (gauntlet anchors + collection sparring) |
+| `tools/` | Replay forensics, deck audit/math, meta survey, replay download |
+| `replays/` | `bulk/` (downloaded ladder replays) + `exploiter_wins/` (board-thinning evidence) |
 
 ---
 
@@ -48,8 +51,9 @@
 | `docs/competition-strategy.md` | Stage 0–5 roadmap (§Master Plan), writeup strategy |
 | `docs/report-log.md` | Experiment journal + glossary — the report is assembled from this |
 | `docs/engine-api.md` | cabt engine API (enums, option schema, verified behaviors) |
-| `docs/version-history.md` | v1–v24 agent change log |
+| `docs/version-history.md` | Agent version change log |
 | `docs/nn-training.md` | NN architecture, training log, phased roadmap |
 | `docs/belief-model.md` | Belief model design + phase plan (Stage 3) |
+| `docs/game-nature.md` | Game mechanics / decision-structure rundown |
 | `docs/piloting-guide.md` | Expert Alakazam piloting logic (NN training target spec) |
 | `docs/matchups.md` | Matchup reference + tech cheat-sheet |

@@ -18,3 +18,11 @@ timestamp,path_a,path_b,n_requested,a_wins,b_wins,ties,errors,a_wins_p0,a_wins_p
 2026-07-05T03:19:16,main.py,C:/Users/jande/AppData/Local/Temp/main_before_fix.py,300,168,132,0,0,89,79,61,71,0,0,0.56,0.0562
 2026-07-05T03:20:26,main.py,training/baselines/v23.py,200,114,86,0,0,58,56,42,44,0,0,0.57,0.0686
 2026-07-05T03:20:37,main.py,opponents/abomasnow_agent.py,40,38,2,0,0,20,18,0,2,0,0,0.95,0.0675
+2026-07-05T13:13:30,training/nn/mcts_leafeval_agent.py,training/nn/dmc_agent.py,2,2,0,0,0,1,1,0,0,0,0,1.0,0.0
+2026-07-05T13:28:14,training/nn/mcts_leafeval_agent.py,training/nn/dmc_agent.py,40,38,2,0,0,20,18,0,2,0,0,0.95,0.0675
+2026-07-05T13:49:23,training/nn/mcts_leafeval_agent.py,main.py,30,2,28,0,0,0,2,15,13,0,0,0.0667,0.0893
+2026-07-05T16:32:38,training/nn/mcts_leafeval_agent.py,main.py,30,6,24,0,0,3,3,12,12,0,0,0.2,0.1431
+2026-07-05T19:44:23,training/nn/mcts_leafeval_agent.py,main.py,30,12,18,0,0,9,3,6,12,0,0,0.4,0.1753
+2026-07-05T20:35:36,training/nn/mcts_leafeval_agent.py,main.py,100,19,81,0,0,8,11,42,39,0,0,0.19,0.0769
+2026-07-06T11:44:26,training/nn/mcts_leafeval_agent.py,training/nn/dmc_agent.py,2,2,0,0,0,1,1,0,0,0,0,1.0,0.0
+2026-07-06T18:17:22,training/nn/dmc_agent.py,main.py,2,0,2,0,0,0,0,1,1,0,0,0.0,0.0

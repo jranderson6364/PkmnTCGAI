@@ -137,6 +137,15 @@ timeout risk) and start logging its real-bracket results.
 
 ### Stage 2 — Advantage-weighted self-play (mid-Jul → early Aug)
 
+**CLOSED, negative, 2026-07-04** (both β values tested, see `docs/nn-training.md`
+§Resume Here item 3) — this stage's original AWR design is done. **Superseded
+by Phase 0** (`docs/nn-training.md` §Phase 0, `docs/report-log.md` 2026-07-05
+"Strategy re-architecture"): n-step bootstrapped value targets + hand-crafted
+potential-shaping Φ + diverse-opponent self-play, gated on real-replay value
+calibration rather than win-rate — a re-diagnosis of AWR's saturated-value-head
+finding, not a restart from scratch. Original stage description below kept for
+context.
+
 Past the teacher: weight each self-play sample's policy loss by
 `exp(advantage/β)` using the n-step value targets already computed — actions
 that outperformed expectation get imitated harder. Keep the 40% BC / 60% SP
@@ -160,6 +169,17 @@ hard-position and bad-hand eval suites (`training/curriculum.py`) as regression
 gates on every checkpoint; curriculum training starts from mined tight positions.
 
 ### Stage 5 — Search at inference (Kaggle-gated, freeze-week go/no-go)
+
+**CLOSED, negative, 2026-07-04** (heuristic-guided PIMC, rollout-to-terminal
+leaf evaluation — 0W-50L final gate; see `docs/nn-training.md` top summary).
+Root causes: PUCT visit collapse (zero exploration) + too-weak rollout
+opponent. **Reopened as "Phase 1" under Phase 0**
+(`docs/nn-training.md` §Phase 0), explicitly gated on Phase 0 first: true
+AlphaZero-style value-network leaf evaluation (no rollout-to-terminal, so the
+weak-opponent failure mode can't recur) + Dirichlet noise/temperature
+sampling at the root (fixes the PUCT-collapse failure mode) — but only
+pursued if Phase 0's value net clears its real-replay calibration gate first.
+Original stage description below kept for context.
 
 MCTS with the already-built λ-blended heuristic/net priors
 (`training/nn/prior_blend.py`) + belief-based determinization. Gated on the

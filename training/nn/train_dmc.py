@@ -87,6 +87,28 @@ def main():
     model = PTCGNet().to(DEVICE)
     state = torch.load(args.init, map_location=DEVICE)
     own = model.state_dict()
+
+    # 2026-07-06 fix: a plain shape-mismatch filter fully discards
+    # numeric_proj.0.weight (random reinit) whenever NUM_FEATS changes (e.g.
+    # ENCODE_FEATURE_SET adding new features) -- confirmed via an ablation
+    # (docs/report-log.md "AlphaZero-style push, Phase 1 ablation") that ALL
+    # THREE independently-tested feature additions landed at the SAME
+    # regressed accuracy regardless of which features were added, pointing
+    # at this warm-start disruption rather than the features themselves.
+    # Fix: when the mismatch is purely "more input columns" (same output
+    # dim, more input dim), copy the old weights into the first N_old
+    # columns and leave only the genuinely new columns at their fresh init,
+    # instead of discarding everything already learned about the original
+    # 13 features.
+    key = "numeric_proj.0.weight"
+    if key in state and key in own and state[key].shape != own[key].shape:
+        old_w, new_w = state[key], own[key].clone()
+        if old_w.shape[0] == new_w.shape[0] and old_w.shape[1] < new_w.shape[1]:
+            new_w[:, : old_w.shape[1]] = old_w
+            state[key] = new_w
+            print(f"partial warm-start: copied {key} old {tuple(old_w.shape)} "
+                  f"into new {tuple(new_w.shape)}, new columns kept fresh-init")
+
     state = {k: v for k, v in state.items() if k in own and v.shape == own[k].shape}
     model.load_state_dict(state, strict=False)
 

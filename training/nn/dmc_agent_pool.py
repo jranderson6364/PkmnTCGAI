@@ -1,8 +1,11 @@
-"""Epsilon-greedy Q-value agent for DMC self-play collection (exploration).
-Treats the net's per-action logit as Q(s,a): with prob epsilon picks a
-uniform-random legal action, else argmax over Q. Never used for ladder/eval.
+"""Second DMC agent slot for curriculum self-play: identical to dmc_agent.py
+but reads a SEPARATE env var (NET_CKPT_POOL) so a single collection process
+can field two different checkpoints at once -- the current learner
+(dmc_agent.py, NET_CKPT, epsilon-greedy) vs a past checkpoint from the
+opponent pool (this file, NET_CKPT_POOL, greedy by default). See
+dmc_collect.py and docs/report-log.md 2026-07-05 "DMC round 4" entry.
 
-Env vars: NET_CKPT (checkpoint path), NET_EPS (epsilon, default 0.1).
+Env vars: NET_CKPT_POOL (checkpoint path), NET_EPS_POOL (epsilon, default 0.0).
 """
 import os
 import random
@@ -15,8 +18,8 @@ import torch
 from net_common import load_model, encode_batch, clamp, _HERE
 from main import DECK
 
-_CKPT = os.environ.get("NET_CKPT") or os.path.join(_HERE, "..", "ptcg_dmc_r2.pth")
-_EPS = float(os.environ.get("NET_EPS", "0.1"))
+_CKPT = os.environ.get("NET_CKPT_POOL") or os.path.join(_HERE, "..", "ptcg_dmc_r2.pth")
+_EPS = float(os.environ.get("NET_EPS_POOL", "0.0"))
 
 
 def agent(obs_dict: dict) -> list:

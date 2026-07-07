@@ -216,6 +216,7 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 | Need | Go to |
 |------|-------|
 | **Full reference breakdown** | `docs/project-reference.md` |
+| Game mechanics/decision-structure rundown (for ML method choice) | `docs/game-nature.md` |
 | Roadmap / writeup strategy | `docs/competition-strategy.md` |
 | Experiment journal + glossary + target figures | `docs/report-log.md` |
 | Engine API (canonical) | `docs/engine-api.md` |
@@ -229,24 +230,86 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-05, per Fable design consult): re-spined the
-report thesis — hybrid (belief model + rigorous falsification program), not
-"pure learned policy beats heuristic."** Five independent operators (BC,
-DAgger, AWR, PIMC search, oracle-critic) plus a 6th (v25c exploiter round 1,
-flat ~12% vs ~11% baseline) have now converged on the same literature-
-predicted outcome. Reprioritized: (1) more Phase C belief-model consumers in
-`main.py` — each is ladder-A/B-gatable and directly evidences the hybrid
-claim; (2) the real-replay accuracy-by-turn figure (Phase A's 92.3% is the
-easy 5-bot version; the honest number against the 78.7% recognition ceiling
-isn't built yet); (3) mine the 106 exploiter-round-1 win replays for v25c
-blind spots (nearly free, already collected — replay-verified heuristic
-fixes have been the single most productive lever in this project's history).
-At most one bounded/background shot remains open: DMC (DouZero-style
-action-as-input Q-network vs. frozen v25c, no BC mixing) — pre-registered
-gate ~2026-07-19, hard stop end of July regardless of outcome. Full
-reasoning: `docs/report-log.md` 2026-07-05 "DESIGN DECISION" entry. Skip the
-determinization sampler (Phase C item 2, no live consumer). Prior next-step
-history below, for context:
+**>>> NEXT STEP (as of 2026-07-06): user directed an AlphaZero-style push
+— Phase 1 (encoding) RESOLVED+adopted; Phase 2 (`mcts_collect.py`
+self-play-with-search infrastructure) DONE, validated, and parallelized;
+first real training pass found a real bug (now fixed, fixed corpus
+re-collected); RETRAIN IS THE NEXT STEP, explicitly PAUSED before running
+it.** Phase 1 briefly looked negative (richer 25-feature encoding scored
+worse than plain 13-feature) but an isolated-component ablation traced
+this to a training-harness confound (fixed; now a clean tie with the
+baseline, adopted). Phase 2 built, validated, and parallelized same day
+(`MCTSSearcher.choose_with_stats()`, `mcts_leafeval_agent.py`'s
+`MCTS_COLLECT_LOG`/`MCTS_GAME_ID` hooks, `harness.py`'s `extra_envs` for
+`workers>1`) — validated at 300 games/15 workers, 0 relabel errors, 21,143
+samples. **The first real (not plumbing) training pass surfaced a THIRD
+instance of a recurring bug class** (a function silently assuming seat=0
+instead of reading the real seat — same pattern already caught twice
+elsewhere this session): `selfplay_collect.py`'s `shaped_reward` call had
+`me_idx` hardcoded to 0, computing the reward from the wrong side's
+perspective for half of all collected games. Diagnosed via a below-chance,
+backwards-phase-ordering result that was suspicious enough to check rather
+than accept (0.428 ALL/0.375 LATE as-is; negating gave a genuinely
+promising 0.630/0.639 — better than Φ v2's 0.604/0.696 on ALL — and the
+pre-training checkpoint already had a real 0.606 baseline, confirming
+training added real value, just sign-inverted). Fixed the bug and
+re-collected a corrected 300-game corpus
+(`training/mcts_p2_r3.pkl.gz`, 22,167 samples, 0 relabel errors,
+match_rate=0.831). **Explicitly PAUSED here at the user's request before
+spending the retrain compute** — a training attempt with the fix was
+started and deliberately stopped mid-startup (before any epoch ran or
+checkpoint saved, confirmed nothing lost). **Next step, not yet run:**
+retrain via `train_sp.py` on the fixed corpus and gate via
+`dmc_replay_gate.py --value-source head`, comparing against the
+pre-training/buggy/Φ-v2/DMC reference points above. Full data:
+`docs/report-log.md` 2026-07-06 "Phase 2 built and validated," "Fable
+consult on Phase 2 sequencing," "Parallel game_id collection mechanism,"
+and "Real training gate reveals a THIRD instance..." entries;
+`docs/nn-training.md` "AlphaZero-Style Push" §Resume Here. Prior Phase 0
+next-step summary (superseded but still relevant background), for context:
+the composed search+value-net system has a real, twice-replicated ~3x
+win-rate improvement vs the real teacher (6.7%→~20-24%) — an earlier "40%,
+roughly doubling again" reading was an underpowered-sample fluctuation,
+RETRACTED. Full Phase 0 pipeline built
+this session (n-step targets, Φ-shaping, diverse opponent pool, plus a
+user-driven Φ redesign for genuine zero-sum consistency — see
+`threat.py`/`phi_baseline.py --version 2`). Same protocol each time
+(`mcts_leafeval_agent.py` vs `main.py`, `MCTS_SIMS=100`): old weak
+checkpoint 6.7% (n=30) → round-1 n=5 (300-game corpus) 20.0% (n=30) →
+round-2 n=1 (1500-game corpus) 40.0% (n=30, 12W-18L). **A user-requested
+n=100 follow-up on that same round-2 checkpoint came back 19.0% (19W-81L)
+— essentially identical to round 1, not a further jump.** Pooled across
+both round-2 runs (130 games): 23.8% [16.5%, 31.2%], comfortably consistent
+with round-1's 20.0%. Round 2's larger corpus/full n-sweep did NOT produce
+a further win-rate improvement over round 1, despite appearances — exactly
+the failure mode this project's own history warns about (several prior
+report-log "CORRECTION" entries); the larger-n check should have run
+before declaring an improvement, not after. Consistent with this, round-2's
+n=1 checkpoint also only TIED (didn't clearly beat) the improved Φ v2
+baseline on the standalone replay-calibration gate. Separately, the
+n-step-vs-Φ ablation itself was fully swept this session (n∈{1,5,15} all
+clearly beat full-MC training, replicating at 5x scale; Φ-shaping-folded-
+into-training remains a closed, clean negative — see `dmc_nstep.py`'s
+docstring for the confirmed root cause: it trains toward `outcome − Φ(s)`,
+not `outcome`, which is not comparable in sign across different states).
+**Also resolved: a compute-budget check (the other open item) confirms
+`MCTS_SIMS=100` is SAFE against the 10-minute match clock** — ~69
+decisions/game for our own side, CLT-estimated per-game total think time
+≈216s mean, ~292s even at a pessimistic tail estimate, well under the 600s
+budget (measured via a new `MCTS_TIMING_LOG` hook in
+`mcts_leafeval_agent.py` during the n=100 run). Full data:
+`docs/report-log.md` 2026-07-05 "Round-2 n-sweep," "Φ redesigned for
+genuine zero-sum consistency," "Round-2 n=1 checkpoint re-gated," and
+"CORRECTION: the 40.0% result was noise" entries. **Honest current state:**
+a real, replicated ~3x win-rate improvement over the pre-Phase-0 baseline
+that is compute-safe to run — worthwhile, but more modest than briefly
+believed. Whether ~20-24% vs. v25c is worth shipping as-is, vs. continuing
+to improve the value net or increasing `MCTS_SIMS` now that budget headroom
+is confirmed, is an open decision for the user. Belief-model consumers in
+`main.py` and exploiter-replay mining continue in parallel,
+unconditionally. The competition's real C++ engine source (`ptcg_engine`)
+was also obtained this session (`training/engine_src/`, gitignored,
+competition-use-only license). Prior next-step history below, for context:
 
 **(2026-07-04) Stage 5 search-at-inference CLOSED, negative; Stage 3 Phase B
 DONE; pivoted to Phase C.** `training/nn/mcts.py`

@@ -72,6 +72,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import main as heuristic  # noqa: E402
+from net_common import load_model, encode_batch  # noqa: E402
 
 _OPPONENT_MODULE_NAME = os.environ.get("MCTS_OPPONENT_MODULE", "opponents.lucario_agent")
 _opponent_module = importlib.import_module(_OPPONENT_MODULE_NAME)
@@ -126,12 +127,24 @@ def _is_terminal(obs_dict):
 class MCTSSearcher:
     """One instance per real decision. Call `choose(obs_dict)` once."""
 
-    def __init__(self, sims=150, max_rollout_depth=250, c_puct=1.4, prior_temp=2.0):
+    def __init__(self, sims=150, max_rollout_depth=250, c_puct=1.4, prior_temp=2.0,
+                 leaf_eval="rollout", net_ckpt=None, net_leaf_max_depth=40):
+        """leaf_eval: "rollout" (default, unchanged — real terminal result) or
+        "net" (Phase 0 step-0 probe: stop as soon as it's our own decision
+        again — bounded by net_leaf_max_depth — and evaluate max_a Q(s,a) from
+        net_ckpt, instead of rolling out to a real terminal result). "net"
+        only ever queries the net at our-own-turn states, matching the
+        distribution dmc_collect.py trained it on (see docs/nn-training.md
+        Phase 0 amendment (d) — no sign-convention translation needed because
+        we never ask the net to value an opponent-turn state)."""
         self.sims = sims
         self.max_rollout_depth = max_rollout_depth
         self.c_puct = c_puct
         self.prior_temp = prior_temp
         self.depth_cap_hits = 0
+        self.leaf_eval = leaf_eval
+        self.net_ckpt = net_ckpt or os.path.join(_HERE, "..", "ptcg_dmc_r2.pth")
+        self.net_leaf_max_depth = net_leaf_max_depth
 
     def _action_for(self, obs_dict, our_seat):
         """Real teacher for our own turns, the adversarial opponent module
@@ -164,6 +177,43 @@ class MCTSSearcher:
                 for a, v in vals.items():
                     setattr(module, a, v)
 
+    def _net_leaf_value(self, search_id, obs_dict, our_seat):
+        """Advance real play (opponent turns via _action_for, our turns are
+        the query point) up to net_leaf_max_depth, then return max_a Q(s,a)
+        from self.net_ckpt at the first state where it's our own decision
+        again. Falls back to the real terminal result if the game ends first,
+        or 0.0 (unknown) if the depth cap is hit before either happens."""
+        saved = {}
+        for module, attrs in _STATEFUL_MODULES.items():
+            saved[module] = {a: getattr(module, a) for a in attrs if hasattr(module, a)}
+            for a, default_factory in attrs.items():
+                if hasattr(module, a):
+                    setattr(module, a, default_factory())
+        try:
+            cur_id, cur_obs = search_id, obs_dict
+            for _ in range(self.net_leaf_max_depth):
+                if _is_terminal(cur_obs):
+                    return _terminal_value(cur_obs, our_seat)
+                if cur_obs["current"]["yourIndex"] == our_seat:
+                    sel = cur_obs.get("select")
+                    if not sel or not sel.get("option"):
+                        return _terminal_value(cur_obs, our_seat)
+                    model = load_model(self.net_ckpt)
+                    batch, n = encode_batch(cur_obs, sel)
+                    import torch
+                    with torch.no_grad():
+                        logits, _ = model(*batch)
+                    return float(logits[0, :n].max().item())
+                from cg.api import search_step
+                ss = search_step(cur_id, self._action_for(cur_obs, our_seat))
+                cur_id, cur_obs = ss.searchId, _obs_to_dict(ss.observation)
+            self.depth_cap_hits += 1
+            return 0.0
+        finally:
+            for module, vals in saved.items():
+                for a, v in vals.items():
+                    setattr(module, a, v)
+
     @staticmethod
     def _filler(n, pool):
         pool = list(pool)
@@ -172,18 +222,32 @@ class MCTSSearcher:
 
     def choose(self, obs_dict):
         """Same contract as main.agent(): returns list[int]."""
+        action, _N, _root_value = self.choose_with_stats(obs_dict)
+        return action
+
+    def choose_with_stats(self, obs_dict):
+        """Phase 2 (docs/nn-training.md "AlphaZero-Style Push"): same search
+        as choose(), but also returns the raw visit counts N (the material
+        for an AlphaZero-style soft policy target, normalize with
+        N[a]/sum(N)) and a root value estimate (sum(W)/sum(N), the
+        visit-weighted average backed-up value across all sampled actions --
+        standard AlphaZero convention for the value target at this state).
+        Returns (action_list, N_or_None, root_value_or_None) -- N/root_value
+        are None for the fast-path returns (<=1 option, multiselect) where no
+        real search happened, since there's no meaningful policy/value
+        target to extract from those."""
         from cg.api import to_observation_class, search_begin, search_step, search_end
 
         sel = obs_dict.get("select")
         if not sel or not sel.get("option"):
-            return []
+            return [], None, None
         n_opts = len(sel["option"])
         if n_opts <= 1:
-            return [0] if n_opts == 1 else []
+            return ([0] if n_opts == 1 else []), None, None
         if _is_multiselect(sel):
             # Combinatorial multi-select isn't modeled here — defer to the
             # real teacher rather than emit a truncated/invalid selection.
-            return heuristic.agent(obs_dict)
+            return heuristic.agent(obs_dict), None, None
 
         our_seat = obs_dict["current"]["yourIndex"]
 
@@ -229,7 +293,11 @@ class MCTSSearcher:
                     best_score, best_a = score, a
 
             child_ss = search_step(root_ss.searchId, [best_a])
-            value = self._rollout(child_ss.searchId, _obs_to_dict(child_ss.observation), our_seat)
+            child_obs = _obs_to_dict(child_ss.observation)
+            if self.leaf_eval == "net":
+                value = self._net_leaf_value(child_ss.searchId, child_obs, our_seat)
+            else:
+                value = self._rollout(child_ss.searchId, child_obs, our_seat)
 
             N[best_a] += 1
             W[best_a] += value
@@ -239,4 +307,6 @@ class MCTSSearcher:
 
         best_a = max(range(n_opts), key=lambda a: N[a])
         search_end()
-        return [best_a]
+        total_n = sum(N)
+        root_value = (sum(W) / total_n) if total_n > 0 else 0.0
+        return [best_a], N, root_value

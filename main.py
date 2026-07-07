@@ -64,8 +64,8 @@ DECK = ([ABRA]*4+[KADABRA]*4+[ALAKAZAM]*3+[DUNSPARCE]*3+[DUDUNSPARCE]*3+
 _CARDS = None; _ATKMAP = None
 _STALL_MEMO = {}
 
-# Tunable scoring weights (v22). Defaults ARE v21 behavior; weight_search.py mutates
-# this dict in-process to run optimization — the submission never reads env/files.
+# Tunable scoring weights (v22). Defaults ARE v21 behavior; tuning harnesses may
+# mutate this dict in-process — the submission never reads env/files.
 W = {
     'atk_threshold':150.0,'atk_default':7.0,
     'dudun_base':11.0,'fez_base':8.0,
@@ -78,7 +78,7 @@ W = {
     'candy_ready':30.0,'candy_estab':25.0,'candy_active_abra':45.0,
     'attach_kadabra':9.0,'attach_abra':6.0,
     'retreat_nonatk_ready':30.0,'retreat_alak_stuck':22.0,'desperation_draw':30.0,
-    # MCTS heuristic-prior blend temperatures (training/nn/prior_blend.py).
+    # MCTS heuristic-prior blend temperatures (used by training/nn/mcts.py).
     # score_options_main's scale spans ~4 (default) to 600 (KO) — prior_T_h_main
     # is tuned large enough that a softmax doesn't fully saturate on the KO/
     # boss-snipe outliers alone. Non-MAIN select types (_score_deck_search,

@@ -12,7 +12,7 @@ import random
 import torch
 from torch.utils.data import Dataset
 
-from encode import encode_sample, MAX_ACTIONS, CARD_VOCAB
+from encode import encode_sample, MAX_ACTIONS, CARD_VOCAB, NUM_FEATS
 
 # probability of zeroing an available oracle in collate() (regularizes the
 # value head so it doesn't collapse onto always expecting the oracle feature
@@ -88,8 +88,8 @@ class BCDataset(Dataset):
         # value-head estimate at s_t); BC samples have none, so advantage is
         # None there and train_sp.py falls back to a flat policy-loss weight.
         advantage = (value - d["v_pred"]) if "v_pred" in d else None
-        # oracle: privileged opponent-hand card ids (vd_collect.py only; absent
-        # on plain BC/DAgger/SP samples, which fall back to no-oracle training).
+        # oracle: privileged opponent-hand card ids (oracle-critic collections
+        # only; absent on plain BC/DAgger/SP samples → no-oracle training).
         opp_hand = d.get("opp_hand") or []
         opp_hand = [min(c, CARD_VOCAB - 1) for c in opp_hand if c]
         return enc, label, float(value or 0), policy_target, advantage, opp_hand
@@ -100,7 +100,7 @@ def collate(batch):
     board_ids = torch.zeros(B, 13, dtype=torch.long)
     hand_ids = torch.zeros(B, 20, dtype=torch.long)
     discard_ids = torch.zeros(B, 20, dtype=torch.long)
-    numeric = torch.zeros(B, 13, dtype=torch.float)
+    numeric = torch.zeros(B, NUM_FEATS, dtype=torch.float)
     action_type = torch.zeros(B, MAX_ACTIONS, dtype=torch.long)
     action_card = torch.zeros(B, MAX_ACTIONS, dtype=torch.long)
     action_attack = torch.zeros(B, MAX_ACTIONS, dtype=torch.long)

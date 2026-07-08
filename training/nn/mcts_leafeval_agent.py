@@ -28,6 +28,12 @@ _C_PUCT = float(os.environ.get("MCTS_C_PUCT", "1.4"))
 _PRIOR_TEMP = float(os.environ.get("MCTS_PRIOR_TEMP", "2.0"))
 _NET_CKPT = os.environ.get("NET_CKPT") or os.path.join(_REPO_ROOT, "training", "ptcg_dmc_r2.pth")
 _NET_LEAF_MAX_DEPTH = int(os.environ.get("MCTS_NET_LEAF_MAX_DEPTH", "40"))
+# "qmax" (default) preserves this module's original behavior, correct for
+# dmc_collect.py-trained checkpoints (this module's original Phase 0 probe
+# target). Phase 2 collection (mcts_collect.py) sets this to "head" — see
+# mcts.py's MCTSSearcher.__init__ docstring and docs/report-log.md 2026-07-07
+# "mcts.py _net_leaf_value convention mismatch" for why the distinction matters.
+_NET_VALUE_SOURCE = os.environ.get("MCTS_NET_VALUE_SOURCE", "qmax")
 # Compute-budget check (docs/report-log.md 2026-07-05 timing probe): if set,
 # appends "<elapsed_seconds>\n" per real decision to this path (one file per
 # worker process, PID-suffixed, since ab_test.py fans out across
@@ -68,7 +74,8 @@ def agent(obs_dict: dict) -> list:
     try:
         searcher = MCTSSearcher(sims=_SIMS, c_puct=_C_PUCT, prior_temp=_PRIOR_TEMP,
                                  leaf_eval="net", net_ckpt=_NET_CKPT,
-                                 net_leaf_max_depth=_NET_LEAF_MAX_DEPTH)
+                                 net_leaf_max_depth=_NET_LEAF_MAX_DEPTH,
+                                 net_value_source=_NET_VALUE_SOURCE)
         if _COLLECT_LOG:
             action, N, root_value = searcher.choose_with_stats(obs_dict)
             if N is not None:

@@ -128,15 +128,33 @@ class MCTSSearcher:
     """One instance per real decision. Call `choose(obs_dict)` once."""
 
     def __init__(self, sims=150, max_rollout_depth=250, c_puct=1.4, prior_temp=2.0,
-                 leaf_eval="rollout", net_ckpt=None, net_leaf_max_depth=40):
+                 leaf_eval="rollout", net_ckpt=None, net_leaf_max_depth=40,
+                 net_value_source="qmax"):
         """leaf_eval: "rollout" (default, unchanged — real terminal result) or
         "net" (Phase 0 step-0 probe: stop as soon as it's our own decision
-        again — bounded by net_leaf_max_depth — and evaluate max_a Q(s,a) from
-        net_ckpt, instead of rolling out to a real terminal result). "net"
-        only ever queries the net at our-own-turn states, matching the
+        again — bounded by net_leaf_max_depth — and evaluate a value estimate
+        from net_ckpt, instead of rolling out to a real terminal result).
+        "net" only ever queries the net at our-own-turn states, matching the
         distribution dmc_collect.py trained it on (see docs/nn-training.md
         Phase 0 amendment (d) — no sign-convention translation needed because
-        we never ask the net to value an opponent-turn state)."""
+        we never ask the net to value an opponent-turn state).
+
+        net_value_source: "qmax" (default, preserves this class's original
+        behavior — max_a Q(s,a) via the DMC convention where the action
+        logit itself IS Q; correct for `dmc_collect.py`-trained checkpoints
+        like the Phase 0 probe this class was built for) or "head" (the
+        model's separate value_head output, via net_common.value_estimate —
+        REQUIRED for train_sp.py-trained checkpoints, whose logits are policy
+        preferences, not Q-values; matches dmc_replay_gate.py's
+        --value-source head). Found 2026-07-07: Phase 2's mcts_collect.py
+        passed a train_sp.py-lineage checkpoint through this class with the
+        "qmax" default silently unchanged, so every leaf evaluation during
+        Phase 2 self-play collection took the max raw policy logit (an
+        unbounded, uncalibrated quantity) as if it were a value estimate —
+        corrupting the n-step bootstrap term of `value_target` for every
+        decision more than N_STEP steps from a game's end. See
+        docs/report-log.md 2026-07-07 "mcts.py _net_leaf_value convention
+        mismatch" entry for the full diagnosis."""
         self.sims = sims
         self.max_rollout_depth = max_rollout_depth
         self.c_puct = c_puct
@@ -145,6 +163,7 @@ class MCTSSearcher:
         self.leaf_eval = leaf_eval
         self.net_ckpt = net_ckpt or os.path.join(_HERE, "..", "ptcg_dmc_r2.pth")
         self.net_leaf_max_depth = net_leaf_max_depth
+        self.net_value_source = net_value_source
 
     def _action_for(self, obs_dict, our_seat):
         """Real teacher for our own turns, the adversarial opponent module
@@ -179,10 +198,12 @@ class MCTSSearcher:
 
     def _net_leaf_value(self, search_id, obs_dict, our_seat):
         """Advance real play (opponent turns via _action_for, our turns are
-        the query point) up to net_leaf_max_depth, then return max_a Q(s,a)
-        from self.net_ckpt at the first state where it's our own decision
-        again. Falls back to the real terminal result if the game ends first,
-        or 0.0 (unknown) if the depth cap is hit before either happens."""
+        the query point) up to net_leaf_max_depth, then return a value
+        estimate from self.net_ckpt (max_a Q(s,a) if net_value_source is
+        "qmax", the value_head output if "head" — see __init__'s docstring)
+        at the first state where it's our own decision again. Falls back to
+        the real terminal result if the game ends first, or 0.0 (unknown) if
+        the depth cap is hit before either happens."""
         saved = {}
         for module, attrs in _STATEFUL_MODULES.items():
             saved[module] = {a: getattr(module, a) for a in attrs if hasattr(module, a)}
@@ -202,7 +223,9 @@ class MCTSSearcher:
                     batch, n = encode_batch(cur_obs, sel)
                     import torch
                     with torch.no_grad():
-                        logits, _ = model(*batch)
+                        logits, value = model(*batch)
+                    if self.net_value_source == "head":
+                        return float(value.item())
                     return float(logits[0, :n].max().item())
                 from cg.api import search_step
                 ss = search_step(cur_id, self._action_for(cur_obs, our_seat))

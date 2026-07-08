@@ -182,13 +182,6 @@ def _hand_size(state,me):
 def _active(p):
     a=p.get('active'); return a[0] if a and len(a)>0 and a[0] else None
 def _is_non_attacker(pk): return not pk or _pk_id(pk) in NON_ATTACKER_IDS
-def _opp_threatening(opp_active):
-    """Cheap proxy for 'opponent's active can plausibly swing next turn':
-    already carrying attached energy. Doesn't know their actual attack costs
-    or damage -- good enough to gate a defensive-retreat override, not a real
-    lookahead; false negatives just fall back to the existing target-priority
-    scoring."""
-    return bool(opp_active) and len(_energies(opp_active))>0
 
 def _opp_has_blocking_energy(opp_active):
     if not opp_active: return False
@@ -549,30 +542,6 @@ def _pick_evolve_target(obs,sel):
 
 def _pick_setup_bench(opts): return list(range(len(opts)))
 
-def _bench_target_priority(pk):
-    """Shared 'how good a target is this bench Pokemon' ranking, used both for
-    forced post-KO promotion (_score_bench_target) and as a same-tier tiebreak
-    for voluntary retreats (score()'s RETREAT branch). An un-evolved line piece
-    (Kadabra especially) is a much better bet than a pure-support mon (Psyduck/
-    Fez/Genesect) that can never become the attacker; Dunsparce/Dunsparce2 rank
-    just above those (a live path to Dudunsparce's draw engine) but below
-    everything else. Confirmed via replay 84709203/84710776 (2026-07-07): a
-    fully-fueled, ready Alakazam was voluntarily retreated INTO a 0-energy
-    Psyduck purely because every RETREAT option scored identically regardless
-    of target and Psyduck's happened to sort first -- it could never retreat
-    back out (no energy to pay the cost) and the game ended in a deck-out loss."""
-    pid=_pk_id(pk)
-    if pid==ALAKAZAM and _has_psychic(pk): return 100
-    if pid==ALAKAZAM: return 80
-    if pid==KADABRA and _has_psychic(pk): return 70
-    if pid==KADABRA: return 55
-    if pid==DUDUNSPARCE: return 50
-    if pid in PIVOT_FREE_RETREAT_IDS: return 40
-    if pid==ABRA and _has_psychic(pk): return 30
-    if pid==ABRA: return 20
-    if pid in(DUNSPARCE,DUNSPARCE2): return 5
-    return -10
-
 def _score_bench_target(obs,opts):
     cur=obs.get('current') or{}; me_idx=cur.get('yourIndex',0)
     players=cur.get('players',[]); me=players[me_idx] if players and len(players)>me_idx else{}
@@ -582,11 +551,23 @@ def _score_bench_target(obs,opts):
     for order,(i,o) in enumerate(area5):
         idx=o.get('index',order)
         pk=bench[idx] if 0<=idx<len(bench) else(bench[order] if order<len(bench) else None)
-        # These used to share the same -10 fallback for every non-line-piece
-        # Pokemon, so ties broke on array order instead of board value
-        # (confirmed losing this exact coinflip in a replay: promoted Psyduck
-        # over an already-energized Kadabra sitting right next to it).
-        scores[i]=_bench_target_priority(pk)
+        pid=_pk_id(pk)
+        # Promoting after a KO is a hard forced pick with no do-over — an un-evolved
+        # line piece (Kadabra especially) is a much better bet than a pure-support
+        # mon (Psyduck/Fez/Genesect/Dunsparce) that can never become the attacker.
+        # These used to share the same -10 fallback, so ties broke on array order
+        # instead of board value (confirmed losing this exact coinflip in a replay:
+        # promoted Psyduck over an already-energized Kadabra sitting right next to it).
+        if pid==ALAKAZAM and _has_psychic(pk): s=100
+        elif pid==ALAKAZAM: s=80
+        elif pid==KADABRA and _has_psychic(pk): s=70
+        elif pid==KADABRA: s=55
+        elif pid==DUDUNSPARCE: s=50
+        elif pid in PIVOT_FREE_RETREAT_IDS: s=40
+        elif pid==ABRA and _has_psychic(pk): s=30
+        elif pid==ABRA: s=20
+        else: s=-10
+        scores[i]=s
     return scores
 
 def _score_wondrous_patch_target(obs,opts):
@@ -955,40 +936,16 @@ def _main_phase_features(obs,sel):
             return W['atk_default']
         if ot==RETREAT:
             if retreated: return-50
-            tgt=_attach_target(o,my_active,bench); tgt_id=_pk_id(tgt)
-            # Feeding an unevolved/mid-line piece (Abra, Kadabra) that can't
-            # attack this turn anyway into an opponent who's already armed to
-            # swing trades a piece we need for nothing -- it can't retreat
-            # back out either. Confirmed via replay 84710513: a full-health
-            # 210 HP Fez was pulled for a 50 HP unfueled Abra right as the
-            # opponent evolved into a bigger attacker and one-shot it; the
-            # right play was leaving Fez in (or sacrificing an actual
-            # expendable body), not feeding the line piece. Deliberately
-            # scores below every non-RETREAT fallback (END=1.0 etc.) so
-            # holding still wins when nothing on the bench is both usable
-            # and safe -- this overrides the "get an attacker established"
-            # preference below, it doesn't just tiebreak within it.
-            if tgt_id in(ABRA,KADABRA) and _opp_threatening(opp_active):
-                return -4.0
-            # Every RETREAT option below shares the same board-state
-            # conditions (they don't depend on the target) and used to score
-            # identically regardless of WHICH bench Pokemon we'd retreat
-            # into -- ties then broke on array order, not board value (see
-            # _bench_target_priority's docstring for the replay this caused).
-            # This tiebreak is scaled small (max ~1.0) so it can only break
-            # ties among RETREAT options themselves, never change whether
-            # retreating beats another action.
-            target_bonus=_bench_target_priority(tgt)/100.0
             if alak_stuck:
-                if bench_has_alak_ready: return W['retreat_alak_stuck']+target_bonus
-                return -5.0+target_bonus
+                if bench_has_alak_ready: return W['retreat_alak_stuck']
+                return -5.0
             if active_non_atk and bench_has_alak_ready:
-                return(W['retreat_nonatk_ready'] if active_below_half else W['retreat_alak_stuck'])+target_bonus
+                return W['retreat_nonatk_ready'] if active_below_half else W['retreat_alak_stuck']
             if active_non_atk and bench_has_alak:
-                return(20.0 if active_below_half else 16.0)+target_bonus
-            if active_non_atk:                     return -3.0+target_bonus
-            if active_can_attack:                  return-2.0+target_bonus
-            return 0.5+target_bonus
+                return 20.0 if active_below_half else 16.0
+            if active_non_atk:                     return -3.0
+            if active_can_attack:                  return-2.0
+            return 0.5
         if ot==ABILITY:
             if lone: return-10
             if cid in SUPPRESS_ABILITY_IDS: return-10
@@ -1227,19 +1184,7 @@ def _main_phase_features(obs,sel):
                 # Tools (Handheld Fan etc.) provide zero Energy and do NOT belong here
                 # — they can't pay a retreat cost or an attack cost.
                 if cid in PSYCHIC_ENERGY_IDS: return 65.0
-                # Enriching only buys retreat, never attack (see the ENRICHING block
-                # below). If tgt is Alakazam and there's no ready bench Alakazam to
-                # retreat INTO, unsticking it just swaps into an equally-unable-to-
-                # attack Abra/Kadabra/support mon — no upside — while permanently
-                # burning the turn's one attach on a card that can never power
-                # Powerful Hand (confirmed replay 84136810: softlocked a 5-1-ahead
-                # Alakazam attack-dead for the rest of a deck-out loss). Fall through
-                # to the normal ENRICHING routing (Dudunsparce priority, Alakazam
-                # vetoed) instead of the blanket rescue score.
-                if tid==ALAKAZAM and cid==ENRICHING and not bench_has_alak_ready:
-                    pass
-                else:
-                    return 55.0
+                return 55.0
             if cid==HANDHELD_FAN:
                 if tid==GENESECT and not (tgt or{}).get('tools'): return 15.0
                 return 1.5

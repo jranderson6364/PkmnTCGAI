@@ -5,7 +5,7 @@ plays, turn)`, then sampling their unseen zones from the inferred archetype's
 decklist. The report's originality centerpiece. This file is the canonical home
 for the design, the phase plan, and (as they land) the results.*
 
-**Last updated:** 2026-07-05 (Phase C consumer 1 gate passed + shipped as v26; real-replay behavioral check DONE — classifier + wall-anticipation confirmed correct on 725 real replays, but found and fixed a confidence-miscalibration issue on unrecognized decks, shipped as part of v28; determinization sampler deprioritized, no live consumer)
+**Last updated:** 2026-07-07 (determinization sampler REOPENED and BUILT — `training/belief/determinize.py`, validated over 442 real-game decisions; its live consumer is the belief-weighted ISMCTS line from the approved training-methods plan, see `docs/report-log.md` 2026-07-07 entries)
 
 ---
 
@@ -245,11 +245,26 @@ The ladder is not 4 bots. Two additions:
    ~10.3% of all 725 games have their fallback behavior flip under this
    change. Shipped as part of **v28** (submission 54356683, 2026-07-05,
    ladder score pending) alongside the board-thinning fix.
-2. Determinization sampler for the Stage 5 MCTS spike (Kaggle-gated with the
-   rest of search). **Deprioritized 2026-07-05** per Fable design consult
-   (`docs/report-log.md` 2026-07-05 "DESIGN DECISION" entry) — its only
-   consumer (determinized search) is closed with a named cause; no live
-   consumer justifies building it now.
+2. Determinization sampler for search. ~~Deprioritized 2026-07-05 (no live
+   consumer)~~ **REOPENED + BUILT 2026-07-07:** the approved training-methods
+   plan names belief-weighted ISMCTS as its live consumer (ISMCTS is the
+   literature's fix for the closed PIMC line's strategy-fusion cause).
+   `training/belief/determinize.py` — `BeliefDeterminizer.sample()` returns
+   all six `search_begin` hidden-zone lists: OUR zones sampled exactly (known
+   decklist minus visible = true unseen multiset), opponent zones from the
+   shipped `_belief_posterior` (0.97 threshold + crustle override) over exact
+   or replay-reconstructed archetype lists, honest-unknown fallback to
+   placeholder filler. Validated (`training/belief/test_determinize.py`):
+   442 real-game decisions, exact zone counts on all, no copy-count
+   violations, lucario correctly identified + sourced on all 303 turn-≥3
+   decisions. See `docs/report-log.md` 2026-07-07 sampler entry.
+   **Consumer outcome (same day):** the belief-ISMCTS line CLOSED after its
+   pre-registered kill rule fired (0W-50L then 0W-20L post-fix vs v25c) —
+   determinization quality was never the binding constraint; the rollout
+   leaf-value signal is. The sampler stays validated and available for
+   future consumers (net-input features, endgame solving, search with a
+   calibrated value leaf). Full postmortem: report-log 2026-07-07 ISMCTS
+   entry.
 3. Ablation runs for the report: key-card baseline vs classifier; placeholder
    vs belief determinization (once search exists).
 

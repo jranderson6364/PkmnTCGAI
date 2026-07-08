@@ -81,9 +81,67 @@ alternatives; **no report claim without a pre-registered trial** in `docs/report
 The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
 **re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
 challengers; tier 2: pilot floor flattens everything — see report-log).
-**Current agent:** v28 — board-thinning fix + Phase C + confidence
-recalibration (submission 54356683, shipped 2026-07-05). **Honest current
-state (2026-07-05): no confirmed evidence v28 beats v25c.** Live
+**Current agent:** v29b — endgame-gated belief-determinized rollout search
+(submission 54440211, shipped 2026-07-07, `SubmissionStatus.COMPLETE`).
+Plays the v28+Enriching-fix heuristic verbatim except when either player is
+≤2 prizes from winning, where it switches to MCTS rollout search over
+belief-sampled determinizations (`training/nn/endgame_agent.py`,
+`ENDGAME_SIMS=60`) — the first search-based component ever shipped to this
+ladder, after five prior full-game search configs came back negative.
+**Offline: confirmed 59.0% ±4.8% (236W-164L, n=400, seats alternated) vs
+the plain heuristic itself** — an exact isolation of the search
+contribution. First multi-file submission this project has shipped
+(main.py + heuristic.py + opponents/* + training/nn/* + training/belief/*).
+**The first ship (v29, submission 54439688) errored on its validation
+episode** (`NameError: __file__` — Kaggle execs the submitted main.py from
+a raw string with no `__file__`, a gap the first clean-room test's
+`importlib`-based loader didn't reproduce); fixed by deriving the base
+path from an already-imported sibling module's `__file__` instead, and
+reshipped as v29b same day after re-validating directly against Kaggle's
+actual loader function (`get_last_callable`) and a full `env.run` with real
+file paths. **No live ladder read beyond the 600.0 fresh-submission floor
+at ship time** — per Design Principle #1 the ladder is still the final
+evaluator. Full data: `docs/report-log.md` 2026-07-07 "Endgame-gated
+search" and "`__file__` NameError" entries, `docs/version-history.md` v29b
+entry.
+**Two fresh v29b ladder losses (episodes 84709203, 84710776) mined and
+fixed same day:** both were deck-out losses caused by Psyduck getting
+stuck active with 0 energy (unable to pay its own retreat cost) after a
+voluntary MAIN-phase retreat swapped out a fully-fueled, ready Alakazam for
+it. Root cause: `main.py`'s `RETREAT` option scoring never looked at WHICH
+bench Pokemon a retreat targeted — every retreat option in a decision tied
+on score and the tie broke on array order, not board value (the same bug
+class as an earlier `_score_bench_target` fix, just never applied to the
+voluntary-retreat action itself). Fixed via a shared `_bench_target_priority`
+helper used both by forced-promotion scoring and as a small tiebreak on
+retreat options. **A second, related "setup-race" pattern found and fixed
+same day** (episodes 84710513, 84712093; 84711188 turned out to be a draw
+drought, not a targeting bug): a healthy non-attacker (e.g. a full-HP Fez)
+was voluntarily retreated OUT to feed an unevolved, unfueled Abra/Kadabra IN
+right as the opponent powered up, and it got one-shot for nothing. Fixed
+with a new `_opp_threatening()` proxy (opponent's active already carries
+energy) that overrides the retreat-target scoring — retreating Abra/Kadabra
+into an armed opponent now scores below just holding position, so the
+heuristic sacrifices fodder or stays put instead. Deliberately a shallow
+heuristic gate, not an endgame-style rollout search — this project's five
+prior full-game search attempts all failed, and ISMCTS's closure pinned
+that on weak leaf-value signal in exactly this early-game regime, so a
+1-ply threat heuristic was chosen over a new search subsystem. Sanity-
+checked (not a confirmatory gate) at 200 games vs. the pre-session
+baseline: 55.0%±6.9%, 0 errors — directionally positive, no crashes, but
+below the project's usual n=400 confirmatory bar. **Shipped same day as
+v29c** (submission `54441561`, repackaged via
+`training/nn/package_endgame_submission.py`, re-validated against Kaggle's
+actual loader plus 5 full local `env.run` games before shipping —
+`SubmissionStatus.COMPLETE`, validation episode `84717810` clean). No
+`publicScore` signal yet beyond the standard 600.0 fresh-submission floor.
+Full data: `docs/report-log.md` 2026-07-07 "v29b ladder losses" and
+"setup-race losses" entries, `training/ladder_history.csv` v29c row.
+
+**Prior agent (v28, for context) — board-thinning fix + Phase C +
+confidence recalibration** (submission 54356683, shipped 2026-07-05).
+**Honest state at the time (2026-07-05): no confirmed evidence v28 beats
+v25c.** Live
 `publicScore` reads bounced repeatedly (an earlier "confirmed settled at
 829.8" claim was retracted after a subsequent read showed 724.4, a
 116-point swing) and never converged after 4+ hours — this ladder's score
@@ -219,6 +277,7 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 | Game mechanics/decision-structure rundown (for ML method choice) | `docs/game-nature.md` |
 | Roadmap / writeup strategy | `docs/competition-strategy.md` |
 | Experiment journal + glossary + target figures | `docs/report-log.md` |
+| 120-method ML/RL survey + shortlist w/ alterations | `docs/method-survey.md` |
 | Engine API (canonical) | `docs/engine-api.md` |
 | Version change log (v1–v24) | `docs/version-history.md` |
 | NN training log + pipeline | `docs/nn-training.md` |
@@ -230,12 +289,25 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-06): user directed an AlphaZero-style push
-— Phase 1 (encoding) RESOLVED+adopted; Phase 2 (`mcts_collect.py`
+**>>> NEXT STEP (as of 2026-07-07): the AlphaZero-style push's Phase 2 round
+3 (redesigned real-meta opponent pool, replacing the collapsed
+same-checkpoint mirror) ran to completion and is CLOSED, negative — retrain
+does NOT clear the pre-training baseline (0.566 vs 0.584 ALL sign-acc,
+CIs heavily overlapping). Two real `mcts_collect.py` bugs were found and
+fixed along the way: no incremental checkpointing (a Kaggle run stalled 9-11
+hours and lost everything; fixed to checkpoint after every opponent batch)
+and a fatal crash on a None-outcome game (now skipped). This closes the
+"more self-play data alone" line — consistent with every other arm this
+project has tried (DAgger, AWR, PIMC search, oracle-critic, IQL). Full
+data: `docs/report-log.md` 2026-07-07 "Phase 2 round 3 (redesigned
+opponent pool)" entry; `docs/nn-training.md` "AlphaZero-Style Push" §Resume
+Here. Separately and unrelated to this line: the endgame-gated search
+result (below, v29) is this session's real positive — a decision for the
+user is whether to pursue further search-based lines instead of more
+self-play data collection. Prior next-step history, for context: Phase 1
+(encoding) RESOLVED+adopted; Phase 2 (`mcts_collect.py`
 self-play-with-search infrastructure) DONE, validated, and parallelized;
-first real training pass found a real bug (now fixed, fixed corpus
-re-collected); RETRAIN IS THE NEXT STEP, explicitly PAUSED before running
-it.** Phase 1 briefly looked negative (richer 25-feature encoding scored
+Phase 1 briefly looked negative (richer 25-feature encoding scored
 worse than plain 13-feature) but an isolated-component ablation traced
 this to a training-harness confound (fixed; now a clean tie with the
 baseline, adopted). Phase 2 built, validated, and parallelized same day
@@ -348,7 +420,12 @@ exploiter collection (`training/nn/exploiter_collect.py --games 1000
 --temp 1.0`, launched 2026-07-05, background) — orthogonal track, trains
 directly against a frozen v25c teacher rather than extracting more signal
 from the existing self-play distribution. Determinization sampler (Phase C
-item 2) still unbuilt.
+item 2) BUILT + validated 2026-07-07 (`training/belief/determinize.py`,
+442-decision validation). Its first consumer, belief-weighted ISMCTS,
+CLOSED same day (kill rule fired: 0W-50L, then 0W-20L after fixing a named
+rollout-policy confound — leaf-value signal, not determinization quality,
+is the binding constraint on this search family; see `docs/report-log.md`
+2026-07-07 ISMCTS entry). Sampler remains available for future consumers.
 
 Stage numbers refer to `docs/competition-strategy.md` §Master Plan.
 

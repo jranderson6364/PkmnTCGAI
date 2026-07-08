@@ -1,0 +1,17 @@
+{
+ "id": "jander6364/ptcg-phase2-round3-collect-retrain-gate",
+ "title": "PTCG Phase2 Round3 Collect+Retrain+Gate",
+ "code_file": "ptcg-p2-round3-collect-retrain-gate.ipynb",
+ "language": "python",
+ "kernel_type": "notebook",
+ "is_private": "true",
+ "enable_gpu": "false",
+ "enable_internet": "true",
+ "dataset_sources": [
+  "jander6364/ptcg-sp-p2-r2-data",
+  "jander6364/ptcg-ladder-replays-bulk",
+  "kiyotah/cg-lib"
+ ],
+ "competition_sources": [],
+ "kernel_sources": []
+}

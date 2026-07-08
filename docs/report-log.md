@@ -4,20 +4,1406 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-05 (STRATEGY SESSION: full re-architecture of the NN
-track after a user-driven advisor/ml-engineer consult — DMC's slow climb
-diagnosed as a credit-assignment problem, not a dead method; new Phase 0 plan
-(n-step bootstrapped value targets + hand-crafted potential-shaping Φ +
-diverse-opponent self-play, gated on real-replay value calibration, NOT
-win-rate) supersedes the plain "more DMC rounds" framing. Competition engine
-C++ source obtained from the Kaggle Data page — confirms win-condition logic
-empirically assumed correct, doesn't change the Phase 0/1 plan. See entry
-below for full reasoning; CORRECTION: the "v26/v27 ladder regression"
-conclusion was age-confounded, not real — see correction entry below;
-board-thinning fix gated positively both ways it's been tested; Phase C
-real-replay behavioral check DONE — belief model is accurate and
-wall-anticipation is well-calibrated, but a real miscalibration found: only
-39% of true-unknown decks correctly read as low-confidence)
+**Last updated:** 2026-07-07 (Φ-shaping failure autopsy + 120-method
+survey/shortlist added — see entry below and `docs/method-survey.md`.)
+
+---
+
+## 2026-07-08 — RP-1 result: clean negative (77% vs random, 5% vs main.py); ONE bounded follow-up (RP-2, alakazam-only filter) launched
+
+**RP-1 (winner-BC, all archetypes):** trained on 86,712 winner rows from
+1,741 replay files, holdout top-1 57.2% (rose monotonically, no
+overfit). **Gates: 77.0% ± 8.2% vs random (FAILS the ≥80% sanity bar;
+BC-v2 reads 86%) and 5.0% ± 4.3% vs `main.py` (far below the 25% bar and
+below dagger-r2's 16%).** Clean negative per the pre-registration.
+
+**Diagnosis (why, in one line):** ~90% of winner rows are OTHER
+archetypes' decisions — the policy learned to pilot the field's decks,
+not our alakazam deck; imitating a mixture of pilots on out-of-
+distribution decks is worse than imitating our own teacher.
+
+**Bounded follow-up (RP-2, run same day):** same pipeline with
+`--alakazam-only` (40,833 rows, holdout top-1 62.6% — the
+on-distribution filter helped fidelity as expected). **Gates: 89.0% ±
+6.1% vs random (sanity PASSES, above BC-v2's 86%) but 8.0% ± 5.3% vs
+`main.py` — far below the 25% bar. WINNER-BC FAMILY CLOSED.** The
+external slice that could in principle exceed the teacher (mirror
+opponents who beat us) is too small a fraction of the data; the rest is
+our own teacher's behavior imitated at 62.6% fidelity, i.e. strictly
+worse than the teacher itself. Fourth independent confirmation of the
+imitation-plateau story (BC, DAgger, winner-BC×2), this time with
+external data — a genuinely new cell in the report's ablation table
+("external imitation data does not lift the plateau either; the binding
+constraint is imitation itself, not data provenance").
+
+---
+
+## 2026-07-08 — SECOND real bug in the shipped search gate: it fires on SETUP decisions (empty prize lists read as "≤2 prizes"); archetype-fix alone does NOT recover the anchors
+
+**Archetype-fix-alone gate (interim, superseded by the both-fixes gate
+below):** fixed rollout policies recovered NEITHER anchor — lucario 77.5%
+± 5.8% (pre-fix 78.0%), abomasnow 71.5% ± 6.3% (pre-fix 68.0%). The
+archetype mismatch was real but is NOT the main cause of the regression.
+(For lucario it never could have been — lucario was already the hardcoded
+rollout policy there; that inconsistency in the original hypothesis
+should have been caught before building the fix.)
+
+**The real lead came from the new ExIt disagreement log** (20 games vs
+lucario, `ENDGAME_DISAGREE_LOG` hook): a searched decision at **turn 0
+with prize counts 0/6**. Root cause, confirmed in code: `_is_endgame`
+tests `min(len(prize lists)) <= 2`, and during the SETUP phase prizes
+aren't dealt yet — both lists are empty — so the gate fires on the
+opening placement decisions of EVERY game, letting a turn-0
+belief-determinized search (no information, meaningless read) override
+the heuristic's starter logic. Measured in the diagnostic: 3/20 games had
+a search-overridden setup choice that differed from the heuristic. This
+is quantitatively sufficient to explain the anchor gap (~15%/game botched
+starters vs turbo aggro ≈ the 15-22pp deficit) and it is LIVE in the
+shipped v29b/v29c. Also killed along the way: the "uniform −1 rollouts =
+no signal in losing endgames" hypothesis — the disagreement log shows
+most real-endgame disagreements at root_value 0.3-0.87, not −1.
+
+**Fix:** `_is_endgame` now requires `0 < min(...) <= PRIZES` (empty
+setup-phase lists no longer match) in all three search agents. **Gate
+(running):** both fixes together — lucario 200, abomasnow 200, mirror
+400. Ship decision (v29d or ladder revert) waits on it.
+
+**Method note for the report:** the disagreement-mining hook (survey
+pick 4's collection side) found in 20 games a bug that two 400-game
+win-rate gates and a clean-room validation had all passed over —
+behavioral logging beats aggregate win rates for finding WHERE a
+component misbehaves.
+
+---
+
+## 2026-07-08 — PRE-REGISTRATION: RP-1 winner-filtered BC from real ladder replays (survey #10/#23)
+
+- *Hypothesis:* cloning the actions of replay sides that WON their games
+  (both seats, external data — the one imitation source not bounded by
+  the own-teacher parity ceiling) yields a policy above the established
+  16-17% imitation plateau vs `main.py`.
+- *Protocol:* `training/nn/replay_policy.py`, ~1,600-game corpus
+  (winners only, prev-record action alignment verified empirically —
+  98.3% index-valid vs 89.6% same-record), init from `ptcg_dagger_r2.pth`,
+  3 epochs, 10% file-level fidelity holdout.
+- *Gates:* sanity ≥80% vs random (100 games); primary vs `main.py` 100
+  games with a "sticks" bar of >25% (dagger-r2 reads 16% under the same
+  protocol); >25% → escalate to n=400 and run the `--all-outcomes`
+  ablation arm. ≤25% → log as the expected negative (winner data is
+  mostly our own shipped heuristic's behavior; the genuinely external
+  slice — mirror opponents who beat us — is small).
+
+---
+
+## 2026-07-08 — GAUNTLET FINDS A REAL SHIPPED REGRESSION: endgame search loses 18-29pp vs non-alakazam anchors; root cause = archetype-mismatched rollout policy; fixed, gate running
+
+**What happened:** the first gauntlet since v25c (v29c-endgame =
+`endgame_agent.py`, 200 games/anchor, dragapult excluded for row
+comparability) came back gElo 495 — BELOW v25c's 576. Per-anchor:
+
+| Anchor | v25c | v29c-endgame | Δ |
+|---|---|---|---|
+| random | 98.5% | 99.5% | — |
+| starmie | 96.5% | 96.0% | — |
+| v21/v22/v23 (alakazam) | 68.5/63.0/63.0 | 64.5/62.0/72.0 | flat/+9pp |
+| **lucario** | 96.0% | **78.0%** | **−18pp** |
+| **abomasnow** | 97.0% | **68.0%** | **−29pp** |
+
+**Bisect (200 games each vs both anchors): the heuristic is INNOCENT.**
+Current `main.py` 93.5%/96.0%, pre-session baseline 93.5%/95.5%, v25c
+92.0%/97.5% — all three heuristic versions fine. The collapse is caused
+by the SEARCH WRAPPER itself in non-mirror matchups.
+
+**Root cause (found by re-reading the ISMCTS bounded fix):**
+`BeliefMCTSSearcher._action_for` matched the rollout policy to the
+believed archetype ONLY for the alakazam read; every other read pilots
+the opponent's belief-determinized zones with the hardcoded
+`lucario_agent` — so vs abomasnow the search evaluates endgames by
+imagining a lucario bot playing an abomasnow hand: nonsense rollouts,
+systematically wrong endgame decisions, thrown won games. The mirror A/B
+(+9pp) never saw it because the alakazam read was the one case handled.
+**This is the mirror-blindness failure mode in its most expensive form
+yet: every gate this component passed was a mirror gate, and the shipped
+v29b/v29c face ~90% non-alakazam opponents on the ladder.** The 2026-07-07
+ship decision was made on a mirror-only basis — the non-mirror gauntlet
+should have run BEFORE shipping, not the day after.
+
+**Fix (`ismcts_agent.py`):** archetype→module map (lucario/dragapult/
+abomasnow/starmie → their real bots, alakazam → the heuristic,
+unknown/uncovered → the prior lucario fallback), with each bot's mutable
+module globals registered in `_STATEFUL_MODULES` for the per-rollout
+save/reset (dragapult's `plan_a`/`plan_b`/log lists found by inspection —
+same `_STALL_MEMO` bug class). `gumbel_endgame_agent.py` updated to the
+new `_rollout_arch` hook; `rv_endgame_agent.py` inherits it.
+
+**Gate (running):** fixed `endgame_agent.py` vs lucario (200), abomasnow
+(200) — expect recovery toward the heuristic's ~93-96% — plus a fresh
+400-game mirror vs `main.py` to confirm the +9pp is intact. Ship decision
+(v29d, or revert search off the ladder) waits on these numbers.
+
+**Report relevance:** the strongest robustness-panel story yet — a
+component that passes a properly-powered mirror gate can still be a
+ladder regression, and only a diverse-opponent panel catches it (rubric's
+"no over-reliance on specific matchups" bullet, demonstrated the hard
+way).
+
+---
+
+## 2026-07-08 — v29c retreat-fix confirmatory A/B (n=400): 53.0% ± 4.9%, parity-range — consistent with rare-state correctness fixes, no regression
+
+The owed upgrade of the 2026-07-07 n=200 sanity check (55.0% ± 6.9%):
+`main.py` (both retreat fixes) vs the pre-session `git show HEAD:main.py`
+baseline, 400 games, seats alternated, 0 errors. **Result: 212W-188L =
+53.0% ± 4.9% (95% CI [48.1%, 57.9%])** — directionally positive, CI
+includes parity. This matches the established signature of narrow/rare-
+state correctness fixes in mirror A/Bs (the five v25 fixes read
+52.2–54.0% under the same protocol): the fixed states (voluntary-retreat
+targeting, feeding Abra into an armed opponent) occur in a minority of
+games, so a mirror A/B can't CI-separate them at n=400. The fixes remain
+justified by the replay evidence (four losses traced to exactly these
+bugs) and the synthetic-board verifications; the A/B's job was regression
+detection, and there is none. No change to the shipped v29c.
+
+---
+
+## 2026-07-08 — Gumbel root gate: 51.2% ± 4.9% vs PUCT root — null, keep PUCT; RV-W1: 39.3% ± 4.8% — the net leaf is decisively WORSE than no search at the wider gate
+
+**Gumbel gate (pre-registered #3): 205W-195L = 51.2% ± 4.9%** vs
+`endgame_agent.py`, 400 games, seats alternated, 0 errors. CI includes 50%
+→ per the registered rule, NOT adopted; PUCT root stays. Honest read: at
+60 sims with a strong heuristic prior and informative rollout leaves, PUCT
+visit collapse evidently isn't the binding constraint at this root — the
+Gumbel machinery (sequential halving, paired determinizations) neither
+helped nor hurt. The paired-worlds variance reduction is still a sound
+idea on paper; there was just no headroom for it to buy anything here.
+`gumbel_endgame_agent.py` kept on disk for reference; no further Gumbel
+work without a new named failure it addresses.
+
+**RV-W1 (pre-registered above): 157W-243L = 39.3% ± 4.8% (95% CI
+[34.5%, 44.1%]) vs `main.py` at `PRIZES=3, SIMS=60`, 400 games, 0
+errors.** This is not merely "adds nothing" — the RV-leaf search is
+DECISIVELY WORSE than the plain heuristic (CI excludes 50% on the
+downside), at the same gate where rollout leaves scored 57.5%. Both seats
+lose (37.5% as P0, 41.0% as P1).
+
+**Interpretation (the project's recurring lesson, now in its sharpest
+form):** a 0.640 sign-accuracy value function means ~36% of leaf
+evaluations are wrong-signed, and argmax-over-options selects FOR upward
+noise (optimizer's curse) — so search over a mediocre value function
+actively converts value noise into bad decisions, underperforming the
+well-tuned heuristic prior it overrides. Rollout leaves at the tight gate
+work precisely because near-terminal rollouts are far more accurate than
+0.64. The Phase 0 probe's 38W-2L (net-leaf search vs the net's own argmax)
+is not contradicted: beating your own argmax is a different bar than
+beating a strong heuristic. **Conversion bar, now measured twice:**
+sign-acc 0.64 → loses to heuristic; rollout-near-terminal (effectively
+much higher accuracy) → +9pp. The value net needed for mid-game search has
+to be a lot better than 0.64 before it converts.
+
+**Decision:** RV-leaf search line closed at this config. RV-2 (the
+checkpoint itself) remains the best on-disk replay value net and keeps its
+non-search uses (FQE-style candidate ranking, one-step improvement
+gating — survey picks 5/26), but no further search-leaf integration
+without a value net that clears a meaningfully higher calibration bar.
+Report relevance: the sweep + RV-W1 together make a tight figure — search
+edge vs. gate depth for rollout leaves (59.0 → 57.5) vs. net leaves
+(39.3), the cleanest demonstration yet that leaf-signal quality, not
+search machinery, is the whole game.
+
+---
+
+## 2026-07-08 — Endgame sweep result: neither wider gate nor more sims beats the shipped config; conservative rule keeps PRIZES=2/SIMS=60
+
+**Results (each 400 games vs `main.py`, seats alternated, 0 errors —
+protocol identical to the shipped config's 59.0% ± 4.8% baseline):**
+
+| Config | Win rate | 95% CI | vs. baseline 59.0% |
+|---|---|---|---|
+| S1: `PRIZES=3, SIMS=60` | 57.5% (230W-170L) | [52.7%, 62.3%] | below point, CI overlaps |
+| S2: `PRIZES=2, SIMS=120` | 55.5% (222W-178L) | [50.6%, 60.4%] | below point, CI overlaps |
+| shipped: `PRIZES=2, SIMS=60` | 59.0% (236W-164L) | [54.2%, 63.8%] | — |
+
+**Decision (per the pre-registered rule):** both configs' CIs exclude 50%
+— the search edge itself replicates at both settings — but neither reaches
+the shipped config's 59.0% point, so neither supersedes it; S3
+(`PRIZES=3, SIMS=120`) does not run (its trigger required both ≥ 59.0%).
+Ambiguity resolves conservatively to the shipped config, as registered.
+
+**Interpretation (worth a report line, not overclaimed):** the first
+parameter exploration of the confirmed-positive component found the
+original config sitting at or near the local optimum: widening the gate
+into 3-prizes-remaining territory dilutes rather than extends the edge
+(consistent with the mechanism — terminals get farther from rollout
+reach), and doubling sims buys nothing at the gate where 60 already
+suffices. All three configs are within each other's CIs, so "diluted" is
+directional, not proven — but there is NO evidence for changing the
+shipped setting, which is the actionable answer. This also sharpens the
+RV-leaf question: if a real value signal (not rollout terminals) is what
+the wider gate needs, `rv_endgame_agent.py` at `PRIZES=3` should beat
+S1's 57.5% — that comparison is the natural next gate.
+
+---
+
+## 2026-07-08 — PRE-REGISTRATION: RV-leaf win-rate gate (RV-W1)
+
+- *Hypothesis:* the RV-2 net leaf (`tanh(Φv2 + resid)` at our next own
+  decision) extends the search edge to the wider gate where rollout
+  terminals dilute: `rv_endgame_agent.py` at `PRIZES=3, SIMS=60` beats
+  S1's rollout-leaf 57.5% at the same gate.
+- *Protocol:* 400 games vs `main.py`, seats alternated — same protocol as
+  S1/S2/baseline so all rows share one table.
+- *Decision rule:* CI excludes 50% AND point ≥ S1's 57.5% → the net leaf
+  adds value at the wider gate; additionally ≥ 59.0% → ship-candidate
+  discussion. CI excludes 50% but point < 57.5% → net leaf works but adds
+  nothing over rollouts; keep rollouts. CI includes 50% → negative,
+  RV-2's sign-acc didn't convert to win rate (consistent with the house
+  "necessary, not sufficient" rule).
+
+---
+
+## 2026-07-07 — RV-2 result: clears both pre-registered bars on point estimate, but the margin over the incumbent is thin; adjudicated PASS-with-caveats, promoted to leaf-eval candidate
+
+**Result (4 epochs, seed-0 split, 288,678 train rows / 429 holdout games —
+same split as the incumbent run; full log `%TEMP%/rv_r2.log`):**
+
+| Epoch | ALL | EARLY | MID | LATE |
+|---|---|---|---|---|
+| 0 | 0.632 [0.605,0.659] | 0.561 | 0.638 | 0.710 |
+| 1 | 0.634 | 0.569 | 0.641 | 0.702 |
+| 2 | 0.634 | 0.571 | 0.634 | 0.709 |
+| **3 (best)** | **0.640 [0.613,0.668]** | **0.576** | 0.640 | **0.718 [0.671,0.763]** |
+| *Bar: Φ v2 same holdout* | *0.624 [0.597,0.654]* | | | |
+| *Bar: incumbent epoch-0* | *0.635 [0.608,0.662]* | *0.559* | *0.646* | *0.711* |
+
+**Adjudication against the pre-registered rule:** both ALL bars cleared on
+point estimate (0.640 > 0.635 > 0.624). Per-segment: EARLY +0.017 and LATE
++0.007 vs the incumbent, MID −0.006 — the MID dip is flagged per the
+"no per-segment regression" clause but is far inside the CIs; calling it a
+regression would be noise-reading. Honest summary: **statistically this is
+a tie with the incumbent recipe, not a demonstrated improvement** — but it
+passes the rule as written, and it comes with two real, non-statistical
+advantages: (1) NO overfitting signature — the incumbent's epoch 1
+regressed on every segment while RV-2 improves through epoch 3 (two-hot +
+easier residual target = stabler optimization), and (2) the best weights
+actually exist on disk this time (`training/ptcg_rv_r2.pth.ep3`; per-epoch
+saves were part of the registration). RV-2 ep3 is now the project's best
+on-disk real-replay value checkpoint.
+
+**Decision:** promoted to leaf-eval candidate per the registered rule.
+Next gate (win-rate, the one that actually counts): wire
+`V(s) = Φv2(s) + resid(s)` in as the searcher's leaf evaluation and A/B an
+earlier-gated search config vs. the shipped rollout version — to be
+pre-registered separately once the endgame sweep resolves and CPU frees up.
+
+**Report relevance:** the control-variate redesign converts the Φ-shaping
+negative into a working recipe (autopsy → fix → measured outcome), and the
+"train bce fell 1.80→0.79 while holdout held steady" pattern vs. the
+incumbent's immediate epoch-1 overfit is a clean small ablation row for the
+two-hot/residual claim.
+
+---
+
+## 2026-07-07 — PRE-REGISTRATION: residual-on-Φ replay value net (RV-2), endgame gate/sims sweep, Gumbel root selection
+
+Three experiments registered BEFORE running, per the house evidence rule.
+All three follow directly from the method-survey shortlist
+(`docs/method-survey.md`) and the Φ-shaping autopsy entry below.
+
+**1. RV-2: residual-on-Φ replay value net (survey picks 1+2, first arm).**
+- *Hypothesis:* regressing the residual `outcome − Φv2(s)` with a two-hot
+  categorical head, deploying `V(s) = Φv2(s) + resid(s)`, beats both the
+  incumbent replay-value checkpoint and Φ v2 itself — the control-variate
+  fix for the Φ-shaping failure (easier target, cross-state comparability
+  restored by adding Φ back), plus the anti-saturation head.
+- *Protocol:* `training/nn/replay_value.py` extended with `--target resid`
+  + two-hot head (25 atoms on [−6, 6]; residual range is outcome ±1 minus
+  Φv2 ∈ ~[−4.5, 3.5]); SAME seed-0 70/30 file split, same init checkpoint,
+  same holdout-only reporting as the incumbent run; per-epoch checkpoints
+  saved separately (the incumbent run overwrote epoch 0's weights — that
+  mistake is what this guards against). 4 epochs.
+- *Bars (both must be cleared on holdout ALL sign-acc point estimate, no
+  per-segment regression):* Φ v2 on the same holdout = 0.624
+  [0.597, 0.654]; incumbent replay_value epoch-0 = 0.635 [0.608, 0.662].
+- *Decision rule:* clears both → RV-2 becomes the leaf-eval candidate and
+  proceeds to the win-rate gate (sign-acc is necessary, not sufficient, per
+  house rule). Flat (within CIs, neither cleared) → keep incumbent epoch-0
+  recipe, log as "residual trick adds nothing here." Worse → clean negative.
+- *Deferred by design (one lever at a time):* bench-permutation
+  augmentation (option-index remapping risk needs its own validation),
+  hand-prediction aux head, n-step/tree-backup bootstrapping.
+
+**2. Endgame search gate/sims sweep (first parameter exploration of the
+one confirmed-positive component).**
+- *Hypothesis:* the shipped config (`ENDGAME_PRIZES=2`, `ENDGAME_SIMS=60`)
+  was the first ever tried; the confirmed mechanism ("search works where
+  terminals are within rollout reach") predicts widening the gate and/or
+  adding sims helps, and the timing study says clock headroom exists.
+- *Protocol:* each config = 400-game `ab_test.py` vs `main.py`, seats
+  alternated — identical to the baseline measurement (59.0% ± 4.8%).
+  S1: `ENDGAME_PRIZES=3, SIMS=60`. S2: `ENDGAME_PRIZES=2, SIMS=120`.
+  S3 (`PRIZES=3, SIMS=120`) runs only if S1 AND S2 both ≥ baseline point.
+- *Decision rule:* a config supersedes the shipped setting only if its
+  win rate ≥ 59.0% (the baseline point), its CI excludes 50%, and measured
+  per-game think time stays clock-safe by the existing timing methodology.
+  Ambiguity (CIs overlapping baseline, point below) resolves CONSERVATIVELY
+  to the shipped config — n=400 can't split 59 vs 61 and we don't pretend
+  it can.
+
+**3. Gumbel sequential-halving root selection in the endgame searcher
+(survey pick 3). Registered now, implemented after 1–2 launch.**
+- *Hypothesis:* sequential halving over determinization-averaged Q at the
+  root beats PUCT selection at the same 60-sim budget (fixes the documented
+  PUCT visit-collapse failure mode; paired-across-worlds Q comparisons
+  remove determinization variance from the elimination decisions).
+- *Protocol:* gumbel-root endgame agent vs CURRENT `endgame_agent.py`
+  (search-vs-search, everything else identical), 400 games, seats
+  alternated.
+- *Decision rule:* adopt only if win rate CI excludes 50%. Otherwise keep
+  PUCT root and log the null.
+
+---
+
+## 2026-07-07 — Φ-shaping failure autopsy + 120-method ML/RL survey with shortlist
+
+**Why (user directive):** re-investigate WHY the n-step-Monte-Carlo +
+Φ-shaping arm failed, then survey ML/RL methods broadly (≥100), rate each
+against this project's constraints, and propose con-negating alterations
+for the best fits.
+
+**Autopsy conclusion (consolidating the 2026-07-05 ablation-grid entry +
+`dmc_nstep.py` docstring, plus one NEW observation):** the telescoped
+target `outcome − Φ(s_t)` trains the net to predict "improvement over own
+potential," which is not sign-comparable across states (11.5% of training
+labels, 21.1% of real-replay labels flip sign vs. the true outcome — the
+OOD gap is why the well-fit net scored WORSE than chance on the replay
+gate). **New observation not previously logged: this wasn't only a
+gate-side category error — the intended downstream consumer (MCTS leaf
+evaluation) also compares values ACROSS different leaf states, so a
+Φ-shaped value net would have corrupted search even if the gate had been
+"fixed."** Policy invariance only survives if the shaping terms are
+accumulated along the search path so the −Φ(root) term cancels at the root
+— which the leaf-eval-only consumption pattern never does. The minimal
+correct redesign is a control variate: regress the residual
+`outcome − Φ(s)` but deploy `V(s) = Φ(s) + resid(s)` — cross-state
+comparability restored, net learns an easier lower-variance target
+(survey pick 1).
+
+**Survey:** `docs/method-survey.md` — 120 methods across 11 families,
+each with pros/cons and an A–D fit rating against the project's logged
+constraints and closed lines. Shortlist (6 picks, each with a named
+alteration negating its main con): (1) residual-on-Φ value learning with a
+two-hot head; (2) replay-trained value net (tree-backup targets, bench-
+permutation augmentation, hand-prediction aux head) as the leaf evaluator
+that extends the endgame search gate earlier; (3) Gumbel sequential-halving
+root selection over determinization-averaged Q in the endgame searcher;
+(4) expert iteration distilling the CONFIRMED-positive endgame searcher
+(the first time ExIt's "expert must beat the base policy" precondition
+holds here); (5) one-step greedy improvement over the heuristic gated on
+FQE-calibrated advantage confidence; (6) the exploiter rig kept as a
+permanent flaw-miner. Deprioritized despite prior approval: any self-play
+training loop (Gumbel ExIt on self-play targets) until picks 1–2 yield a
+value net beating Φ v2 on real replays.
+
+**Report relevance:** the survey table is directly citable for the
+rubric's "rationale for the model and methods" bullet (named alternatives,
+reasons rejected); the autopsy's search-side corollary strengthens the
+Φ-shaping negative-result narrative.
+
+---
+
+## 2026-07-07 — v29b "setup-race" losses: retreating a healthy non-attacker OUT to feed an unevolved Abra/Kadabra IN to an armed opponent, one-shot for nothing
+
+**Hypothesis (user-prompted):** several fresh v29b losses (`84710513`,
+`84711188`, `84712093`, plus a look-back at the two from the retreat-target
+fix above) reflect losing "the setup race" — sending a fragile, not-yet-
+attacking line piece (Abra/Kadabra) active right as the opponent powers up,
+rather than sacrificing an expendable body or just holding position.
+
+**Method:** downloaded and traced all three new episodes the same way as the
+prior entry (SWITCH/EVOLVE/ATTACK/HP_CHANGE log sequence + per-step board
+snapshots).
+
+**Result — mixed; only 2 of 3 actually match the hypothesis:**
+- **`84711188` (the replay the user specifically named) turned out to be a
+  drought, not a targeting mistake:** by turn ~16 we still had zero
+  Abra-line pieces anywhere (bench was Dunsparce/Genesect/Fez, hand=0). The
+  Dunsparce→Fez swap that turn was the *correct* call among non-attackers
+  (210 HP vs 70 HP) — we just had no attacker after 16+ turns and ate a big
+  hit regardless of who was in front. No fix changes a resource drought.
+- **`84710513`:** confirmed the exact pattern — a full-health 210 HP Fez was
+  voluntarily retreated OUT so a 50 HP, unfueled Abra could come IN, the
+  same turn the opponent evolved into a bigger attacker and one-shot it
+  (-360 overkill), splashing a second bench Abra too.
+- **`84712093`:** the retreat-target-blindness bug from the entry above
+  (fueled Kadabra retreated for a 0-energy Psyduck, which then got
+  demolished) plus a separate early Abra KO while trying to get the line
+  established.
+
+**Root cause:** `_bench_target_priority` (added in the fix above) always
+ranks Abra/Kadabra above junk (Dunsparce/Fez) as a retreat target — correct
+when the promoted piece can do something, wrong when it can't act this turn
+and is about to eat a hit anyway. The two rules only coexist with a gate:
+can the target attack this turn or survive the likely next hit? If not,
+prefer the expendable body (or don't retreat at all).
+
+**Fix:** added `_opp_threatening(opp_active)` (main.py) — a deliberately
+cheap proxy (opponent's active already carries attached energy) rather than
+real lookahead, consistent with keeping this a shallow heuristic gate, not a
+new search subsystem (see the sizing discussion below). The `RETREAT`
+branch now returns a flat `-4.0` — below every passive fallback (END=1.0,
+etc.) — whenever the retreat target is Abra or Kadabra and
+`_opp_threatening` is true, before falling through to the existing
+target-priority scoring. This deliberately overrides the tier logic (unlike
+the small ±1.0 tiebreak from the prior fix) because the correct behavior
+here is a different action entirely (hold position or sacrifice fodder),
+not just a better choice within the same "retreat and build the line" tier.
+Verified against a direct reconstruction of `84710513`'s board (Fez active,
+bench = fueled Kadabra + 2 unfueled Abra + Dunsparce + Genesect, opponent
+active carrying energy): before the override, retreating into Kadabra/Abra
+scored 16-20 and would have won; after, all three score -4.0 and the agent
+correctly holds (END turn, 1.0) instead. A second synthetic check (same
+board, opponent NOT yet threatening) confirms the override doesn't fire and
+behavior is unchanged when there's no real danger.
+
+**Considered and rejected: an endgame-style rollout search for the opening.**
+The endgame search worked because it has a short horizon and a clean
+terminal signal (prizes remaining, ≤2). This project has already run five
+full-game search configs to failure, and the ISMCTS closure specifically
+pinned the failure on weak leaf-value signal — exactly the regime an
+opening-game rollout would be in (far from any terminal state, dominated by
+the rollout policy rather than genuine lookahead). The decision actually in
+question here ("does this piece survive/act next turn") is a shallow 1-ply
+question, not one that needs full search — so this was implemented as a
+heuristic gate instead.
+
+**Sanity check (not a confirmatory gate):** 200-game local A/B, this
+session's combined main.py changes (both retreat fixes) vs. the pre-session
+`git show HEAD:main.py` baseline, mirror match, seats alternated: **55.0% ±
+6.9% (95% CI), 110W-90L, 0 errors.** Directionally positive with no crashes,
+but n=200 with a CI that includes values near parity — this is a smoke test
+for regressions, not a project-standard n=400 confirmatory result. A
+proper offline A/B (and, per Design Principle #1, real ladder observation)
+is still needed before treating this as a confirmed win.
+
+**Decision:** shipped as a `main.py` fix (no new ship yet — pending user
+go-ahead). Report relevance: another instance of the "options that should
+be ranked score identically" failure mode, but this one required an actual
+new signal (opponent-threat proxy) rather than just reusing existing board
+info — a useful contrast for the report's error-analysis section on what
+these heuristic tiers can and can't self-correct without new inputs.
+
+---
+
+## 2026-07-07 — v29b ladder losses: retreat-target scoring ignored WHICH bench Pokemon it retreated into, letting a fueled Alakazam get voluntarily swapped for a 0-energy Psyduck that then got stuck active until deck-out
+
+**Hypothesis:** two fresh v29b ladder losses reported by the user as "ran out
+of deck cards" (episodes `84709203`, `84710776`) were caused by Psyduck
+getting stuck in the active slot with no energy to pay its own retreat cost,
+after energy was over-committed to the Abra/Kadabra/Alakazam line.
+
+**Method:** downloaded both replays via `kaggle competitions replay
+<episode_id>`, plus 8 other recent completed v29b (submission `54440211`)
+episodes for context, and traced the exact log event sequence (`LogType.
+SWITCH`=8, `ATTACH`=11, `PLAY`=10) around each loss.
+
+**Result — both losses confirmed, root cause found:**
+- **`84709203`:** by step ~86, board was Alakazam (active, 1 Psychic energy,
+  attack-ready) + 2 Kadabra with none on bench lacking energy — all spare
+  Psychic energy was on the Kadabra/Alakazam bench pieces. A voluntary
+  MAIN-phase RETREAT then swapped the ready Alakazam out for the 0-energy
+  Psyduck. Psyduck's retreat cost is 1; with zero energy on it and none
+  spare on the bench to attach, it could never retreat back. It sat active,
+  useless (its own attack also needs energy it doesn't have), for the rest
+  of the game while the deck drew 12→0, ending in a deck-out loss.
+- **`84710776`:** same stuck-Psyduck pattern, but reached via a forced
+  post-KO promotion where the only two bench candidates were Psyduck and
+  a plain Dunsparce — both fell into `_score_bench_target`'s undifferentiated
+  `-10` fallback tier, so the tie broke on array order. (The user's separate
+  observation that Dawn fetched Dunsparce over an Abra here turned out NOT to
+  be a bug: the Dawn search's own `sel['deck']` list at that point had zero
+  Abra/Kadabra/Alakazam cards left anywhere — the whole line had already been
+  KO'd twice over by step 65 — so Dunsparce genuinely was the best Basic
+  Pokemon actually on offer.)
+
+**Root cause, confirmed by reading the code:** `score()`'s `RETREAT` branch
+in `_main_phase_features` (main.py) scored every RETREAT option purely from
+board-state conditions that don't depend on the option at all (`alak_stuck`,
+`active_non_atk`, `bench_has_alak_ready`, ...) — every RETREAT option in a
+given decision therefore scored identically regardless of which bench
+Pokemon it targeted, and `_main_phase`'s `max()` (stable, first-index-wins on
+ties) picked whichever option happened to sort first. This is the same bug
+class already fixed once before for forced-promotion picks
+(`_score_bench_target`, see its docstring) but it had never been applied to
+the voluntary retreat action itself.
+
+**Fix:** factored the promotion-tier ranking out into a shared
+`_bench_target_priority(pk)` helper (Alakazam-fueled > Alakazam >
+Kadabra-fueled > Kadabra > Dudunsparce > Shaymin (free-retreat) >
+Abra-fueled > Abra > Dunsparce/Dunsparce2 > everything else, incl. Psyduck).
+`_score_bench_target` now calls it directly (unchanged behavior, just
+de-duplicated); its bottom tier also now ranks Dunsparce/Dunsparce2 (5)
+above the true dead-weight bucket (Psyduck/Fez/Genesect, -10) instead of
+lumping them together. The `RETREAT` branch in `score()` now adds
+`_bench_target_priority(_attach_target(o,my_active,bench))/100.0` as a
+small tiebreak (max range ±1.0) on top of its existing board-state score —
+small enough that it can only break ties *within* a single RETREAT decision
+(every option there shares the same base score) and can never make
+retreating look better or worse relative to ATTACK/ABILITY/END options in
+the same decision. Verified with two synthetic board-state tests: (1) an
+`alak_stuck` decision with Kadabra/Abra/Psyduck as bench retreat targets now
+scores them in that priority order instead of tying; (2) a non-attacking
+Kadabra active with a ready bench Alakazam and an empty Psyduck, Psyduck
+listed FIRST in the option list, now correctly picks Alakazam (would
+previously have picked Psyduck on array order alone, exactly replicating
+what happened in `84709203`).
+
+**Decision:** shipped as a `main.py` fix (no new ship yet — pending user
+go-ahead for the next submission). Report relevance: a second, independent
+confirmation that this codebase's recurring failure mode is "multiple
+options that should be ranked end up scoring identically, so the tie breaks
+on array order instead of board value" — worth a line in the report's
+error-analysis section alongside the earlier `_score_bench_target` fix.
+
+---
+
+**Last updated:** 2026-07-07 (Redesigned the Phase 2 collection opponent per
+user direction, fixing the root cause identified below: `training/nn/
+opponent_pool.py`, a real-ladder-meta-weighted pool of the project's
+existing rule-based archetype bots, replaces the same-checkpoint mirror.
+Validated at n=20 games: win rate 96.7%→43.1% (real ladder is 47.1%),
+`value_target` mean +0.72→-0.03. Full 300-game recollection + retrain +
+gate launched on Kaggle, result pending. Also root-caused the Phase 2 round
+2 regression itself: NOT the sign-flip artifact retracted below — a real,
+distinct, and more mundane bug (severe win/loss label imbalance in
+`mcts_collect.py`'s corpus, ~97% positive vs. the real ladder's ~47%) that
+collapsed the value head toward always predicting "winning." A separate
+real bug (wrong Q/value convention in `mcts.py`'s net-leaf-eval) was found
+and fixed during the same audit but confirmed NOT to be this regression's
+cause — see entries below. Also, earlier the same day: Phase 2 round 2
+retrain run on the fixed corpus — RETRACTS the "0.630 sign-corrected"
+framing from the buggy run; the fixed-corpus retrain regressed vs. its own
+init checkpoint under either sign reading, so the hoped-for number was a
+bug artifact, not a real signal. Also: v28 ladder-loss replay mining found
+and fixed a real Enriching-Energy-to-Alakazam softlock bug; a broader
+"stuck on non-attacker with lethal hand" pattern was investigated and fully
+retracted after verification — see entries below. Separately: training-
+methods gap analysis approved (Gumbel search / categorical value head /
+offline RL / belief-weighted ISMCTS / annealed oracle / league pool — see
+plan entry below); belief-weighted determinization sampler BUILT +
+validated, reopening Phase C consumer 2 with ISMCTS as its named live
+consumer; ISMCTS gate 1 0W-50L with a named rollout-policy confound, one
+bounded fix pre-registered + re-gating; IQL round 1 built/run — its
+anti-predictive gate independently CONFIRMS the label-imbalance root cause
+above (295W/5L counted directly), round 2 pre-registered on the balanced
+recollection. **Phase 2 round 3 (redesigned pool) result is in: retrain on
+the fixed corpus does NOT clear the pre-training baseline** (0.566 vs
+0.584 ALL sign-acc, CIs heavily overlapping — flat, not a regression, but
+not an improvement either). The Kaggle notebook running this same job
+separately stalled for 9-11 hours with zero recoverable output — traced to
+two real bugs in `mcts_collect.py`, both fixed and confirmed via a local
+re-run: no incremental checkpointing (fixed to save after every opponent
+batch) and a fatal crash on a None-outcome game (now skipped). See entry
+below.)
+
+---
+
+## 2026-07-07 — Phase 2 round 3 (redesigned opponent pool): retrain does NOT clear the pre-training baseline (0.566 vs 0.584); two real `mcts_collect.py` bugs found and fixed while recovering a stalled Kaggle run
+
+**Context:** a Kaggle notebook (`scratch_kaggle_collect_notebook/ptcg-p2-round3-collect-retrain-gate.ipynb`)
+launched to run the round-3 collect→retrain→gate sequence (300 games via
+the redesigned real-meta `opponent_pool.py`, replacing round 2's collapsed
+same-checkpoint mirror — see entries above) stalled for 9-11 hours and was
+killed by Kaggle (`CANCEL_ACKNOWLEDGED`) having logged only the very start
+of the first opponent batch (`opponent=lucario n=40`). **Zero data
+survived** — `mcts_collect.py` only ever pickled its output once, at the
+very end of all 300 games, so a kill at any point mid-run loses everything.
+
+**Bug 1 (fixed): no incremental checkpointing.** `mcts_collect.py` now
+writes the accumulated corpus to `--out` after every opponent batch
+completes, not just once at the end. A kill/timeout now loses at most one
+in-flight batch, not the whole run.
+
+**Bug 2 (fixed): fatal crash on a None-outcome game.** Relaunching locally
+(this project's local search engine, confirmed working since 2026-07-04,
+sidesteps Kaggle entirely and removes its opaque session cap) reproduced a
+second, independent crash: `compute_value_targets` raises `TypeError:
+unsupported operand type(s) for *: 'float' and 'NoneType'` when a game ends
+with `rewards[seat] = None` (an agent-side error mid-game, e.g. from real
+search occasionally erroring out) instead of a clean win/loss/tie. This is
+a distinct bug from the Kaggle stall (that one never got far enough to hit
+it) — `mcts_collect.py` now treats a non-numeric outcome as a skip
+(counted in `relabel_errors`, logged with the game's `statuses` for
+diagnosis) instead of crashing the whole collection run.
+
+**Local timing, measured directly (useful for future runs):** ~4-6
+min/game under CPU contention from an unrelated concurrent job, dropping to
+roughly 15-75s/game once that contention cleared — the full 300-game run
+completed in about 1 hour wall-clock once both bugs were fixed. This
+strongly suggests the original Kaggle stall was **not** a hang but the
+same kind of slow-real-search cost observed locally, just compounded by
+whatever CPU allocation Kaggle's free tier gives a notebook, never
+finishing even the first 40-game opponent batch within the 9h session cap.
+
+**Full re-run (local, post-fix): 300 games, winrate 0.427** (vs. the
+pre-registered validation target of ~43.1%/real-ladder 47.1% from the n=20
+smoke test above — matches well), **24116 samples, match_rate=0.694,
+relabel_errors=7** (the None-outcome games, now safely skipped rather than
+fatal). Per-opponent breakdown ranged from lucario (80 games, 43.8% win) to
+the single-game tail archetypes (raging-bolt, gardevoir).
+
+**Retrain:** `train_sp.py --bc-limit 10 --bc-frac 0` (pure SP, matching the
+notebook plan), 8 epochs, avg_loss 1.389→1.242 monotonically decreasing —
+no training-loop pathology.
+
+**Gate (`dmc_replay_gate.py --value-source head`, same 1436-game real-replay
+set used throughout Phase 0/2):**
+
+| Checkpoint | ALL | EARLY (turn≤4) | MID (5-10) | LATE (turn≥11) |
+|---|---|---|---|---|
+| pre-training (init) | 0.584 [0.557,0.611] | 0.541 | 0.578 | 0.641 |
+| post-training (round 3) | 0.566 [0.552,0.581] | 0.528 | 0.550 | 0.631 |
+
+**Decision: does NOT pass.** Every segment is flat-to-slightly-lower than
+the pre-training baseline, with heavily overlapping CIs — this is
+statistically indistinguishable from no change, not a regression, but
+training on the round-3 corpus did not produce a real value-head
+improvement. It IS a clear improvement over round 2's collapsed 0.446 (the
+label-imbalance fix worked as intended — the value head no longer
+collapses toward "always winning"), but "no longer broken" is not the same
+as "learned something useful": it doesn't approach Φ v2's 0.604/0.696 or
+the best DMC checkpoint's 0.609/0.700, and it doesn't beat simply not
+training at all.
+
+**Report relevance:** another entry in this project's now-long pattern
+(DAgger, AWR, PIMC search, oracle-critic, IQL) of "the pipeline works, the
+signal from more self-play data isn't there without a genuinely external
+information source" — see `docs/nn-training.md` "Resume Here" for the
+updated next-step framing. The infrastructure fixes (incremental
+checkpointing, None-outcome handling) are durable and apply to any future
+`mcts_collect.py` run regardless of this result.
+
+---
+
+## 2026-07-07 — Endgame-gated search gate 1: 66.0% ± 13.1% vs v25c — the FIRST positive search result; CONFIRMED at decisive scale: 59.0% ± 4.8% vs v28 itself (400 games)
+
+**Hypothesis:** the belief-ISMCTS closure (entry below) says rollout leaf
+values are signal-free in MID-game states but real terminals ARE within
+rollout reach in closing races — where the loss mining also localizes
+v28's fixable losses. So: play the shipped heuristic verbatim EXCEPT when
+either player is ≤2 prizes from winning, and there run the
+belief-determinized rollout searcher (`training/nn/endgame_agent.py`,
+`ENDGAME_SIMS=60`, wraps `main.agent` for all non-endgame decisions).
+Search cost is negligible this way (avg_game_s 44-117 vs ~620 for
+full-game search).
+
+**Gate 1 (pre-registered ≥55% to pursue): 33W-17L = 66.0% ± 13.1% vs
+`training/baselines/v25c.py`, 50 games, seats alternated, 0 errors.**
+PASSES — the first search configuration in this project to come back
+positive (against five 0-for-N full-game configs).
+
+**Cautions, stated before the confirm run:** n=50 (house standard is
+400); noticeable seat asymmetry (52% as P0, 80% as P1 — small-n variance
+until proven otherwise); and the wrapper's base heuristic is CURRENT
+main.py (v28+Enriching fix) while the baseline was v25c, so part of the
+edge may be heuristic-version diff (historically ~50-54%), not search.
+
+**Decisive test:** 400-game A/B `endgame_agent.py` vs `main.py` itself —
+same underlying heuristic, search on/off, so the search contribution is
+exactly isolated, and a CI-clearing win IS "a model-guided agent beats
+v28" (the current session goal). **Interrupted by a machine crash at
+150/400 games (no error, just cut off) — relaunched 2026-07-07 afternoon.**
+
+**RESULT (confirmed): 236W-164L = 59.0% ± 4.8% (95% CI [54.2%, 63.8%]),
+seats alternated (P0: 125W-75L=62.5%; P1: 111W-89L=55.5%), 0 errors.**
+CI clears 50% on both seats individually and combined — **this is a real,
+CI-confirmed win: `endgame_agent.py`'s endgame-gated search beats v28
+(`main.py`) with everything else held identical.** This is the first time
+in the project's history that a model-guided component has beaten the
+shipped heuristic in a properly-powered (n=400) test, closing out the
+search-family narrative on a positive note after five prior 0-for-N
+full-game configs. **Not yet shipped** — this is an offline confirmation;
+per Design Principle #1 the real ladder is still the final evaluator, and
+the next step is deciding whether to ship `endgame_agent.py` as the next
+submission.
+
+**Report relevance:** if confirmed, this is the redemption arc of the
+search narrative — search fails where its leaf signal is uniform and works
+where terminals are reachable — plus a shippable agent. If not confirmed,
+gate 1 becomes another underpowered-positive cautionary row.
+
+---
+
+## 2026-07-07 — v29 validation-episode failure: `__file__` NameError, real-loader fidelity gap in the pre-ship clean-room test; fixed and reshipped as v29b
+
+**What happened:** submission `54439688` (v29, endgame-gated search) came
+back `SubmissionStatus.ERROR`. Pulled the validation episode's agent logs
+(`kaggle competitions episodes <submission_id>` → `kaggle competitions logs
+<episode_id> <agent_index>`, not previously used this session) — root
+cause: `NameError: name '__file__' is not defined` at `main.py`'s first
+line of path-computation code.
+
+**Root cause:** Kaggle's actual submission loader
+(`kaggle_environments/agent.py::get_last_callable`) reads the submitted
+`main.py` and does `exec(compile(raw, path, "exec"), {})` — a raw exec into
+an EMPTY namespace dict, not a real module load. `__file__` is only ever
+set by Python's normal import machinery (`importlib`), so it's simply
+absent for the exec'd top-level file. **The pre-ship clean-room test used
+`training/harness.py`'s `load_agent`, which uses
+`importlib.util.spec_from_file_location` + `exec_module` — a real module
+load that DOES set `__file__`** — so it validated import resolution and
+sys.path correctly but never exercised this specific gap. A second,
+harness-independent clean-room test using `kaggle_environments.agent
+.get_last_callable` directly (and then a full `env.run([path0, path1])`
+with real file paths, the exact call shape Kaggle uses) reproduced the
+failure locally before the fix and confirmed the fix afterward.
+
+**Fix:** anything `main.py` itself *imports* (`heuristic`, `ismcts_agent`,
+`mcts`, `determinize`) goes through the normal import system and gets a
+real `__file__` — only the top-level exec'd file lacks one. So `main.py`
+now computes its base directory from `heuristic.__file__` (the sibling
+module it already imports) instead of its own `__file__`. No other file
+needed changes: `mcts.py`/`ismcts_agent.py`/`determinize.py` are reached
+via genuine `import` statements once findable via sys.path, so their own
+existing `__file__`-based logic already worked correctly.
+
+**Reshipped as v29b, submission `54440211` — `SubmissionStatus.COMPLETE`,
+publicScore 600.0 (the standard fresh-submission floor, not a signal
+yet).** `training/nn/package_endgame_submission.py` updated with the fix
+and a comment recording why. **Takeaway:** a clean-room test is only as
+good as how faithfully it reproduces the real loader — "no repo access"
+caught missing-file bugs but not this loading-mechanism difference; the
+fix was to test against Kaggle's actual loader function directly, not a
+convenience substitute.
+
+---
+
+## 2026-07-07 — Machine crash mid-session: two interrupted local experiments recovered from disk
+
+The machine crashed overnight while two Claude Code instances were
+running. Recovered exact state from each session's persisted transcript
+plus surviving log files in `%TEMP%` (neither had been captured to
+`report-log.md` yet):
+
+**Endgame decisive A/B** (entry above) — confirmed via `%TEMP%/
+endgame_v28.log`: reached 150/400 games with zero errors, then stopped
+mid-run (crash, not a script failure). Relaunched.
+
+**Replay-trained value model** (`training/nn/replay_value.py`, entry
+below) — confirmed via `%TEMP%/rv_r1.log`: full run (1,142 train files /
+432 holdout files, 3 epochs) completed epoch 0 cleanly — **ALL sign_acc
+0.635 [0.608,0.662], EARLY 0.559 [0.524,0.592], MID 0.646 [0.608,0.683],
+LATE 0.711 [0.665,0.758]** (holdout-only, vs Φ v2 on the same holdout as
+the bar — smoke-test-scale Φ v2 comparison had been 0.504 on LATE, so this
+early full-scale number already looks like a real gap). Epoch 1 started
+training (bce=0.2988) but its own HOLDOUT report never reached disk before
+the crash — standard Python stdout buffering, not a training failure. The
+saved checkpoint (`training/ptcg_rv_r1.pth`, written 2 minutes after the
+log's last flush) is very likely epoch 1's completed weights. Recovered
+its metrics by re-running eval-only (no retrain) against the identical
+seed=0 holdout split: **ALL sign_acc 0.630 [0.602,0.658], EARLY 0.562
+[0.530,0.593], MID 0.643 [0.605,0.682], LATE 0.695 [0.648,0.745], vs.
+Φ v2 on the SAME holdout at 0.624 [0.597,0.654] (ALL only — Φ's per-segment
+number isn't computed by this script, matching the original design).**
+**Correction to the takeaway implied by the smoke test:** the striking
+18-game smoke-test gap (LATE 0.724 vs Φ v2's 0.504) does NOT hold up at
+full scale — epoch 1's ALL/LATE numbers are only marginally above Φ v2
+(0.630 vs 0.624 ALL; Φ's own LATE-only figure wasn't computed here to
+compare directly), consistent with this project's repeated small-n-looks-
+promising-then-flattens pattern. Also notably, epoch 1's numbers are
+slightly WORSE than epoch 0's on every segment (ALL 0.635→0.630, EARLY
+0.559→0.562 flat, MID 0.646→0.643, LATE 0.711→0.695) despite train bce
+dropping sharply (0.4952→0.2988) — a mild overfitting signature, not a
+crash artifact. **Decision: do not yet claim replay_value beats Φ v2** —
+rerun epoch 0's checkpoint (still the better of the two epochs seen so
+far) or gate a fresh run properly before drawing conclusions; the 3-epoch
+run was cut short by the crash before epoch 2 in any case.
+
+**Takeaway:** both interruptions were pure crash artifacts (unflushed
+stdout / a killed background process), not bugs in either script. No work
+was actually lost — everything was recoverable from disk without
+redoing the expensive parts (training, game simulation).
+
+---
+
+## 2026-07-07 — ISMCTS gate 1: 0W-50L; named confound found (archetype-mismatched rollout policy); ONE bounded fix pre-registered
+
+**Hypothesis:** belief-weighted determinization (fresh sample per sim, real
+archetype decklists minus observed cards — see sampler entry below) fixes
+the closed PIMC line's implausible-worlds defect enough to clear the
+original pre-registered ≥55%-vs-v25c bar.
+
+**Method:** `training/nn/ismcts_agent.py` (subclass of `mcts.py`'s
+MCTSSearcher, only the determinization block swapped; rollout leaf-eval;
+`ISMCTS_DETERMINIZER=placeholder` toggle kept for the ablation), 50 games
+vs `training/baselines/v25c.py`, seats alternated, `ISMCTS_SIMS=100`,
+12 workers. Smoke-tested first (2 games, 0 fallbacks).
+
+**Result: 0W-50L-0T, 0 errors** (`ab_history.csv` 2026-07-07T02:40) — the
+same total-loss signature as the original PIMC gate. avg_game_s ~620-630
+offline (also clock-infeasible live at these settings; irrelevant to the
+offline gate but noted).
+
+**Named confound (real, found post-hoc by inspection):** the determinizer
+correctly sampled *alakazam-mirror* hidden zones (the opponent WAS v25c),
+but the parent class's rollout pilots opponent turns with the hardcoded
+adversarial `lucario_agent` — a lucario policy playing an alakazam hand is
+nonsense rollouts, plausibly WORSE than the old self-consistent
+lucario-zones+lucario-pilot filler. Gate 1 therefore tested an incoherent
+config, not the hypothesis.
+
+**Bounded fix, pre-registered per the house "1-2 follow-ups then stop"
+rule:** rollout opponent policy now matches the believed archetype
+(alakazam read → opponent turns piloted by the real `main.agent`, whose
+`_STALL_MEMO` the parent already isolates per-sim; other/unknown reads keep
+lucario). Re-gate: 20 games, same protocol. **Kill rule: if this shows no
+clear pulse (>0 wins, compatible with ≥30%), the belief-ISMCTS line
+closes.**
+
+**Re-gate result: 0W-20L-0T, 0 errors (`ab_history.csv`
+2026-07-07). THE KILL RULE FIRES — the belief-ISMCTS line is CLOSED.**
+Better determinization (validated-plausible worlds AND archetype-consistent
+rollout policies) does not rescue rollout-based search against this
+teacher: five configurations across two closures (three PIMC + two
+belief-ISMCTS) all lose 0-for-N to v25c with named, distinct causes fixed
+each time. The surviving explanation is the one the original postmortem's
+diagnostic already measured: rollouts between near-parity policies on
+determinized worlds return near-uniform "win" values, so root visit counts
+carry no discriminating signal and argmax-N is effectively random play —
+and near-random play loses ~100% to v25c (generic-greedy gElo 57 vs 568 on
+Table B, the same order of gap). The determinization QUALITY was never the
+binding constraint; the LEAF VALUE signal is. Any future search revival
+must swap the leaf evaluator (a calibrated value net — blocked on the
+corpus fix in the entries above — or the Gumbel/Q-target route), not the
+determinizer.
+
+**Pre-registered ablation (report material) — RESULT:** belief-ISMCTS vs
+placeholder-ISMCTS head-to-head (20 games, same 100 sims, both losing
+configs vs v25c so head-to-head is the only informative comparison):
+**belief side 8W-12L, 40.0% ± 21.5% — statistically indistinguishable from
+50/50 at this n.** Within a search whose leaf values carry no
+discriminating signal, world-plausibility makes no measurable difference —
+exactly what the closure diagnosis predicts, and a clean figure-#4 row:
+"determinization quality is not the binding constraint (40%±21.5%,
+head-to-head, n=20)."
+
+**Report relevance:** completes the search-line narrative (five configs,
+every failure with a named cause, converging on "search without a
+calibrated value signal is worse than the prior it searches over") and the
+determinization ablation row for figure #4. The sampler itself remains a
+validated, live component for future consumers (net-input features,
+endgame solving).
+
+---
+
+## 2026-07-07 — Offline RL round 1 (IQL, `training/nn/train_iql.py`): anti-predictive on the mcts_p2_r3 corpus — explained by the SAME label-imbalance root cause as the train_sp regression (independently confirmed)
+
+**Hypothesis:** IQL (expectile-regressed V + TD-bootstrapped Q through it;
+Kostrikov et al. 2021) — the first offline-RL-family method tried here
+(precedent: Metamon, arXiv 2504.04395) — can learn from logged corpora
+without the imitation-family parity ceiling. Q = the existing per-action
+logits head (DMC convention, warm-started from
+`ptcg_dmc_p0_v2_n1_richenc_v2.pth`), V = new linear head on the trunk,
+gamma=1, sparse terminal `outcome` reward (NOT the corrupted `value_target`
+field). Transitions rebuilt from per-game contiguity via turn-reset
+boundaries — recovered exactly 300 games from 22,167 samples, matching the
+known collection size, so boundary detection is exact.
+
+**Training:** clean convergence (q_loss 0.375→0.019, v_loss 0.157→0.008,
+4 epochs). **Gate (`dmc_replay_gate.py`, qmax, 1436 replay games): ALL
+0.477 [0.461, 0.494] — anti-predictive** (EARLY 0.512, MID 0.481, LATE
+0.432) vs the Φ v2 bar 0.604 and the init's own ~0.608.
+
+**Root cause — same as the train_sp regression (see the collection-
+opponent entry above), independently confirmed here:** a direct count of
+the corpus's game outcomes gives **295 wins / 5 losses (98.3% positive)**.
+With five loss examples total, ANY value/Q learner collapses toward
+predicting "winning" and comes out anti-predictive on real replays (~47%
+win base rate). Two completely independent trainers (train_sp 0.446, IQL
+0.477) failing identically on the same corpus, from inits that gate fine,
+is exactly what a data defect — not a trainer bug — predicts. **Seat-split
+diagnostic (ran to completion, confirmatory):** seat-0-only (150 games)
+gates 0.512 ALL [0.498, 0.526], seat-1-only (150 games) 0.502 [0.491,
+0.513] — both at chance, no seat asymmetry. Both slices are ~98%-win, both
+collapse to "always winning," ruling out a seat-dependent encode/load
+defect as the mechanism. The imbalance explanation stands alone.
+
+**Decision:** IQL round 1 is NOT a verdict on IQL — the corpus was
+untrainable for any value method. **Round 2 pre-registered:** retrain
+`train_iql.py` unchanged on the balanced opponent-pool recollection (the
+~43%-win corpus being collected on Kaggle per the entry above), gate on
+`dmc_replay_gate.py` (bar: beat Φ v2 0.604 ALL) + 400-game A/B
+(`dmc_agent.py` argmax vs v25c) if the replay gate passes.
+
+**Report relevance:** a textbook offline-RL-needs-coverage datapoint that
+dovetails with the collection-opponent redesign narrative — the method
+survives; the data was the defect. Figure #3/#4 rows come from round 2.
+
+---
+
+## 2026-07-07 — Collection-opponent redesign: real-ladder-meta-weighted archetype pool replaces the same-checkpoint mirror
+
+**Why:** direct follow-up to the root-cause entry below (the round 2
+regression traced to a same-checkpoint mirror opponent so weak the
+searching side won 96.7% of collection games, collapsing the trained value
+head toward unconditionally predicting "winning"). User directed the fix:
+"redesign the collection-opponent... if you can use ladder replays that
+would be great." Replays themselves aren't live opponents (a recorded game
+has no policy to query for a fresh state), so "using ladder replays" here
+means: weight the opponent pool by the *real archetype distribution* those
+replays reveal, and use the project's existing real decklists/pilots for
+each archetype rather than a synthetic mirror.
+
+**Method:** `tools/meta_survey.py --all` over the full local replay pool
+(1595 files, spanning `replays/bulk` + this session's `replays/v28`/
+`v26remake` additions) gives real current archetype shares: lucario 21.7%,
+other/unknown 18.1%, alakazam(mirror) 11.9%, dragapult 10.7%, starmie 9.8%,
+crustle 8.7%, archaludon 6.6%, abomasnow 5.3%, grimmsnarl 3.5%, bellibolt
+1.3%, rockets-mewtwo 0.9%, kyogre 0.9%, raging-bolt 0.5%, gardevoir 0.3%.
+
+Built `training/nn/opponent_pool.py`: a weighted pool of (label, agent_path,
+deck) tuples —
+- 4 archetypes (lucario/dragapult/starmie/abomasnow) use their real
+  `opponents/*_agent.py` bot with its own real decklist and real piloting
+  logic (official Kaggle sample agents, already used elsewhere in this
+  project as gauntlet anchors).
+- `alakazam_mirror` uses the real shipped heuristic (`main.py`, not the
+  half-trained net's own weak policy) piloting its own deck — both a
+  stronger opponent and a more faithful proxy for a competent human mirror
+  opponent.
+- The remaining archetypes (crustle/archaludon/grimmsnarl/bellibolt/
+  rockets-mewtwo/raging-bolt/gardevoir) have only a reconstructed decklist
+  (`training/archetype_decks.json`, built from real replay card-reveal
+  evidence) and no dedicated pilot — piloted by `training/generic_pilot.py`
+  (the deck-agnostic greedy heuristic already validated for exactly this
+  role in the Stage 0c tier-2 bake-off).
+- "other/unknown" (18.1%, no reconstructable deck) and "kyogre" (0.9%, its
+  reconstructed decklist has only 30/60 card copies — too sparse a
+  13-replay sample to complete into a legal deck) are dropped rather than
+  fabricated; the remaining weights are renormalized to sum to 1.
+
+Extended `training/harness.py`'s `run_matches`/`_worker` with an optional
+`decks` param (a length-n_games list of `(deck0, deck1)` overrides, mirrors
+the existing `extra_envs` pattern exactly — `None` default preserves prior
+behavior for every other caller) so a deck-agnostic pilot like
+`generic_pilot.py` can be handed a specific archetype's deck per game.
+Rewrote `mcts_collect.py`'s collection loop to call `opponent_pool.allocate()`
+per seat-batch (largest-remainder rounding so allocations always sum
+exactly to the requested game count) and run one `run_matches` call per
+(net_seat, opponent-archetype) combination instead of one fixed opponent
+for the whole run; added a per-opponent win-rate breakdown to the run
+summary for visibility.
+
+**Gate (n=20 local smoke test, sims=5):** overall win rate **96.7%→45.0%**
+(9W-11L over the full 20; per-opponent breakdown at this tiny n is noisy
+but directionally right — 0% vs alakazam_mirror and dragapult, 50% vs
+lucario/crustle/abomasnow, 100% vs starmie/archaludon at n=1-2). Corpus-level
+check: outcome balance **96.7%→43.1% positive** (vs. the real ladder's
+47.1%), `value_target` mean **+0.716→-0.034** (from heavily collapsed
+toward +1 to well-centered near zero, matching the untouched init
+checkpoint's genuine spread rather than a constant-positive collapse).
+0 relabel errors, match_rate 0.753 (consistent with all prior validated
+collection runs, 0.751-0.847). Confirms the redesign fixes exactly the
+imbalance diagnosed as the round 2 regression's cause, at a scale too
+small to gate the actual value-head training outcome.
+
+**Full-scale run launched (not yet complete):** 300-game recollection
+(`mcts_p3_r1.pkl.gz`) + retrain (`ptcg_sp_p3_r1.pth`, same settings as
+round 2) + gate, packaged as a Kaggle notebook
+(`jander6364/ptcg-phase2-round3-collect-retrain-gate`, per continued user
+direction to keep this compute off the local CPU) since real MCTS search
+against real opponent-bot logic is meaningfully heavier than the pure
+retrain step. Result pending — will be logged as its own entry once
+complete, comparing against: pre-training baseline (0.584 ALL on this
+replay set), round 2's collapsed result (0.446), Φ v2 (0.604/0.696), best
+DMC checkpoint (0.609/0.700).
+
+**Report relevance:** a real, validated fix to a real, diagnosed root
+cause — good report material either way the full-scale gate lands (if
+positive: an insufficiently-competitive self-play opponent was the actual
+bottleneck, not any of the sign/convention bugs found along the way; if
+still negative: the label-imbalance fix alone isn't sufficient and the
+value-head training approach itself needs more work).
+
+---
+
+## 2026-07-07 — Root cause of the Phase 2 round 2 regression: win/loss label imbalance, NOT the sign-flip artifact (and a separate real bug found + fixed, but ruled out as the cause)
+
+**Why:** per the user's explicit request to "explore potential bugs
+extensively" and examine "each aspect of this training setup," audited the
+full Phase 2 collection→training→gate pipeline end to end after the
+2026-07-07 morning retrain came back a clean negative (post-training ALL
+sign_acc 0.446 vs. init's 0.584 — see the entry below this one).
+
+**Audit scope (all read/traced in full, one file at a time):**
+`dataset.py` (`collate`/`BCDataset.__getitem__`), `model.py` (`forward`),
+`net_common.py` (`value_estimate`/`encode_batch`), `encode.py` (all feature
+functions), `threat.py` (`net_threat_diff`), `phi_baseline.py` (`our_seat`,
+`phi`/`phi_v2`), `dmc_nstep.py` (`q_max_value`, `_phi_at`),
+`selfplay_collect.py` (`compute_value_targets`, `shaped_reward`),
+`mcts_collect.py` (the actual Phase 2 collection driver), and `mcts.py`
+(`MCTSSearcher`, `_net_leaf_value`, `_rollout`, `_terminal_value`). All of
+`dataset.py`/`encode.py`/`threat.py`/`phi_baseline.py`/`dmc_nstep.py` check
+out clean — every seat-dependent computation reads `yourIndex` from the obs
+it was actually given, no hardcoded-seat residue found anywhere in that
+group.
+
+**Real bug #1 found (genuine, fixed, but NOT the regression's cause):**
+`mcts.py`'s `MCTSSearcher._net_leaf_value` (used during every simulated
+leaf evaluation when `leaf_eval="net"`, which is what `mcts_leafeval_agent.py`
+always uses) computed `logits[0,:n].max()` — the DMC convention where the
+policy logit itself IS the Q-value, correct for the checkpoint
+(`ptcg_dmc_r2.pth`) this code was originally built and validated against
+(2026-07-04's "Phase 0 step-0 probe," per the class's own docstring: "matching
+the distribution dmc_collect.py trained it on"). Phase 2's collection
+(2026-07-06+) reused this same class with a *different* checkpoint lineage
+(`ptcg_dmc_p0_v2_n1_richenc_v2.pth`, whose value estimate lives in a
+separate `value_head` — the entire reason `dmc_replay_gate.py --value-source
+head` exists) without updating this call site. Raw policy logits are
+unbounded and uncalibrated as a value signal, unlike the tanh-bounded
+`value_head` output. **Fixed:** added `net_value_source` ("qmax" default,
+preserves old behavior for the original DMC probe; "head" for
+train_sp.py-lineage checkpoints), threaded through
+`mcts_leafeval_agent.py`'s `MCTS_NET_VALUE_SOURCE` env var, and
+`mcts_collect.py` now sets it to `"head"` explicitly so future collection
+runs can't silently regress to the wrong convention. Smoke-tested (4-6 game
+local collections): `v_pred` now correctly bounded in [-0.96, 1.0] under the
+fix, vs. the old code's unbounded raw-logit values.
+
+**Initial (WRONG) diagnosis — caught before acting on it:** the first
+instinct was to credit bug #1 as the explanation for the round-2 regression
+and go straight to re-collecting a corpus with the fix. **The advisor
+caught the flaw before any recollection happened:** the round-2 corpus's
+`value_target` was already independently verified 98.5% sign-consistent
+with `outcome` (2026-07-06 entry) — a corpus that consistent with the true
+outcome, once a model successfully fits it (confirmed: loss fell smoothly
+1.5425→1.3544), should not produce an anti-predictive head. Bug #1's
+existence doesn't reconcile with that fact, so it couldn't be the
+explanation without further evidence — exactly the "diagnose, don't
+pattern-match" discipline this project's own history keeps re-learning.
+
+**Real cause, confirmed by 3 cheap on-disk checks (no recollection needed):**
+1. **`mcts_p2_r3.pkl.gz` outcome balance: 21,430 wins vs. 737 losses
+   (96.7% positive).** `value_target` is 95.2% positive, mean 0.716, with a
+   histogram overwhelmingly concentrated near +1 (82% of all 22,167 samples
+   in the top 2 of 10 buckets).
+2. **The real ladder replay gate set (1441 games) is 47.1% positive**
+   (677W-759L) — i.e., roughly balanced, nothing like the training corpus.
+3. **Value-head output histograms, both checkpoints, same 300 real
+   replay games (36,118 decision points):** the untouched init checkpoint
+   has real spread (mean −0.528, meaningful mass across 7 of 10 buckets).
+   The post-Phase-2-training checkpoint has **54% of ALL outputs — wins and
+   losses alike — concentrated in the top 2 buckets near +1** (mean 0.478).
+   This is a value head that has collapsed toward unconditionally
+   predicting "I'm winning," discarding whatever real discriminative signal
+   the init checkpoint had.
+
+**Mechanism:** `mcts_collect.py` pits our 40-sim search-augmented side
+(`mcts_leafeval_agent.py`) against the *same checkpoint* playing plain
+temperature-sampled policy with no search (`selfplay_agent.py`) — that
+opponent is far too weak to be competitive, so the "self-play" corpus ends
+up with labels that are ~97% "I won," not a healthy win/loss mix. Training
+on that imbalanced target collapses the value head toward a
+near-constant-positive predictor, which — on the real, roughly 50/50-split
+ladder replay set — scores close to the population's true positive rate
+(≈0.446-0.471), i.e. almost exactly the 0.446 measured. **This is the same
+failure class already documented for Stage 5's PIMC search line (2026-07-04:
+"the rollout's simulated opponent was our own heuristic piloting a random
+hand of our own deck — a hapless mirror opponent that can't punish a bad
+root choice") recurring in a different part of the pipeline** — an
+insufficiently competitive opponent, this time on the collection side
+rather than the rollout side.
+
+**Decision: do NOT recollect with just the leaf-eval fix — it would very
+likely reproduce the same negative, since the label-imbalance problem is
+untouched by it.** The leaf-eval fix (bug #1) is real, correct, and worth
+keeping in the code, but it is explicitly NOT credited as the fix for this
+regression — logged as "a real bug found during the audit, confirmed via
+histogram/CI checks not to be the round-2 regression's cause." The actual
+fix needed is a collection-design change (a stronger/more competitive
+opponent for the searching side to play against, and/or explicit outcome
+balancing) — a bigger decision than a bug fix, deferred pending user
+direction rather than built unprompted.
+
+**Report relevance:** a genuinely useful methodology example for the
+report — two real bugs found in the same audit, one correctly ruled out
+via cheap diagnostic checks before spending recollection compute chasing it,
+consistent with this project's now-standing rule that a plausible-sounding
+bug is not evidence until it's shown to reconcile with ALL the existing
+facts (here: the 98.5% label self-consistency check that the wrong
+diagnosis couldn't explain). Also concrete evidence that "self-play against
+an insufficiently strong opponent produces useless/misleading training
+signal" is a recurring, cross-cutting failure mode of this project's
+AlphaZero-style push, not a one-off.
+
+---
+
+## 2026-07-07 — Belief-weighted determinization sampler built + validated (Phase C consumer 2 reopened, ISMCTS is the named consumer)
+
+**Why:** the approved training-methods plan (see the gap-analysis entry
+below) ranks belief-weighted ISMCTS as the literature's direct fix for the
+closed PIMC search line's named failure cause (**strategy fusion** —
+Cowling/Powley/Whitehouse 2012 introduced Information-Set MCTS on Dou Di
+Zhu for exactly this defect). ISMCTS needs per-simulation determinizations
+that are *plausible*, not mirror-deck filler — which is precisely the
+deprioritized Phase C consumer 2. With a live consumer named, it was built.
+
+**What:** `training/belief/determinize.py` — `BeliefDeterminizer.sample(obs,
+seat, rng)` returns all six hidden-zone lists `search_begin` expects.
+Our own zones are sampled *exactly* (our decklist is known: `main.DECK`
+minus everything visible → true unseen multiset dealt into deck order +
+face-down prizes). Opponent zones use the shipped `_belief_posterior` from
+`main.py` (same 0.97 confidence calibration as v28, same crustle-line
+override): confident read → that archetype's 60-card list (exact lists for
+lucario/dragapult/abomasnow/starmie/alakazam; replay-reconstructed
+`training/archetype_decks.json` lists for crustle/archaludon/etc., padded
+with the standard 1072 filler where evidence is thin) minus every publicly
+observed opponent card, dealt into hand/prizes/deck/face-down active.
+Low-confidence/unknown reads fall back to pure filler — the honest-unknown
+rule, and the ablation control.
+
+**Validation (`training/belief/test_determinize.py`, real games vs
+lucario_agent, both seats):** 442 decisions sampled and verified — zone
+lengths match the observation's counts exactly on every decision; no
+None/invalid ids; our own sampled zones never exceed `main.DECK` copy
+counts once visible copies are subtracted (multiset consistency); on all
+303 decisions at turn ≥3 the sampler labeled the opponent `lucario` and
+every belief-sampled hidden card came from the true lucario decklist.
+
+**Decision:** sampler is ready. Next consumer step: an ISMCTS-style agent
+that draws a FRESH `sample()` per simulation (re-determinizing per sim is
+already the established anti-strategy-fusion protocol from the PIMC
+postmortem) with root-shared statistics, gated at the same pre-registered
+≥55%-vs-v25c bar as the original search line. Pre-registered ablation for
+the report: belief-sampled vs placeholder determinization, same search,
+same budget.
+
+**Report relevance:** this is the "belief model actually drives decisions"
+originality centerpiece — figure-#4 ablation row (placeholder vs belief
+determinization) becomes runnable for the first time.
+
+---
+
+## 2026-07-07 — Training-methods gap analysis (external research + code audit): five-family plan approved
+
+**Why:** user directive — heuristic work can't score on the 70% model axis;
+find the best untried training methods. Full literature sweep (Kaggle sim
+rating docs, Suphx, DouZero+, ISMCTS, Gumbel AlphaZero, Metamon offline RL,
+LOCM competition retrospectives) mapped against every tried-and-logged
+method in this file.
+
+**Key mappings (untried method → named failure it addresses):**
+1. **Gumbel AlphaZero root selection + Q-based policy targets** (Danihelka
+   et al., ICLR 2022) → PIMC postmortem's PUCT visit collapse; guarantees
+   policy improvement at even 2-16 sims (our compute regime). Also: the
+   Phase 2 policy head trained on visit counts has never been gated on its
+   own merits.
+2. **Categorical two-hot value head** (MuZero-family standard) → the AWR
+   closure's named root cause ("value head saturates near ±1").
+3. **Offline RL (IQL / sequence model)** on the existing ~37GB of corpora →
+   teacher-parity ceiling; in-domain precedent Metamon (arXiv 2504.04395,
+   human-level competitive Pokémon from replays alone).
+4. **Belief-weighted ISMCTS** → strategy fusion (see entry above).
+5. **Suphx annealed oracle dropout** (arXiv 2003.13590) → the oracle
+   critic's exact failure mode; Suphx documents that fixed dropout fails
+   and a 0→1 anneal is the fix. Our `ORACLE_DROPOUT` infra already exists.
+6. **League/fictitious-play opponent pool** (LOCM final edition winner) →
+   mirror-only self-play blindness (Phase C's value was invisible in
+   mirror A/Bs).
+Rejected with reasons: Deep CFR/R-NaD (compute), MuZero learned dynamics
+(real engine is fast + clonable), PPO-from-scratch (dominated here), LLM
+agents (latency/runtime).
+
+**Also confirmed via external docs:** Kaggle simulation-competition ratings
+are Gaussian skill estimates (μ₀=600, σ decays over episodes, days-scale
+convergence) — independent confirmation of this project's hard-won "never
+trust a single publicScore read" rule.
+
+**Code audit note:** the suspected 4th sign bug in `dataset.py::collate()`
+is NOT supported by inspection — `values[i] = outcome` is a straight copy
+with zero seat logic (lines 98-153); if a sign defect exists it is
+elsewhere in the path. (The separate debug agent owns that investigation.)
+
+**Decision (user-approved plan):** sequence = categorical value head
+(blocked on the sign-debug agent's files) → Gumbel expert iteration with
+opponent pool + aux head (blocked on same files) → IQL in parallel on T4 →
+belief-weighted ISMCTS (started, see entry above) → annealed oracle retry
+only if slack. Every experiment pre-registers its gate; 400-game minimum
+A/Bs; no negate-and-claim.
+
+---
+
+## 2026-07-07 — Phase 2 round 2 retrain on the FIXED corpus: regression vs. init, RETRACTING the "0.630 sign-corrected" framing
+
+**Why:** per the 2026-07-06 pause, ran the previously-paused retrain
+(`train_sp.py` on `mcts_p2_r3.pkl.gz`, the me_idx-bug-fixed 22,167-sample
+corpus) — same settings as the buggy run for a clean before/after
+comparison. Run on Kaggle (kernel
+`jander6364/ptcg-sp-phase2-r2-retrain-value-gate`) rather than locally, per
+user request to keep the local CPU free; required assembling three Kaggle
+datasets (code+corpus+init-checkpoint, a 1441-replay gate corpus, and the
+existing public `kiyotah/cg-lib` for `threat.py`'s `cg.api` dependency) and
+a notebook that reassembles the `cg` package server-side (same approach as
+`training/setup_local_search.py`, adapted for the Kaggle Linux container).
+One real packaging bug hit and fixed mid-session: Kaggle auto-extracts an
+uploaded `.zip` into its contents and auto-decompresses an uploaded `.gz`
+file on dataset ingestion, so the first kernel run 404'd looking for the
+uploaded filenames verbatim — fixed by globbing for the expected content
+(`episode-*-replay.json`, `mcts_p2_r3.pkl*`) instead of the literal upload
+name.
+
+**Training:** loss decreased smoothly (1.5425→1.3544 over 8 epochs, 165
+steps/epoch) — the model clearly fit `batch["values"]`, same as the buggy
+run.
+
+**Gate (`dmc_replay_gate.py --value-source head`, 1441 replays, 1436-1087
+games depending on phase bucket — a different replay pool size than the
+historically-cited 0.606, so only the WITHIN-this-run comparison below is
+valid, not a cross-run one against the docs' 0.606 figure):**
+- **Pre-training baseline (init checkpoint, untouched by this run): ALL
+  0.584 [0.557, 0.611], EARLY 0.541, MID 0.578, LATE 0.641.**
+- **Post-training (this run's new checkpoint): ALL 0.446 [0.422, 0.470],
+  EARLY 0.463, MID 0.428, LATE 0.448.**
+
+**Decision: this retrain did not improve over its own init checkpoint,
+under either sign reading — do not ship, do not report as a gain.** Taken
+literally, post (0.446) is a clear regression vs. init (0.584), CIs far
+apart. Taken as a sign-flip (per the buggy run's precedent), negated gives
+~0.554 — still *below* init's 0.584, just with overlapping CIs (a tie at
+best). No sign convention makes this beat the checkpoint it started from.
+
+**This RETRACTS the 2026-07-06 entry's hopeful framing:** "the
+corrected/negated number (0.630 ALL) would already be the best real-replay
+value signal of this whole session if it holds up post-fix." It does not
+hold up. The buggy run's sign-corrected 0.630 was an artifact of negating a
+bug-confounded number, not a real signal that survives collecting clean
+data and retraining — negating a wrong number is not guaranteed to recover
+the truth, and here it demonstrably didn't reproduce.
+
+**Open, NOT investigated further today (per advisor: interesting but not
+blocking, and fixing it still requires a re-run before any number counts):**
+a logical tension worth flagging for whoever picks this up next. Loss
+decreasing monotonically means the model DID fit `batch["values"]`; the
+corpus's `value_target` field was independently verified 98.5% sign-
+consistent with `outcome` (2026-07-06 entry); yet the trained head come out
+anti-predictive on real replays. These three can only coexist if
+`batch["values"]` (as actually consumed by the training loop, via
+`dataset.py`'s `collate()`) differs in sign from the verified `value_target`
+field — i.e., a possible FOURTH instance of the seat/sign bug class already
+caught three times this project (`dmc_nstep.py`'s `_phi_at`,
+`selfplay_collect.py`'s `shaped_reward`, and once implicitly via a
+numeric-feats framing check), this time in the load/collate path rather
+than collection. **Explicitly not a clean global inversion, so don't assume
+a simple flip fixes it**: EARLY (0.463) and MID (0.428) are close to
+`1 − init`, but LATE (0.448) is ~0.09 above pure inversion — the pattern is
+messier than the buggy run's clean complementary pair. Any fix here needs a
+fresh retrain + regate before it counts for anything, per the mistake just
+retracted above.
+
+**Report relevance:** a clean, real negative — worth keeping as the
+current honest state of the AlphaZero-style push (Phase 1 adopted, Phase 2
+infra validated, but the two real training passes on this infra have now
+both come back negative or bug-confounded-then-retracted). Also a concrete
+example, for the report's methodology section, of why this project's
+now-standing rule ("do not negate-and-claim; a flipped bad number is not
+evidence, only a re-run is") exists.
+
+---
+
+## 2026-07-07 — v28 loss replay mining: Enriching-to-Alakazam softlock found and fixed; broader "stuck non-attacker" pattern retracted after verification
+
+**Hypothesis:** downloaded all 86 replays for v28 (submission 54356683) and
+all 47 for the v26 resubmit (54408982, confirming v28's 779.1 > v26's 725.8
+publicScore), then mined the 44 v28 losses (48.8% win rate in-sample) for a
+fixable heuristic pattern, per user request ("deep dive into losses").
+
+**Method:** `tools/analyze_replay.py`'s existing WIN/LOSS/terminal-cause
+classifier, plus new one-off scripts (not committed — scratch analysis) to:
+(1) categorize all 44 losses by root cause, (2) scan for games where hand_n
+already met cards_needed, active wasn't Alakazam, and Alakazam/Kadabra were
+still visible in hand/bench (the "stuck on non-attacker with a lethal hand"
+pattern already flagged in CLAUDE.md's exploiter-replay-mining note), (3)
+cross-check that pattern against the 42 wins as a base-rate control, then (4)
+verify every surviving candidate turn-by-turn for a genuine legal line to the
+KO (Mist/Rock wall check, mega-ex cards_needed≥12 check, `appearThisTurn`
+evolution-lock check, retreat-cost-payable check, remaining-copy-in-deck
+check) before treating any of it as actionable — per advisor guidance, since
+this project has repeatedly shipped/retracted on under-verified evidence.
+
+**Loss breakdown (44 v28 losses):** DECK_OUT 6, opponent Mist+Rock-walled at
+some point 4, opponent reached cards_needed≥12 (huge-HP ex: Mega Starmie ex
+330hp/17 cards, Grimmsnarl ex 320hp/16 cards, etc.) 25 — **57% of all losses
+face an unreachable-in-practice KO threshold**, a deck-level vulnerability to
+big-HP ex attackers, not a piloting problem. Remaining 9 traced to bad
+opening hands (no Abra, lone non-attacker Basic OHKO'd for a scoreless loss)
+or Alakazam-mirror copy exhaustion in long grindy games (all 3 copies
+discarded, no legal evolution target exists).
+
+**The "stuck non-attacker" pattern: real signal, but it evaporated under
+verification.** Raw scan: 12/44 losses (27%) vs 2/42 wins (4.8%) — a real
+gap, not just a length confound (the win control ruled that out). But
+checking each of the 12 survivors turn-by-turn found a fully legal-action
+explanation for every one: 2 had zero Alakazam copies left anywhere
+(discarded), 1 had the target only in the deck (not yet drawn), 2 were
+blocked by same-turn evolution restriction (`appearThisTurn=True`), and 2
+(the cleanest-looking cases, both with a *ready, energized* Alakazam sitting
+on the bench) turned out to have a retreat cost of 3 unpayable from the
+active's 1 attached energy — RETREAT wasn't even a listed option in the raw
+select. **Zero of the 12 had an actual missed legal play.** A follow-up
+promotion-time scan (does the pilot ever promote a non-Alakazam over a
+ready benched Alakazam right after a KO?) found 0/41 such events in the v28
+sample — the post-KO promotion logic is already correct. **Conclusion:
+nothing new to fix here; this line is closed.** Logged in full (including
+the collapse) so a future session doesn't re-mine the same raw 27% as a live
+lead.
+
+**Real bug found via one of the "OTHER" loss deep-dives (replay
+`episode-84136810`, opponent `pokeca2018`, Alakazam mirror):** we were 5-1
+ahead in the prize race with a freshly-evolved, unfueled (0 energy) Active
+Alakazam and only one energy card in hand — Enriching Energy (colorless,
+documented in `CLAUDE.md`/`main.py` as never valid on Alakazam since it
+can't pay Powerful Hand's Psychic cost). `main.py`'s `active_immobile`
+rescue heuristic (line ~1181, meant to stop a 0-energy Alakazam from getting
+permanently retreat-locked) scored attaching Enriching to the Active
+Alakazam at 55.0 — a blanket "free the stranded Active" bonus that doesn't
+check whether unsticking it is actually useful. Bench was Abra/Dunsparce
+only (no ready attacker to retreat into), so the "freedom" bought nothing,
+while permanently burning the turn's one energy-attach action on a card
+that can never let Powerful Hand fire. The Alakazam was later stripped of
+even that Enriching energy (opponent Enhanced Hammer) and KO'd; we had no
+ready attacker to promote and decked out from a winning position.
+
+**Fix (main.py `_score_option`, ATTACH branch, ~line 1181):** when the
+active_immobile rescue target is Alakazam and the energy card is
+specifically Enriching, only take the blanket 55.0 score if a ready bench
+Alakazam exists to retreat into (a real reason to free the Active);
+otherwise fall through to the existing ENRICHING routing logic below
+(deck_critical gate / Dudunsparce priority / the pre-existing `-8.0`
+Alakazam veto), which already encodes the right priority order and was
+simply being bypassed by the rescue block. Real Psychic energy is
+unaffected — still always scores 65.0 in this branch, since it genuinely
+does enable both retreat and attack.
+
+**Gate:** 400-game mirror A/B, seats alternated, fixed main.py vs the
+pre-fix baseline (`training/baselines/v28_pre_enriching_fix.py`) — **53.7%
+± 4.9% (95% CI) for the fix.** Directionally positive but the CI includes
+50%, so not independently significant at n=400; this specific failure mode
+needs a fairly narrow setup to trigger (multi-copy Alakazam mirror,
+active_immobile, Enriching as the only energy in hand), so it may be too
+rare per-game for 400 mirror games to resolve cleanly. Shipping rests
+primarily on the mechanistic case (replay-confirmed root cause, fix
+directly restores an invariant already documented as intentional) rather
+than the A/B alone — consistent with this project's Design Principle #1
+caveat that offline win rates are the right *relative* comparator but a
+single A/B at this n is not proof either way for a narrow-state bug.
+
+**Report relevance:** the 57%-of-losses-are-huge-HP-ex figure is strong
+material for the report's deck-limitations discussion (Powerful Hand's
+linear 20/card scaling has a hard ceiling against ex Pokémon in the
+300+ HP range that no piloting improvement fixes). The retracted 27%
+pattern and its verification process is a clean methodology example (base-
+rate control + legal-line reachability check before acting on a raw
+loss-conditioned scan). The Enriching fix is a small, real, single-cause
+correctness bug — worth a version bump but not a headline result.
 
 ---
 

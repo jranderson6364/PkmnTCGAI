@@ -67,13 +67,25 @@ def _worker(job):
     a per-job identifier (e.g. a game_id an agent module can read at import
     time and embed in its own side-channel logging) without changing the
     job tuple shape for existing callers (extra_env defaults to None,
-    meaning "no change," so every pre-existing 3-tuple job still works)."""
+    meaning "no change," so every pre-existing 3-tuple job still works).
+
+    job's optional 5th element (deck_override, a (deck0, deck1) tuple of
+    list[int]-or-None) overrides load_agent's own DECK per side -- lets a
+    caller vary the OPPONENT's deck per game (e.g. mcts_collect.py's
+    opponent_pool.py sampling a different real-meta archetype deck per
+    game for a deck-agnostic pilot like generic_pilot.py) without changing
+    the job tuple shape for existing callers (defaults to None, meaning
+    "use each agent's own module DECK," identical to prior behavior)."""
     path0, path1, keep_steps = job[0], job[1], job[2]
     extra_env = job[3] if len(job) > 3 else None
+    deck_override = job[4] if len(job) > 4 else None
     if extra_env:
         os.environ.update(extra_env)
     a0, d0, _ = load_agent(path0)
     a1, d1, _ = load_agent(path1)
+    if deck_override:
+        d0 = deck_override[0] if deck_override[0] is not None else d0
+        d1 = deck_override[1] if deck_override[1] is not None else d1
     try:
         result = play_game(a0, d0, a1, d1, keep_steps=keep_steps)
     except Exception as e:
@@ -87,7 +99,7 @@ def _worker(job):
 
 
 def run_matches(path0, path1, n_games, workers=None, keep_steps=False, progress=True,
-                 extra_envs=None):
+                 extra_envs=None, decks=None):
     """Play n_games of path0 vs path1 (seat order fixed — caller alternates).
     Returns list of result dicts.
 
@@ -97,12 +109,20 @@ def run_matches(path0, path1, n_games, workers=None, keep_steps=False, progress=
     MCTS_GAME_ID so a search-based collect log can be correlated to game
     outcomes correctly even when workers>1 interleaves multiple games'
     decisions across processes. None (default) preserves prior behavior
-    exactly for every other caller."""
+    exactly for every other caller.
+
+    decks: optional list of length n_games, each a (deck0, deck1) tuple of
+    list[int]-or-None (or None for "no override this game") -- overrides
+    load_agent's own DECK per side, e.g. for a deck-agnostic pilot playing a
+    specific real-meta archetype deck sampled by opponent_pool.py. None
+    (default) preserves prior behavior exactly for every other caller."""
     import multiprocessing as mp
 
     if extra_envs is None:
         extra_envs = [None] * n_games
-    jobs = [(path0, path1, keep_steps, extra_envs[i]) for i in range(n_games)]
+    if decks is None:
+        decks = [None] * n_games
+    jobs = [(path0, path1, keep_steps, extra_envs[i], decks[i]) for i in range(n_games)]
     results = []
     if workers is None:
         workers = max(1, (os.cpu_count() or 2) - 1)

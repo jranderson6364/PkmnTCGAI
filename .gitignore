@@ -9,6 +9,7 @@ venv/
 
 # Model checkpoints + data corpora (local-only; regenerable via training scripts)
 *.pth
+*.pth.*
 *.pkl
 *.pkl.gz
 *.tar.gz
@@ -19,7 +20,9 @@ training/*_ab.txt
 
 # Generated / downloaded
 replays/**/*.json
+replays/**/analysis/
 training/local_cg/
+training/endgame_submission_stage/
 scratch_*.log
 
 # competition-use-only engine source (do not redistribute per LICENSE)
@@ -33,3 +36,4 @@ Thumbs.db
 
 # Local settings
 .claude/settings.local.json
+.claude/worktrees/

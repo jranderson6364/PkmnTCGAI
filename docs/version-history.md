@@ -2,7 +2,89 @@
 
 *Newest first. From Mega Lucario to Alakazam.*
 
-**Last updated:** 2026-07-05 (v28)
+**Last updated:** 2026-07-07 (v29b shipped: endgame-gated search, fixed
+after v29's validation-episode failure)
+
+---
+
+## v29b: Endgame-Gated Belief-Determinized Rollout Search (fixed)
+
+Submission `54440211`, shipped 2026-07-07, `SubmissionStatus.COMPLETE`.
+**v29 (submission `54439688`, below) errored on its validation episode:**
+`NameError: name '__file__' is not defined`. Root cause: Kaggle's real
+submission loader (`kaggle_environments/agent.py::get_last_callable`)
+execs the submitted `main.py` from a raw string into a bare `{}`
+namespace — real module-import machinery (which sets `__file__`) never
+runs for the top-level file. The pre-ship clean-room test had used
+`training/harness.py`'s `importlib`-based loader, a genuine module load
+that DOES set `__file__`, so it validated import/sys.path resolution but
+never exercised this gap. Fixed by computing `main.py`'s base directory
+from `heuristic.__file__` (a normally-imported sibling module, which DOES
+get a real `__file__`) instead of its own nonexistent one; re-validated
+directly against `kaggle_environments.agent.get_last_callable` and a full
+`env.run([path0, path1])` (the exact call shape Kaggle uses) before
+reshipping. See `docs/report-log.md` 2026-07-07 "`__file__` NameError"
+entry for the full diagnosis. publicScore 600.0 at ship time — the
+standard fresh-submission floor seen on every prior ship, not a signal.
+
+## v29: Endgame-Gated Belief-Determinized Rollout Search (validation error, superseded by v29b above)
+
+Submission `54439688`, shipped 2026-07-07 — **errored on its validation
+episode, never played a real game; see v29b above.** Plays the heuristic verbatim
+(v28 + the Enriching-to-Alakazam softlock fix below, its first time
+shipped) EXCEPT when either player is <=2 prizes from winning, where it
+switches to a belief-determinized MCTS rollout searcher
+(`training/nn/endgame_agent.py` + `ismcts_agent.py`/`mcts.py`/
+`training/belief/determinize.py`, `ENDGAME_SIMS=60`). This is the first
+search-based component shipped to the ladder, and the first search
+configuration all session to clear its pre-registered bar: 66.0%±13.1%
+(n=50 vs v25c), **confirmed at decisive scale 59.0%±4.8% (236W-164L,
+n=400, seats alternated) vs the plain heuristic itself** — an exact
+isolation of the search contribution, not a heuristic-version diff. Full
+data: `docs/report-log.md` 2026-07-07 "Endgame-gated search" entries.
+
+**Packaging note:** the shipped submission is multi-file (main.py +
+heuristic.py + opponents/{lucario,dragapult,abomasnow,starmie}_agent.py +
+training/nn/{mcts,ismcts_agent}.py + training/belief/determinize.py +
+training/archetype_decks.json + deck.csv), a first for this project
+(every prior ship was main.py+deck.csv only). Confirmed via
+`kaggle_environments/agent.py`'s `get_last_callable` that the competition
+loader appends the submitted main.py's own directory to `sys.path` before
+exec'ing it, so sibling files/subdirs in the same tar are importable.
+`main.py` degrades to pure heuristic play if the search stack fails to
+import for any reason (Design Principle #2) — verified via a clean-room
+test (isolated copy of only the shipped files, no repo access) that the
+search path engages with zero fallback triggers across 8 games before
+shipping. Built by `training/nn/package_endgame_submission.py`; the
+repo's own `main.py`/`training/nn/*.py` dev files are untouched (imports
+there still say `main`, matching the existing local test rig).
+**Not yet confirmed on the live ladder** — this is a properly-powered
+offline result; per Design Principle #1 the ladder is still the final
+evaluator.
+
+---
+
+## v28 + Enriching-to-Alakazam softlock fix (shipped as part of v29, above)
+
+2026-07-07 replay-mining session found a real bug in the `active_immobile`
+rescue heuristic (`main.py` ATTACH scoring, ~line 1181): it blanket-scored
+attaching Enriching Energy to an Active Alakazam at 55.0 to "free" a
+retreat-locked Alakazam, without checking whether unsticking it was actually
+useful (i.e. whether a ready bench Alakazam existed to retreat into).
+Confirmed via replay `episode-84136810` to have softlocked a 5-1-ahead
+Alakazam's Powerful Hand for the rest of a deck-out loss. Fixed to only
+apply the blanket rescue score when a ready bench Alakazam exists; otherwise
+falls through to the pre-existing ENRICHING routing logic (which already
+vetoes Alakazam as a target). Gated: 400-game mirror A/B vs the pre-fix
+baseline (`training/baselines/v28_pre_enriching_fix.py`) — 53.7%±4.9%,
+directionally positive but not independently significant at this n; case
+for shipping rests mainly on the mechanistic replay-confirmed root cause.
+Full write-up: `docs/report-log.md` 2026-07-07 entry. Broader replay-mining
+in the same session ruled out a suspected "stuck on non-attacker with
+lethal hand" bug (27% of losses matched the raw pattern, 0 survived
+turn-by-turn legal-line verification) and found 57% of all v28 losses face
+an unreachable KO threshold (huge-HP ex opponents, cards_needed≥12) — a
+deck-level limitation, not a piloting one.
 
 ---
 

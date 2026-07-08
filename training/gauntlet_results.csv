@@ -111,3 +111,10 @@ timestamp,candidate,anchor,cand_wins,anchor_wins,ties,errors,n_requested,cand_wi
 2026-07-03T18:54:32,method-dagger-r2,v21,43,157,0,0,200,24,19,76,81,0,0,method-run1
 2026-07-03T18:55:43,method-dagger-r2,v22,38,162,0,0,200,18,20,82,80,0,0,method-run1
 2026-07-03T18:56:48,method-dagger-r2,v23,37,163,0,0,200,21,16,79,84,0,0,method-run1
+2026-07-08T06:28:04,v29c-endgame,random,199,1,0,0,200,99,100,1,0,0,0,v29c-run1
+2026-07-08T06:53:55,v29c-endgame,lucario,156,44,0,0,200,74,82,26,18,0,0,v29c-run1
+2026-07-08T07:19:28,v29c-endgame,abomasnow,136,64,0,0,200,75,61,25,39,0,0,v29c-run1
+2026-07-08T07:26:22,v29c-endgame,starmie,192,8,0,0,200,95,97,5,3,0,0,v29c-run1
+2026-07-08T08:03:24,v29c-endgame,v21,129,71,0,0,200,63,66,37,34,0,0,v29c-run1
+2026-07-08T08:39:00,v29c-endgame,v22,124,76,0,0,200,61,63,39,37,0,0,v29c-run1
+2026-07-08T09:18:48,v29c-endgame,v23,144,56,0,0,200,75,69,25,31,0,0,v29c-run1

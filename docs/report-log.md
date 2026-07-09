@@ -10,6 +10,60 @@ search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
 
 ---
 
+## 2026-07-09 — Φ v4-MLP PASSED: +2.45pp ALL over the linear fit (paired CI [+1.3,+3.6]), positive in every segment — new champion value signal (0.675 ALL / 0.724 MID / 0.752 LATE)
+
+**Result (holdout touched once, per the pre-registration below):** CV
+selected (width 64, depth 2, wd 1e-3, 6 epochs; cv 0.6698). Holdout paired
+diffs vs Φ v4 linear: ALL **+0.0245 [+0.0130,+0.0357]**, EARLY +0.0287,
+MID +0.0233, LATE +0.0205 — every segment's CI excludes 0. **Adopted as
+champion.** Cumulative story: Φ v2 0.610 → Φ v4 linear 0.650 → Φ v4-MLP
+**0.675** ALL on the same 642 held-out games (+6.5pp total, each step
+CI-verified paired). Checkpoint `training/eval_v4_mlp.pth`. Matches the
+literature's expectation (AAIA'17): nonlinearity over good features adds
+a real but modest increment. The user's "feed the model explicitly
+calculated values" thesis is confirmed at both steps: features beat raw
+formula, and a small net over ONLY those 12 inputs (no raw state) beats
+the linear combination.
+
+**PRE-REGISTRATION (advisor gate, next):** `training/nn/advisor_agent.py`
+— restricted-authority 1-ply advisor ("heuristic proposes, eval disposes
+among near-ties"; no rollout policies → three historical search bug
+classes structurally impossible; override margin 0.10 tanh-value, top-3
+candidates, 8 determinizations, MLP scorer). Protocol: smoke (4 games,
+overrides must fire, 0 errors) → kill-check n=50 per anchor
+(lucario/abomasnow), kill if either <86% (teacher same-day: 94.0%/96.0%,
+n=50 CI ≈ ±6-7pp) → mirror vs plain `main.py` n=400: ≥55% =
+ship-recommend to the user (no overnight ships); [50,55) = neutral, log
+and iterate margin/candidates once; CI-clear <50% = negative, close.
+
+---
+
+## 2026-07-09 — PRE-REGISTRATION (overnight, user /goal): Φ v4-MLP — nonlinear value model over the calculated features, trained on real replay outcomes
+
+**Why:** user-directed structural redesign around "explicitly calculated
+values fed to the model." Phase B of the overnight plan: train a small MLP
+whose INPUTS are Φ v4's 11 hand-calculated features (+turn/6 capped at 5 as
+a phase input), on the same 961-game fit split of real replay outcomes
+(genuinely external information — not self-play). Tests whether nonlinear
+interactions of the calculated values carry signal beyond the linear fit —
+the same question Miernik & Kowalski answered "only when bootstrapped from
+a converged linear solution" for GP trees. Literature expectation
+(AAIA'17): gains over a good simple model are real but small (<2pp-AUC
+class).
+
+**Protocol:** same split discipline as Gate 1 (961 fit / 642 holdout by
+sorted file order; holdout touched once). Model selection (width/depth/
+epochs/L2) by game-level 5-fold CV inside the fit set only. Two arms on
+the holdout: (a) MLP over features, (b) Φ v4 linear (champion). Paired
+game-level bootstrap of the sign-acc difference.
+
+**Decision rule:** adopt MLP as champion iff paired ALL diff CI excludes 0
+in its favor; else Φ v4 linear stays. Either way the winner becomes the
+scorer for Phase A/C (1-ply restricted-authority advisor, pre-registered
+separately when built).
+
+---
+
 ## 2026-07-09 — GATE 2 KILLED at the kill-check: a measurably better leaf eval does NOT rescue the search — the weak-leaf-signal theory is falsified as a sufficient explanation
 
 **Results (kill-check, n=50 each, seats alternated, 0 errors):**

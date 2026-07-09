@@ -10,6 +10,32 @@ search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
 
 ---
 
+## 2026-07-09 — Live deck-search audit: fetch-targeting hypothesis FALSIFIED — board-thinning is resource exhaustion under wall matchups, not a targeting bug
+
+**Method:** `training/nn/audit_agent.py` (main.agent + JSONL logging of
+every stype==1 deck-area select with the REAL card ids visible live),
+100 games vs abomasnow (95.0% win rate, 0 errors, 792 selects logged).
+
+**Findings:** `sel['deck']` present in 792/792 (the blind-fallback path
+never fires); in 74 critical states (zero line pieces in play,
+Kadabra/Alakazam dead in hand) Abra was offered 50 times and taken in all
+but 3 — and all 3 are turn-1/2 Poké Pad picks with an Abra ALREADY in
+hand, where taking Alakazam is the scoring's documented correct choice.
+**No targeting bug exists.** The thinning end-states are upstream
+resource exhaustion: in matchups where the opponent fields 300-400 HP
+armed attackers (Archaludon-class), each Alakazam traded in costs a
+line piece the deck can't replace (4 Abra, some prized), and the
+84955813 case's causal error is trading the LAST Kadabra→Alakazam into
+an armed Archaludon for a 1-prize Relicanth KO — leaving a 15-card
+lethal hand with no attacker two turns later. **Open fix candidate (not
+implemented tonight — core-strategy surgery on the shipped agent):** a
+last-line-piece trade gate (when remaining fieldable line pieces ≤ 1 and
+the opponent's active is armed with HP above our realistic one-shot,
+hold the evolution instead of feeding it). Needs scenario reproduction +
+anchor non-inferiority gating before any ship.
+
+---
+
 ## 2026-07-09 — Phase E: eval-guided loss mining — scanner self-validates on the v29c fix episodes, then pins board-thinning as the dominant live failure (10/27 fresh v29d losses)
 
 **Build:** `training/nn/blunder_scan.py` — runs the champion Φ v4-MLP over

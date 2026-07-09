@@ -2,10 +2,44 @@
 
 *Newest first. From Mega Lucario to Alakazam.*
 
-**Last updated:** 2026-07-07 (v29b shipped: endgame-gated search, fixed
-after v29's validation-episode failure)
+**Last updated:** 2026-07-08 (v29d shipped: search reverted off the ladder
+after the diverse-anchor gauntlet exposed a mirror-blind regression)
 
 ---
+
+## v29d: Search Revert — Plain Heuristic (v29c fixes kept, search wrapper removed)
+
+Submission `54481189`, shipped 2026-07-08. Plain `main.py` + `deck.csv`
+again — v29c's two retreat fixes kept, the endgame search wrapper removed.
+The first gauntlet since v25c found the shipped v29b/v29c search stack
+loses 16-29pp vs the lucario/abomasnow anchors (~90% of ladder opponents
+are non-alakazam) despite the +9pp mirror result it was shipped on. Three
+real bugs were found and fixed behaviorally (archetype-mismatched rollout
+policies; `_is_endgame` firing on setup-phase decisions because undealt
+prize lists read as ≤2; the either-side prize gate handing the search
+every losing mid-game vs aggro) — and the anchors still did not recover
+(final pre-registered gate: lucario 73.0%±6.2%, abomasnow 75.0%±6.0% vs a
+≥88% bar). Pre-registered revert rule fired; search line closed as a
+negative. The strongest mirror-blindness exhibit in the project: every
+mirror gate passed, every diverse-panel gate failed. Full sequence:
+`docs/report-log.md` 2026-07-08 entries (GAUNTLET FINDS → SECOND real bug
+→ THIRD gate bug → GATE FAILED).
+
+## v29c: Retreat-Target Scoring + Setup-Race Threat Gate (on the v29b search stack)
+
+Submission `54441561`, shipped 2026-07-07, `SubmissionStatus.COMPLETE`,
+publicScore 783.8→774.0 across 2026-07-08 reads. Two ladder-replay-mined
+`main.py` fixes on top of v29b (search stack unchanged): (1)
+`_bench_target_priority` used as a tiebreak on voluntary RETREAT options —
+retreat scoring previously ignored WHICH bench Pokemon a retreat targeted,
+so ties broke on array order (a fueled Alakazam retreated for a 0-energy
+Psyduck that stuck until deck-out; episodes 84709203/84710776/84712093);
+(2) `_opp_threatening` + a −4.0 override so retreating an unevolved,
+unfueled Abra/Kadabra into an armed opponent scores below holding position
+(episode 84710513). Confirmatory A/B 2026-07-08: 53.0%±4.9% vs the
+pre-session baseline — parity-range, the established signature of
+rare-state correctness fixes; no regression. Superseded by v29d (the
+search stack it rode on was reverted; the fixes live on in `main.py`).
 
 ## v29b: Endgame-Gated Belief-Determinized Rollout Search (fixed)
 

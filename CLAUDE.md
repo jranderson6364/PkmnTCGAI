@@ -81,8 +81,26 @@ alternatives; **no report claim without a pre-registered trial** in `docs/report
 The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
 **re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
 challengers; tier 2: pilot floor flattens everything — see report-log).
-**Current agent:** v29b — endgame-gated belief-determinized rollout search
-(submission 54440211, shipped 2026-07-07, `SubmissionStatus.COMPLETE`).
+**Current agent:** v29d — plain heuristic revert (submission 54481189,
+shipped 2026-07-08): `main.py` + `deck.csv`, i.e. v29c's two retreat fixes
+WITHOUT the endgame search wrapper. **The search line is CLOSED, negative:**
+the first diverse-anchor gauntlet since v25c found the shipped v29b/v29c
+search stack loses 16-29pp vs lucario/abomasnow (~90% of ladder opponents
+are non-alakazam) despite its +9pp mirror result. Three real bugs were
+found behaviorally and fixed (archetype-mismatched rollout policies;
+`_is_endgame` firing on setup-phase decisions, undealt prize lists reading
+as ≤2; the either-side prize gate handing the search every losing mid-game
+vs aggro — per-game disagreement logging found each one) and the anchors
+STILL did not recover (final pre-registered gate: lucario 73.0%±6.2%,
+abomasnow 75.0%±6.0% vs a ≥88% bar) → the pre-registered revert rule
+fired. Sharpest mirror-blindness exhibit the project has for the report.
+Full sequence: `docs/report-log.md` 2026-07-08 entries (GAUNTLET FINDS →
+SECOND real bug → THIRD gate bug → GATE FAILED), `docs/version-history.md`
+v29c/v29d entries. Historical context for the v29 ship below.
+
+**Prior agent (v29b, for context)** — endgame-gated belief-determinized
+rollout search (submission 54440211, shipped 2026-07-07,
+`SubmissionStatus.COMPLETE`).
 Plays the v28+Enriching-fix heuristic verbatim except when either player is
 ≤2 prizes from winning, where it switches to MCTS rollout search over
 belief-sampled determinizations (`training/nn/endgame_agent.py`,
@@ -289,7 +307,17 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-07): the AlphaZero-style push's Phase 2 round
+**>>> NEXT STEP (as of 2026-07-08): open.** Both active lines closed today:
+the endgame search was reverted off the ladder (v29d — see Current agent
+above) and the winner-BC replay-imitation family closed negative (RP-1
+77%/5%, RP-2 89%/8% vs the 25% bar — see report-log 2026-07-08). The
+heuristic (v29d) is the ladder agent; watch its publicScore vs v29c's
+774-784 reads over the next day. Remaining candidate directions for the
+user: more ladder-loss replay mining (the one reliably positive workflow),
+board-thinning follow-ups, MULLIGAN select-context handling, or report
+assembly work — every learned/search arm tried so far is a documented
+negative. Prior next-step history, for context:
+the AlphaZero-style push's Phase 2 round
 3 (redesigned real-meta opponent pool, replacing the collapsed
 same-checkpoint mirror) ran to completion and is CLOSED, negative — retrain
 does NOT clear the pre-training baseline (0.566 vs 0.584 ALL sign-acc,

@@ -45,13 +45,19 @@ searched_decisions = 0  # introspection for the gate log
 
 def _is_endgame(obs_dict):
     try:
-        players = obs_dict["current"]["players"]
-        lens = [len(p.get("prize") or []) for p in players]
-        # 0 < min: before prizes are dealt (setup phase) both lists are
-        # empty, which made the original gate fire on turn-0 placement
-        # decisions in EVERY game (found 2026-07-08 via the disagreement
-        # log — see report-log "setup-phase gate bug" entry).
-        return 0 < min(lens) <= _PRIZES
+        cur = obs_dict["current"]
+        # Gate on OUR remaining prizes only. The original either-side gate
+        # (min over both players) fired whenever the OPPONENT was closing —
+        # vs turbo aggro that is turn ~7-12 with us at 5-6 prizes left, far
+        # from our own terminal, where rollout leaves are uniformly ~-0.9
+        # and argmax is noise among losing moves overriding the heuristic's
+        # desperation logic (2026-07-08 disagreement diagnostic: override
+        # games 33W-17L vs 47W-3L without, override states dominated by
+        # ours=5-6/theirs<=2). 0 <: before prizes are dealt (setup phase)
+        # the list is empty, which made the gate fire on turn-0 placement
+        # decisions in EVERY game (same-day disagreement-log find).
+        ours = len(cur["players"][cur["yourIndex"]].get("prize") or [])
+        return 0 < ours <= _PRIZES
     except Exception:
         return False
 

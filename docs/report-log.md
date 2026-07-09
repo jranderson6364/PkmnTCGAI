@@ -4,8 +4,89 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-07 (Φ-shaping failure autopsy + 120-method
-survey/shortlist added — see entry below and `docs/method-survey.md`.)
+**Last updated:** 2026-07-08 (endgame search line CLOSED and reverted off
+the ladder as v29d after the pre-registered anchor gate failed — see the
+GATE FAILED entry.)
+
+---
+
+## 2026-07-08 — GATE FAILED: our-side-only gate does NOT recover the anchors either; pre-registered rule fired → search reverted off the ladder (v29d, submission 54481189). SEARCH LINE CLOSED.
+
+**Results (fixed our-side-only gate, seats alternated, 0 errors):** lucario
+**73.0% ± 6.2%** (146/200), abomasnow **75.0% ± 6.0%** (150/200) — both far
+below the pre-registered ≥88% bar and statistically identical to the
+either-side gate (77.5%/75.5%). The mirror-400 arm was stopped unfinished
+on the user's call once the anchor arms had already decided the rule.
+
+**What this overturns:** the losing-side-gate hypothesis. With the gate
+firing only when WE are ≤2 prizes from winning, the remaining ~20pp anchor
+deficit is incurred in OUR OWN closing states — the regime the 59% mirror
+result said search was good at. It also exposes a confound in the
+100-game diagnostic's headline split (no-override games 47W-3L vs override
+games 33W-17L): part of that gap is game difficulty (games where the
+opponent races to ≤2 are games we were losing anyway), not pure search
+harm. The honest summary: the search's value judgment vs non-alakazam
+opponents is broken in a way that survived three real bug fixes
+(archetype rollout policy, setup-phase gate, losing-side gate), and only
+ever looked good under mirror evaluation.
+
+**Decision (pre-registered):** anchors not recovered → revert. Shipped
+plain heuristic (`main.py` + `deck.csv` — v29c's two retreat fixes, no
+search wrapper) as **v29d, submission 54481189**. Pre-ship validation:
+`py_compile`, deck=60, Kaggle's actual `get_last_callable` raw-string
+loader, 5 full `env.run` games vs lucario (5/5 DONE, 5/5 wins).
+
+**Ladder tension, noted for the record:** v29c read 783.8 → 774.0 on the
+live ladder while offline showing 73-77% vs anchors — the diverse offline
+panel and the pre-registered rule were trusted over a bouncing single-day
+ladder read (this ladder has burned us twice in the other direction).
+
+**Search-line closure (report material):** endgame-gated
+belief-determinized rollout search is now a closed negative alongside
+full-game PIMC, ISMCTS, oracle-critic, DAgger-beyond-plateau, AWR, and
+winner-BC. Its +9pp mirror result stands as the sharpest mirror-blindness
+exhibit this project has: three behavioral bugs deep, every mirror gate
+passed, every diverse-panel gate failed.
+
+---
+
+## 2026-07-08 — THIRD gate bug found via per-game disagreement diagnostic: the either-side prize gate hands the search every losing mid-game vs aggro; fixed to our-side-only (v29d candidate), gate pre-registered
+
+**Diagnostic (100 games vs lucario, per-game `ENDGAME_DISAGREE_LOG`, both
+fixes from earlier today active):** games where the search never overrode
+the heuristic went **47W-3L (94%)** — exactly the heuristic's solo rate —
+while games with ≥1 override went **33W-17L (66%)**. The overrides
+themselves (217 total) are dominated by prize configurations
+**ours=5-6 / theirs≤2** (58+46 at (6,2)/(5,2), 55 at (3,2)), at turns
+7-12, with root values in losses at **−0.8 to −0.97**: the gate fires
+because the OPPONENT is about to win, the search takes over our entire
+desperate mid-game, its rollouts (correctly) report every line loses, and
+argmax over uniformly-losing leaves is noise — overriding the heuristic's
+dedicated desperation/racing logic with arbitrary moves. This is the
+ISMCTS closure's exact weak-leaf regime, reached through the gate's back
+door. The mirror A/B never saw it because mirror games advance
+symmetrically — "either side ≤2" there really is a mutual endgame.
+
+**Fix (v29d candidate, `endgame_agent.py` only):** `_is_endgame` now gates
+on OUR remaining prizes only (`0 < ours <= PRIZES`, using
+`current.yourIndex`) — search runs when WE are closing (near-terminal for
+us = informative rollouts), heuristic keeps the wheel when only the
+opponent is closing.
+
+**Pre-registered gate (run immediately below):** fixed `endgame_agent.py`
+vs lucario (200), abomasnow (200), and mirror vs `main.py` (400), seats
+alternated. Decision rule: BOTH anchors recover to ≥88% (within reach of
+the heuristic's 93.5%/95.5% bisect reads) AND mirror ≥55% → ship as v29d.
+Anchors recover but mirror in the parity band → the search adds nothing
+that survives honest gating; revert the ladder to the plain heuristic.
+Anchors do not recover → revert, and the search line is closed as a
+fourth-bug-deep negative.
+
+**Report relevance:** completes the mirror-blindness arc — the component
+needed THREE behavioral bugs found (rollout archetype, setup-phase gate,
+losing-side gate) before its offline mirror result could even be tested
+honestly against a diverse panel; per-game disagreement logging found in
+100 games what four aggregate win-rate gates missed.
 
 ---
 

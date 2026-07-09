@@ -32,6 +32,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 _LOCAL_CG = os.path.join(_REPO_ROOT, "training", "local_cg")
 if _LOCAL_CG not in sys.path:
     sys.path.insert(0, _LOCAL_CG)
@@ -54,7 +56,8 @@ _LOG = os.environ.get("ADVISOR_LOG")
 _OPP_MODULE = importlib.import_module(
     os.environ.get("MCTS_OPPONENT_MODULE", "opponents.lucario_agent"))
 
-_W_LIN = np.load(os.path.join(_REPO_ROOT, "training", "eval_v4_weights.npy"))
+_W_LIN = np.load(os.environ.get("ADVISOR_WEIGHTS") or
+                 os.path.join(_REPO_ROOT, "training", "eval_v4_weights.npy"))
 _MLP = None
 
 

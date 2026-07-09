@@ -10,6 +10,42 @@ search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
 
 ---
 
+## 2026-07-09 — Advisor KILLED at the kill-check (68.0%/68.0% vs the 86% bar): an outcome-fitted state eval mis-ranks sibling actions — objective/consumer mismatch identified; CEM re-tune pre-registered
+
+**Results (kill-check, n=50 each, 0 errors, MLP scorer, ~5.5 overrides/
+game from the smoke log):** advisor vs lucario **68.0% ± 12.9%**, vs
+abomasnow **68.0% ± 12.9%** — both far below the pre-registered 86% kill
+bar (teacher same-day: 94.0%/96.0%). Killed before the mirror arm.
+
+**Mechanism (named, checkable):** the champion eval is fitted to OUTCOME
+labels on real states — a correlational objective. The advisor consumes
+it as a ranker over sibling 1-ply children — a causal-delta objective.
+Fitted weights that are correlationally right are causally backwards at
+the action margin: `deck_clock_diff` +1.23 and `hand_diff` +0.55 mean a
+draw action (deck−N, hand+N) scores −0.0615N+0.055N < 0 — the advisor
+penalizes DRAWING in a deck whose win condition is hand size; every
+card played from hand likewise starts −0.055 in the hole. The
+literature's evals never faced this because their weights were tuned by
+GA/evolution on WIN-RATE WHEN PLAYING (objective = consumer); our
+supervised fit's objective was not. **Second structural lesson of the
+day: Gate 2 said a good state eval doesn't fix a broken search wrapper;
+this says a good state eval isn't automatically a good action ranker.**
+
+**Decision:** advisor-with-outcome-fitted-weights closed (kill rule).
+The Φ v4-MLP remains champion for STATE evaluation (replay gate, value
+targets). **PRE-REGISTRATION (Phase D, the literature's own method):**
+CEM over the 11 linear feature weights, fitness = win rate of the
+advisor agent actually PLAYING (8 lucario + 8 abomasnow + 8 mirror-vs-
+main.py games per candidate, fixed seeds per generation), pop 16, elite
+4, ~20 generations, init = the supervised weights, linear scorer.
+Decision rule for the tuned result: kill-check n=50/anchor ≥86% AND
+mirror vs main.py n=400 ≥55% → ship-recommend to the user (no overnight
+ships); anchors hold but mirror [50,55) → neutral, log; anchors fail →
+the calculated-values-as-action-ranker line closes entirely (state-eval
+uses stand).
+
+---
+
 ## 2026-07-09 — Φ v4-MLP PASSED: +2.45pp ALL over the linear fit (paired CI [+1.3,+3.6]), positive in every segment — new champion value signal (0.675 ALL / 0.724 MID / 0.752 LATE)
 
 **Result (holdout touched once, per the pre-registration below):** CV

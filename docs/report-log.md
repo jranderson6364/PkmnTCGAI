@@ -10,6 +10,41 @@ replay sign-accuracy vs Φ v2.)
 
 ---
 
+## 2026-07-09 — PRE-REGISTRATION: Gate 2 — Φ v4 as depth-limited leaf eval in full-game PIMC search, anchored to the same bars the closed search line failed
+
+**Hypothesis:** the closed search lines' binding constraint was the leaf
+value signal (ISMCTS closure; v29 endgame post-mortem: "argmax over
+uniformly-losing leaves is noise"). Φ v4 (Gate 1: 0.650 ALL / 0.700 MID
+holdout sign-acc, +6.2pp over Φ v2 in exactly the mid-game regime) as a
+depth-limited rollout cutoff should therefore fix what full-terminal
+rollouts and the saturated net could not.
+
+**Build:** `mcts.py` gains `leaf_eval="phi4"` — advance real play one full
+exchange (turn ≥ root+2, cap 60 plies), then return tanh(Φv4/2); no
+0.0-unknown fallback needed since Φ v4 is seat-independent board math.
+Wrapper: `training/nn/phi4_agent.py` (sims=60 default, same
+MCTS_OPPONENT_MODULE convention). Smoke: 4/4 vs lucario, 0 errors.
+
+**Protocol (deliberately identical to the failed v29d-candidate gate for
+comparability, full-game search this time — Φ v4's edge is mid-game, so
+no endgame gating):**
+1. Kill-check: n=50 per anchor (lucario, abomasnow), sims=60,
+   seats alternated. Either anchor <70% → kill immediately (the old
+   search sat at 73-75% at n=200; 70% at n=50 is CI-compatible with
+   that known-dead level).
+2. Confirmatory (only if kill-check survives): lucario n=200, abomasnow
+   n=200, mirror vs plain `main.py` n=400. PASS = BOTH anchors ≥88%
+   (the heuristic's own bisect reads: 93.5%/95.5%) AND mirror ≥55%.
+   Anchors ≥88% but mirror in parity band → search adds nothing; do not
+   ship; log as negative-for-shipping (Φ v4 still stands from Gate 1).
+   Either anchor <88% → the eval-quality theory of the search failures
+   is (at least partially) falsified; log honestly.
+3. Timing safety (informational, from the same runs via MCTS_TIMING_LOG):
+   projected per-game think time must clear the 600s Kaggle clock with
+   the same CLT methodology as the 2026-07-05 probe before any ship talk.
+
+---
+
 ## 2026-07-09 — GATE 1 PASSED: Φ v4 beats Φ v2 by +4.0pp ALL / +6.2pp MID sign-accuracy on 642 held-out games (paired bootstrap, P(diff>0)=0.999)
 
 **Run:** `training/nn/eval_v4.py` on the full `replays/bulk` corpus — 1603

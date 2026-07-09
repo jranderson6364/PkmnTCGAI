@@ -129,7 +129,8 @@ class MCTSSearcher:
 
     def __init__(self, sims=150, max_rollout_depth=250, c_puct=1.4, prior_temp=2.0,
                  leaf_eval="rollout", net_ckpt=None, net_leaf_max_depth=40,
-                 net_value_source="qmax"):
+                 net_value_source="qmax", phi4_turns=2, phi4_max_plies=60,
+                 phi4_weights=None):
         """leaf_eval: "rollout" (default, unchanged — real terminal result) or
         "net" (Phase 0 step-0 probe: stop as soon as it's our own decision
         again — bounded by net_leaf_max_depth — and evaluate a value estimate
@@ -164,6 +165,19 @@ class MCTSSearcher:
         self.net_ckpt = net_ckpt or os.path.join(_HERE, "..", "ptcg_dmc_r2.pth")
         self.net_leaf_max_depth = net_leaf_max_depth
         self.net_value_source = net_value_source
+        # leaf_eval="phi4" (2026-07-09, Gate-1-passed eval function — see
+        # docs/report-log.md "GATE 1 PASSED: Φ v4"): depth-limited rollout
+        # with a heuristic cutoff (the LoCM top-player recipe from
+        # docs/eval-function-research.md). Advance real play until the turn
+        # counter reaches root_turn + phi4_turns (one full exchange by
+        # default), then score the board with the fitted Φ v4 linear eval,
+        # squashed to (-1,1) so it's commensurate with terminal ±1 values.
+        # Unlike "net", Φ v4 is seat-independent board math and can be
+        # evaluated at ANY state — including the phi4_max_plies cap — so no
+        # 0.0 unknown-value fallback is needed.
+        self.phi4_turns = phi4_turns
+        self.phi4_max_plies = phi4_max_plies
+        self.phi4_weights = phi4_weights
 
     def _action_for(self, obs_dict, our_seat):
         """Real teacher for our own turns, the adversarial opponent module
@@ -232,6 +246,47 @@ class MCTSSearcher:
                 cur_id, cur_obs = ss.searchId, _obs_to_dict(ss.observation)
             self.depth_cap_hits += 1
             return 0.0
+        finally:
+            for module, vals in saved.items():
+                for a, v in vals.items():
+                    setattr(module, a, v)
+
+    def _phi4_value(self, search_id, obs_dict, our_seat):
+        """Depth-limited rollout with Φ v4 cutoff (see __init__ comment).
+        Advances real play (same policies as _rollout) until the turn
+        counter reaches root_turn + phi4_turns, a terminal, or the ply cap,
+        then returns tanh(Φv4/2) = 2·P(win)−1 from the fitted logistic."""
+        if self.phi4_weights is None:
+            import numpy as np
+            self.phi4_weights = np.load(
+                os.path.join(_REPO_ROOT, "training", "eval_v4_weights.npy"))
+        from eval_v4 import features_v4
+
+        def value_at(obs):
+            f = features_v4(obs.get("current") or {}, our_seat)
+            if f is None:
+                return 0.0
+            return math.tanh(float(f @ self.phi4_weights) / 2.0)
+
+        saved = {}
+        for module, attrs in _STATEFUL_MODULES.items():
+            saved[module] = {a: getattr(module, a) for a in attrs if hasattr(module, a)}
+            for a, default_factory in attrs.items():
+                if hasattr(module, a):
+                    setattr(module, a, default_factory())
+        try:
+            root_turn = (obs_dict.get("current") or {}).get("turn") or 0
+            cur_id, cur_obs = search_id, obs_dict
+            for _ in range(self.phi4_max_plies):
+                if _is_terminal(cur_obs):
+                    return _terminal_value(cur_obs, our_seat)
+                if ((cur_obs.get("current") or {}).get("turn") or 0) >= root_turn + self.phi4_turns:
+                    return value_at(cur_obs)
+                from cg.api import search_step
+                ss = search_step(cur_id, self._action_for(cur_obs, our_seat))
+                cur_id, cur_obs = ss.searchId, _obs_to_dict(ss.observation)
+            self.depth_cap_hits += 1
+            return value_at(cur_obs)
         finally:
             for module, vals in saved.items():
                 for a, v in vals.items():
@@ -319,6 +374,8 @@ class MCTSSearcher:
             child_obs = _obs_to_dict(child_ss.observation)
             if self.leaf_eval == "net":
                 value = self._net_leaf_value(child_ss.searchId, child_obs, our_seat)
+            elif self.leaf_eval == "phi4":
+                value = self._phi4_value(child_ss.searchId, child_obs, our_seat)
             else:
                 value = self._rollout(child_ss.searchId, child_obs, our_seat)
 

@@ -10,6 +10,41 @@ search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
 
 ---
 
+## 2026-07-09 — Phase E: eval-guided loss mining — scanner self-validates on the v29c fix episodes, then pins board-thinning as the dominant live failure (10/27 fresh v29d losses)
+
+**Build:** `training/nn/blunder_scan.py` — runs the champion Φ v4-MLP over
+our decision states in LOSS replays and ranks games by squandered
+advantage (peak value ≥ +0.3, lost anyway) and sharpest value collapse. A
+non-override consumer: the eval prioritizes which losses to study, never
+picks actions.
+
+**Validation (blind):** on the 13 old v29-era replays it independently
+top-ranks episodes 84710513, 84710776, 84709203, 84712093 — exactly the
+four losses the manual v29c mining found and fixed. The eval re-discovers
+known blunders unprompted.
+
+**Fresh data:** 60 new v29d ladder replays downloaded
+(`replays/v29d_ladder/`, 27 losses). Findings:
+- **10/27 losses end with ZERO Alakazam-line pieces in play** (active =
+  Shaymin/Psyduck/Genesect/Dunsparce at game end) — the documented
+  board-thinning pattern (2026-07-05 exploiter mining: 18/18), now
+  confirmed twice as the top live failure mode.
+- Case study (episode 84955813, vs Archaludon): both Alakazams die by
+  T15; at T17 we hold a **15-card hand (exactly lethal: cards_needed=15
+  for the 300-HP Archaludon) plus two Boss's Orders — with Psyduck
+  active and no line piece anywhere in play.** Two Kadabra dead in hand
+  with no Abra fielded. The engine's draw loops kept running; the
+  attacker pipeline didn't.
+- Fetch-targeting audit from replays is impossible (deck-search select
+  options are stored with id=None — hidden-zone stripping); the agent
+  DOES see real ids live, so the audit must be done in local
+  instrumented games. **Next:** reproduce thinning locally, log
+  deck-search/Poffin target choices when line-in-play is 0 and
+  Kadabra/Alakazam sit in hand, find the misprioritization, fix
+  surgically, gate (mirror + anchors).
+
+---
+
 ## 2026-07-09 — Phase D CLOSED: CEM-tuned advisor fails its gate too (74.0%/70.0% vs ≥86%) — the entire calculated-values-as-action-ranker family is closed; four override mechanisms, one ceiling
 
 **CEM run (pre-registered below):** pop 16, 20 generations, fitness =

@@ -308,7 +308,22 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-09): open.** Today's line (literature-driven
+**>>> NEXT STEP (as of 2026-07-09 overnight): live-audit deck-search/Poffin
+targeting in instrumented local games** — board-thinning confirmed as the
+dominant live failure (10/27 fresh v29d losses end with zero Alakazam-line
+pieces in play; case study episode 84955813: 15-card lethal hand + 2 Boss
+with Psyduck active). Replays can't audit fetch targeting (ids stripped);
+a live instrumented wrapper can. Overnight results so far: Φ v4-MLP is the
+new champion STATE eval (0.675/0.724/0.752 — Φ v2 0.610 → v4 0.650 → MLP
+0.675, each step paired-CI-verified); the ENTIRE
+calculated-values-as-action-ranker family is CLOSED (four override
+mechanisms — PUCT+rollouts, PUCT+Φv4, 1-ply outcome-fitted advisor, 1-ply
+CEM-tuned advisor — all land 62-75% vs anchors while plain heuristic reads
+94-96%: per-decision value override breaks plan coherence at any
+achievable eval quality); `training/nn/blunder_scan.py` (eval-guided loss
+mining, self-validated on the v29c fix episodes) is the eval's proven
+non-override consumer. Full data: `docs/report-log.md` 2026-07-09 entries.
+Earlier same-day state, for context: the Φ v4 line (literature-driven
 Φ v4 evaluation function, `docs/eval-function-research.md`): **Gate 1
 PASSED** — `training/nn/eval_v4.py`'s 11-feature antisymmetric fitted eval
 is the project's new best state-value signal (0.650 ALL / 0.700 MID

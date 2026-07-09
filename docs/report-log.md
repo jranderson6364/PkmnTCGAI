@@ -4,9 +4,11 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-09 (Φ v4: Gate 1 PASSED — new best value signal,
-+4.0pp ALL over Φ v2; Gate 2 KILLED — better leaf eval does not rescue the
-search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
+**Last updated:** 2026-07-09 (overnight run complete: Φ v4-MLP champion
+state eval; action-ranker family closed 4 ways; board-thinning root-caused.
+**NEXT SESSION STARTS AT `docs/next-session-plan.md`** — scaled
+sequence-policy experiment resolving the capacity-vs-information question
+on the imitation plateau, with pre-committed gates.)
 
 ---
 

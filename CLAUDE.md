@@ -308,8 +308,14 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-09 overnight): live-audit deck-search/Poffin
-targeting in instrumented local games** — board-thinning confirmed as the
+**>>> NEXT STEP (as of 2026-07-09, end of session): follow
+`docs/next-session-plan.md`** — the scaled sequence-policy experiment
+(resolve capacity-vs-information on the 82% imitation plateau; Kaggle GPU;
+pre-committed fidelity/win-rate/clock gates), with blunder-mining and
+report assembly as parallel tracks. The heuristic-fix line is deprioritized
+per user direction 2026-07-09. Prior same-day state, for context: the
+overnight run's last active item was the live deck-search audit —
+board-thinning confirmed as the
 dominant live failure (10/27 fresh v29d losses end with zero Alakazam-line
 pieces in play; case study episode 84955813: 15-card lethal hand + 2 Boss
 with Psyduck active). Replays can't audit fetch targeting (ids stripped);

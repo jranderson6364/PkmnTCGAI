@@ -296,6 +296,7 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 | Roadmap / writeup strategy | `docs/competition-strategy.md` |
 | Experiment journal + glossary + target figures | `docs/report-log.md` |
 | 120-method ML/RL survey + shortlist w/ alterations | `docs/method-survey.md` |
+| Eval-function literature research (Φ v3 design basis) | `docs/eval-function-research.md` |
 | Engine API (canonical) | `docs/engine-api.md` |
 | Version change log (v1–v24) | `docs/version-history.md` |
 | NN training log + pipeline | `docs/nn-training.md` |

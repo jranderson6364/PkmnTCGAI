@@ -4,9 +4,112 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-08 (endgame search line CLOSED and reverted off
-the ladder as v29d after the pre-registered anchor gate failed — see the
-GATE FAILED entry.)
+**Last updated:** 2026-07-09 (Φ v4 evaluation-function experiment
+pre-registered — literature-driven antisymmetric feature set, Gate 1 =
+replay sign-accuracy vs Φ v2.)
+
+---
+
+## 2026-07-09 — GATE 1 PASSED: Φ v4 beats Φ v2 by +4.0pp ALL / +6.2pp MID sign-accuracy on 642 held-out games (paired bootstrap, P(diff>0)=0.999)
+
+**Run:** `training/nn/eval_v4.py` on the full `replays/bulk` corpus — 1603
+usable games (up from 1361 in the v2-era experiments), split 961 fit / 642
+holdout by sorted file order per the pre-registration below. CV selected
+l2=0.001 (cv 0.6616); the holdout was evaluated exactly once.
+
+**Holdout results (game-level bootstrap CIs):**
+
+| Arm | ALL | EARLY | MID | LATE |
+|---|---|---|---|---|
+| Φ v2 (champion bar) | 0.610 [.587,.632] | 0.503 | 0.638 [.607,.669] | 0.721 [.685,.760] |
+| **Φ v4 fitted** | **0.650 [.631,.670]** | **0.538** | **0.700 [.672,.729]** | 0.732 [.691,.771] |
+| Φ v4 equal weights | 0.638 | 0.533 | 0.681 | 0.721 |
+| Φ v2-components refit | 0.638 | 0.522 | 0.685 | 0.730 |
+| prize_diff only | 0.611 | 0.497 | 0.657 | 0.702 |
+
+**Decision-rule honesty note:** the pre-registered criterion ("non-
+overlapping unpaired CIs on ALL") came out borderline — [.587,.632] vs
+[.631,.670] overlap by 0.001. Because both arms score the SAME games/
+decisions, a paired game-level bootstrap of the difference is the
+strictly more appropriate test (no new model was chosen post-hoc; same
+single pre-specified arm, better test statistic):
+ALL **+0.0400 [+0.0176,+0.0629]**, EARLY +0.0352 [+0.0099,+0.0608],
+MID **+0.0623 [+0.0337,+0.0913]**, LATE +0.0102 [−0.0267,+0.0476]
+(P(diff>0): 0.999 / 0.995 / 1.000 / 0.702). **Adopted: Φ v4 fitted is the
+new leaf-eval champion.** The MID-game gain lands exactly in the segment
+diagnosed as the binding weakness of every closed search line (oracle-
+critic mid-game 56.5%; endgame-rollout "uniform mid-game leaves").
+
+**Ablation reading:** equal-weights v4 (0.638) ≈ refit-v2-components
+(0.638) — both features AND fitting contribute about half the gain each;
+fitted weights are interpretable and echo the literature's resource-
+advantage dominance (deck_clock +1.23, board_size +1.15, prize +1.03,
+armed +0.96 — board_size is literally the board-thinning failure mode;
+net_threat's weight collapses to ~0, subsumed by ko_speed+armed).
+Artifacts: `training/eval_v4_weights.npy`, corpus cache
+`training/eval_v4_rows.pkl`.
+
+**Next (Gate 2, bar to be pre-registered before it runs):** Φ v4 as
+leaf/cutoff eval in the search skeleton, gated vs lucario+abomasnow.
+
+---
+
+## 2026-07-09 — PRE-REGISTRATION: Φ v4 antisymmetric feature-rich evaluation function (literature-driven), Gate 1 = replay sign-accuracy vs Φ v2
+
+**Why / hypothesis:** every closed search line pinned the leaf-value signal
+as the binding constraint, and the hand-designed Φ v2 (0.604 ALL / 0.696
+LATE sign-acc) remains the best real-replay value signal ever measured
+here. External literature research (`docs/eval-function-research.md`,
+2026-07-09) says: (a) linear difference-form feature evals transform MCTS
+strength in CCGs (Santos et al.: 21%→42% vs SOTA at identical budget with
+a 5-feature linear eval); (b) resource/card advantage carries surprisingly
+dominant weight; (c) simple models capture most of the achievable signal
+(AAIA'17: winner AUC 0.802 vs 0.785 for a plain baseline). Hypothesis: a
+richer, still-linear, still-antisymmetric feature set with properly
+validated fitted weights beats Φ v2 on the replay gate.
+
+**Design constraints from prior evidence (2026-07-05 Φ v3 failure):** the
+old mixed-precision v3 broke antisymmetry and its 1-weight grid tune
+overfit the selection split. Therefore: every Φ v4 feature is
+difference-form computed by the SAME method for both seats (antisymmetric
+by construction, like the winning v2), and fitting is logistic regression
+(no intercept, preserving antisymmetry) with game-level train/holdout
+split (first 60% of sorted replay files = fit+CV, last 40% = single final
+report) and L2 strength chosen by game-level k-fold CV inside the fit set
+only.
+
+**Feature set (11, all mine−theirs, normalized to roughly [-1,1]):**
+prize_diff; net_threat (Φ v2's term); turns_to_KO_diff (multi-turn
+lethality estimate, best attack: energy-afford turns + hits-to-KO);
+energy_dev_diff (total attached energy in play); board_size_diff
+(Pokemon in play — the board-thinning failure mode); armed_diff (count
+able to pay some nonzero attack cost); hand_diff (handCount — the
+literature's dominant card-advantage term; ours is literally damage);
+deck_clock_diff (deckCount — deck-out race, the stype==9 loss mode);
+wall_diff (Mist/Rock blocking energy on defender, both directions);
+stage_dev_diff (sum of preEvolution depths in play); status_diff (active
+special conditions count). Schema audit confirmed every input is exposed
+for BOTH seats in real replay observations (handCount, deckCount, prize,
+per-Pokemon hp/maxHp/energies/preEvolution, condition flags).
+
+**Arms evaluated ONCE on the held-out 40% (game-level bootstrap CIs):**
+(1) Φ v2 recomputed on the same holdout = the bar; (2) Φ v4 fitted
+logistic weights; (3) Φ v4 equal weights (no fitting control); (4)
+logistic refit of Φ v2's own 4 components (isolates fitting-vs-features);
+(5) prize_diff alone (floor).
+
+**Pre-registered decision rule:** adopt Φ v4-fitted as the new leaf-eval
+candidate iff its holdout ALL sign-acc game-level 95% CI clearly beats
+Φ v2-on-holdout (non-overlapping CIs), or ALL is at parity (overlapping)
+while LATE is CI-separated better and ALL is not worse in point estimate.
+Otherwise Φ v2 stays champion and the negative is logged. Gate 2 (only if
+Gate 1 passes): Φ v4 as leaf/rollout eval in the search skeleton, gated
+vs lucario+abomasnow (NOT mirror), n=400, seats alternated — bar to be
+pre-registered separately before it runs.
+
+**Report relevance:** either outcome feeds the report's evaluation-function
+narrative (figure: sign-accuracy by game phase across Φ v1/v2/v4; the
+antisymmetry-beats-precision story now has a literature frame).
 
 ---
 

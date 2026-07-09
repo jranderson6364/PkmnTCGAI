@@ -10,6 +10,48 @@ search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
 
 ---
 
+## 2026-07-09 — Phase D CLOSED: CEM-tuned advisor fails its gate too (74.0%/70.0% vs ≥86%) — the entire calculated-values-as-action-ranker family is closed; four override mechanisms, one ceiling
+
+**CEM run (pre-registered below):** pop 16, 20 generations, fitness =
+advisor win rate actually playing 8+8+8 lucario/abomasnow/mirror games
+per candidate, init = supervised weights, per-generation checkpoints
+(`training/advisor_cem_history.json`, `advisor_cem_weights.npy`).
+Fitness plateaued at elite ~0.65-0.78; the running mean never reliably
+cleared the **never-override baseline ≈0.80** ((94%+96%+~50%)/3 — an
+advisor that does nothing scores 0.80 on this fitness by construction).
+Tuned weights moved meaningfully (threat −0.08→−0.72, energy +0.44→+1.21,
+armed +0.96→+0.43) but the **pre-registered gate failed: lucario 74.0% ±
+12.2%, abomasnow 70.0% ± 12.7%** (bar ≥86%; teacher 94.0%/96.0%).
+
+**The night's four-way convergence (the real finding):**
+
+| Override mechanism | Leaf/scorer | lucario | abomasnow |
+|---|---|---|---|
+| PUCT search, full rollouts (v29-era) | terminal results | 73.0% | 75.0% |
+| PUCT search, Φ v4 cutoff | Φ v4 linear | 74.0% | 62.0% |
+| 1-ply advisor, top-3 near-ties only | Φ v4-MLP (outcome-fitted) | 68.0% | 68.0% |
+| 1-ply advisor, same | CEM simulation-tuned linear | 74.0% | 70.0% |
+| Plain heuristic (no override) | — | **94.0%** | **96.0%** |
+
+Four structurally different mechanisms — with and without rollouts, with
+and without search trees, outcome-fitted and simulation-tuned scorers —
+land in the same 62-75% band. **Conclusion: per-decision value-based
+override of this heuristic breaks its multi-turn plan coherence, and no
+state eval at the 0.65-0.68 sign-accuracy level (or plausibly reachable —
+AAIA'17 ceiling analysis) has the sibling-state discrimination to pay for
+that.** This closes the action-ranker family, not just one variant. The
+Φ v4-MLP champion STATE eval stands (replay gate 0.675/0.724/0.752) for
+non-override consumers: value targets, report figures, and loss-replay
+blunder mining (next).
+
+**Report relevance:** likely the report's strongest single figure — the
+eval ladder (Φ v1 0.563 → v2 0.610 → v4 0.650 → MLP 0.675) next to the
+four-mechanism/one-ceiling table: rigorous evidence that in this game a
+coherent plan beats per-decision optimality at any achievable eval
+quality.
+
+---
+
 ## 2026-07-09 — Advisor KILLED at the kill-check (68.0%/68.0% vs the 86% bar): an outcome-fitted state eval mis-ranks sibling actions — objective/consumer mismatch identified; CEM re-tune pre-registered
 
 **Results (kill-check, n=50 each, 0 errors, MLP scorer, ~5.5 overrides/

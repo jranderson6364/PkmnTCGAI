@@ -308,7 +308,23 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-08): open.** Both active lines closed today:
+**>>> NEXT STEP (as of 2026-07-09): open.** Today's line (literature-driven
+Φ v4 evaluation function, `docs/eval-function-research.md`): **Gate 1
+PASSED** — `training/nn/eval_v4.py`'s 11-feature antisymmetric fitted eval
+is the project's new best state-value signal (0.650 ALL / 0.700 MID
+holdout sign-acc on 642 games; +4.0pp ALL / +6.2pp MID over Φ v2, paired
+bootstrap CI excluding 0 — weights `training/eval_v4_weights.npy`).
+**Gate 2 KILLED at the pre-registered kill-check** — Φ v4 as a
+depth-limited leaf eval in the PIMC search (`mcts.py leaf_eval="phi4"`,
+`phi4_agent.py`) scored 74.0%/62.0% vs lucario/abomasnow (plain heuristic
+same-day: 94.0%/96.0%), i.e. a verified-better eval transfers ZERO
+improvement through the search wrapper. **This falsifies weak-leaf-signal
+as a sufficient explanation for the search failures — the wrapper itself
+is the bottleneck; do not put more compute into this search family
+without a structural redesign.** Φ v4 stands for other consumers
+(value-net training target, gate baseline, possible direct heuristic
+scoring). Full data: `docs/report-log.md` 2026-07-09 entries. Prior state,
+for context: both 2026-07-08 lines closed:
 the endgame search was reverted off the ladder (v29d — see Current agent
 above) and the winner-BC replay-imitation family closed negative (RP-1
 77%/5%, RP-2 89%/8% vs the 25% bar — see report-log 2026-07-08). The

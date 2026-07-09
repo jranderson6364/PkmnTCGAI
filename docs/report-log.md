@@ -4,9 +4,57 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-09 (Φ v4 evaluation-function experiment
-pre-registered — literature-driven antisymmetric feature set, Gate 1 =
-replay sign-accuracy vs Φ v2.)
+**Last updated:** 2026-07-09 (Φ v4: Gate 1 PASSED — new best value signal,
++4.0pp ALL over Φ v2; Gate 2 KILLED — better leaf eval does not rescue the
+search wrapper, falsifying weak-leaf-signal as a sufficient explanation.)
+
+---
+
+## 2026-07-09 — GATE 2 KILLED at the kill-check: a measurably better leaf eval does NOT rescue the search — the weak-leaf-signal theory is falsified as a sufficient explanation
+
+**Results (kill-check, n=50 each, seats alternated, 0 errors):**
+phi4-search vs lucario **74.0% ± 12.2%** (37W-13L; CI [0.618, 0.862]
+already excludes the ≥88% PASS bar); vs abomasnow **62.0% ± 13.5%**
+(31W-19L) — **below the pre-registered <70% kill threshold → killed
+immediately**, before any n=200 confirmatory spend. Same-day, same-harness
+confound check: plain `main.py` vs the same anchors reads **94.0% ± 6.6%
+(lucario)** and **96.0% ± 5.4% (abomasnow)** — the anchors did not get
+stronger; the search wrapper with the BETTER eval costs −20pp and −34pp.
+
+**What this falsifies:** the working theory since the ISMCTS closure —
+that the leaf value signal is THE binding constraint on this search
+family. Φ v4 is a Gate-1-verified better signal in exactly the diagnosed
+regime (+6.2pp MID sign-acc, paired CI excluding 0), yet the search built
+on it scores statistically the same as (lucario) or worse than
+(abomasnow) the dead v29-era stack (73.0%/75.0%). Two structurally
+different leaf evaluators — full terminal rollouts and a Φ v4
+depth-limited cutoff — now hit the same ~62-75% ceiling vs aggro anchors
+while the plain heuristic sits at ~94-96%. **The bottleneck is structural
+to the search wrapper itself vs these opponents**, with the v29
+post-mortem's displacement mechanism ("overriding the heuristic's
+dedicated desperation/racing logic with statistically-motivated but
+tactically wrong moves") now the leading suspect, alongside single-ply
+PUCT with the score_options prior and PIMC determinization error vs
+non-alakazam decks.
+
+**Timing (informational, pre-registered item 3):** 2,479 real decisions
+logged in the lucario arm — mean 4.33s/decision, p95 8.74s → projected
+~299s/game think time at 69 decisions/game (under the 600s clock, and
+measured under 10-way parallel load). Compute budget was never the
+blocker.
+
+**Decision (pre-registered kill rule):** search integration line closed.
+Nothing was shipped; the ladder agent remains v29d. **Φ v4 itself stands**
+— Gate 1's replay-corpus result is independent of this and Φ v4 remains
+the project's best measured state-value signal (0.650 ALL / 0.700 MID
+holdout sign-acc).
+
+**Report relevance:** this is the cleanest experiment pair the project
+has: a rigorously gated +6.2pp improvement to the exact diagnosed
+bottleneck, which transfers ZERO improvement through the search wrapper —
+strong causal evidence that the search architecture, not the evaluation
+signal, is what fails vs the real meta. Directly reframes the five prior
+search negatives.
 
 ---
 

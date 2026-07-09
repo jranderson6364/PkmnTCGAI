@@ -21,6 +21,19 @@ never fires); in 74 critical states (zero line pieces in play,
 Kadabra/Alakazam dead in hand) Abra was offered 50 times and taken in all
 but 3 — and all 3 are turn-1/2 Poké Pad picks with an Abra ALREADY in
 hand, where taking Alakazam is the scoring's documented correct choice.
+**Follow-up (same session): no reproducing opponent exists for the wall
+matchup** — `main.py` beats the reconstructed Archaludon deck under
+`generic_pilot.py` 96.7%/96.7% (60 games each seat, 0 errors; deck list
+expanded correctly to 60 via the `copies` field). The real ladder
+Archaludon pilots are far stronger than the generic pilot, so the
+last-line-piece trade gate CANNOT be benefit-gated offline — only
+non-inferiority vs anchors/mirror would be measurable, with the actual
+payoff invisible until the ladder. Per tonight's own action-ranker
+lessons (unmeasurable "should help" changes are the failure mode), the
+fix is documented as a design candidate and left unimplemented pending
+the user's call. Ladder note at wrap-up: v29d publicScore 768.6 (vs
+v29c's 776.7 — within this ladder's known read noise).
+
 **No targeting bug exists.** The thinning end-states are upstream
 resource exhaustion: in matchups where the opponent fields 300-400 HP
 armed attackers (Archaludon-class), each Alakazam traded in costs a

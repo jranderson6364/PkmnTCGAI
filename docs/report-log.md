@@ -306,6 +306,30 @@ mitigation strategies (job-size reduction, explicit minimal file lists,
 a keep-awake process) — a real, documented operational finding in its
 own right, separate from the DMC science itself.
 
+**Duration-boundary hypothesis also disproven.** Tested whether a much
+faster job (small, non-big model — the same data, but the model
+architecture that trains fastest of anything tried tonight) would survive
+where the slower big-model checkpoint-2 attempts consistently didn't. It
+died in ~5 minutes — far short of even a conservative duration boundary,
+and far short of checkpoint-1's successful ~40-minute run. **Neither
+Modern Standby, resource exhaustion, nor a simple duration ceiling
+explains tonight's ~16 training-job interruptions.** Notably, `dmc_collect.py`
+collection jobs (several, each 15-40+ minutes) succeeded reliably all
+night, while EVERY `train_dmc.py` job beyond the single checkpoint-1
+success failed — training-specific, not generically CPU/duration-bound.
+**This is the limit of what's diagnosable from within this session**
+(no visibility into whatever is actually terminating these processes —
+Windows Event Log shows nothing implicating any of the mechanisms
+checked). **Decision: stop actively diagnosing and stop repeatedly
+retrying the failing training job.** Pivoting remaining loop activity to
+what has a real track record tonight (further `dmc_collect.py` data
+accumulation, which has never failed) so more data is ready whenever
+training becomes viable again, and checking training viability
+periodically at low cost/low frequency rather than continuously.
+Checkpoint-1 (8.25% ± 2.7%) stands as tonight's one real slope-study data
+point; a second is honestly unobtained, and this operational story is
+itself real, disclosed content for the report.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

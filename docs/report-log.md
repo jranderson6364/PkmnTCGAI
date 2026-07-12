@@ -262,6 +262,25 @@ already-diagnosed external cause has diminishing returns. One more
 attempt left running regardless (costs nothing to have it in flight
 while waiting longer between checks).
 
+**14 consecutive failures, ~2.5hrs, three mitigation strategies tried
+(epoch reduction, `--limit` capping, explicit minimal file lists) — none
+moved the needle.** An `advisor` consult challenged the standing
+assumption that the sleep issue was purely the user's problem to fix:
+**never actually tried preventing it from this session's own side.**
+Implemented a keep-awake (`training/nn/keep_awake.ps1`, launched as a
+genuinely detached process via `Start-Process` — verified to persist
+independently across separate tool calls, unlike `Start-Job` which ties
+to the calling session) combining `SetThreadExecutionState` (system-required
+wake lock) with a periodic synthetic mouse-move (defeats input-idle-timeout
+specifically, which is what the event log showed triggering every
+interruption tonight). **Also corrected course per the same consult:**
+the 935k-sample (~1.13x) checkpoint-2 target was too small to be a
+meaningful slope-study data point regardless of whether it could be made
+to survive — reverted to targeting the full available 1.65x corpus now
+that keep-awake is running. Empirical verification (event log check for
+new Kernel-Power 506 entries after keep-awake started) planned for the
+next check-in.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

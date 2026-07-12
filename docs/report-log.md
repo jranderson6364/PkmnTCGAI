@@ -193,6 +193,24 @@ arbitrary amounts of unsaved progress, and re-launched the checkpoint-1
 baseline separately. Continuing regardless — this doesn't change the
 study's design, only its logistics.
 
+**ROOT CAUSE CONFIRMED (third simultaneous kill, ~13min after the second
+relaunch):** checked the Windows System event log directly
+(`Get-WinEvent`, Kernel-Power events 506/507) — this machine is cycling
+into Modern Standby roughly every 10-20 minutes all evening on
+`Reason: Idle Timeout`. Modern Standby is input-idle-triggered (keyboard/
+mouse/touchpad), not CPU-activity-triggered, so a background job doing
+real work provides no protection against it. This is the real cause of
+every interruption tonight, not a script bug or resource exhaustion (no
+orphaned processes, ~85% RAM free at check time). **Practical
+consequence: sustained unattended compute (>~15-20min) is not reliable in
+this session until the machine's power/sleep settings change** — flagged
+directly to the user with the specific, actionable fix (disable
+sleep-on-AC or use a keep-awake tool), since this is outside what any
+retry/chunking strategy on my end can fix. Continuing with short,
+frequently-checkpointed chunks in the meantime — slower, but makes real
+(if noisier) progress across the interruptions that do occur, since some
+chunks survive a standby cycle and some don't.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

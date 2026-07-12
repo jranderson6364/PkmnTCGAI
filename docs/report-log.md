@@ -117,6 +117,66 @@ scale-up) — see following entry.**
 
 ---
 
+## 2026-07-11/12 — PRE-REGISTRATION: DMC local data-scaling study (round 6), frozen recipe, slope-based kill gate
+
+**Frozen recipe (per Fable consult, no unconfirmed levers added):** fresh-
+init, extended epochs (the confirmed 10-epoch-class recipe), `model_big.py`
+(2.9x capacity), full-MC targets (no n-step, no Φ-shaping — both tested and
+either negative or deferred on cost, see above). This is exactly the
+confirmed 7.5%-win-rate stack from earlier tonight/this session, scaled up
+on data alone — no new unconfirmed variable introduced alongside the data
+scale, so any change in win-rate is attributable to data volume.
+
+**Honest throughput correction before launching:** the standing "10x scale"
+framing (from the original 2026-07-09 pre-registration and tonight's first
+Fable consult) assumed Kaggle GPU. Per tonight's Fable consult, NOTHING in
+this project's DMC work has ever actually used GPU — collection and
+training have been local-CPU-only at every scale tried, and local
+collection throughput is the real constraint: the round-4+5 corpus (4,800
+games, 831k raw samples) took ~7.5 hours wall-clock even at this machine's
+full ~19-worker parallelism (confirmed via `harness.run_matches`'
+`workers=None` → `cpu_count()-1` default). A literal order-of-magnitude
+more games (~46,000 more) would take on the order of 3 days, not one
+night. **Revised plan: scale locally as far as real overnight/multi-day
+throughput allows, gate at natural checkpoints as they land, and report
+the actual multiplier achieved rather than promising an exact 10x
+up front** — consistent with this project's own rule against pre-committing
+to numbers reality won't support.
+
+**Method:** launched `dmc_collect.py` targeting 20,000 games (learner +
+pool = `ptcg_dmc_gen4_long.pth`, the best confirmed small fresh-init
+checkpoint; same curriculum mix as round 4/5 — 50% frozen `main.py`/v29d,
+30% real archetype bots round-robin, 20% self-play vs. the pool
+checkpoint), output `training/dmc_r6_batch1.pkl.gz` (auto-shards every
+100k samples, CSV game log written incrementally every 100 games — this
+collector checkpoints naturally, unlike the earlier ad-hoc relabel script
+that lost an hour to an uncheckpointed pickle write). Existing round-4/5
+corpus (831k samples / 4,800 games) is the checkpoint-1 (~1x) data point,
+already gated at 4.25-7.5% depending on epoch/capacity (see above entries)
+— re-gating checkpoint 1 with the FULL frozen recipe (extended epochs +
+model_big together, not yet tested in that exact combination) as the
+clean baseline for this study specifically.
+
+**Pre-committed gate (slope-based, per Fable, NOT a level-based threshold):**
+gate at 3 real data checkpoints as they naturally land (~1x baseline, an
+intermediate point, and whatever accumulates by the time this study
+concludes) via `ab_test.py` vs `main.py`, n=400, seats alternated, greedy.
+Fit win-rate vs. log(sample count). **Kill rule: if the fitted slope is
+flat (the largest checkpoint's win-rate is not CI-separably above the
+smallest), close the DMC ladder-competitiveness line for this
+recipe/scale regime and write up the full trajectory (2.5%→7.5%→scale-up
+result) as the report's DMC section — a real, rigorous, negative-but-
+informative through-line.** If slope is positive and CI-separable, that
+is the evidence needed to justify further investment (Kaggle GPU for
+n-step relabeling + training, or continued local scaling) as round 7.
+
+**Status: LAUNCHED** (`dmc_collect.py --games 20000`, background). Given
+the ~7.5hr/4800-game observed rate, this will run across multiple
+overnight cycles — checking in at natural intervals rather than waiting
+for full completion, and gating intermediate checkpoints as they land.
+
+---
+
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up
 
 **Why:** `n_step=5` was validated as a real positive lever on 2026-07-05
@@ -151,6 +211,40 @@ to the unshaped fresh-init 3-epoch band (4.25/4.75/5.25%).
   single bounded check, not a new sub-investigation.
 
 **Status: LAUNCHING.**
+
+**FINAL DECISION on n-step (per Fable consult, see next entry): NOT adopted
+for the scale-up.** The shard0 result is real and encouraging but not
+CI-clean, and — more importantly — n-step relabeling requires a serial
+per-sample Q-network forward pass (unlike full-MC or Φ-shaping, no model
+inference needed for the latter's non-bootstrapped form). Tonight's 831k-
+sample relabel attempt took ~1hr of wall-clock before being killed by an
+unrelated environment interruption. At true 10x scale (~5-8M samples) that
+extrapolates to ~10 hours of serial, non-checkpointed, interruption-prone
+CPU work — disqualifying on cost/risk grounds alone, independent of the
+win-rate question. **Deferred, not closed:** if the scale-up study (next
+entry) shows a positive slope, n-step becomes the natural next lever, and
+a GPU batched-forward relabel would turn 10 hours into minutes — worth
+revisiting then. The shard0 result stands as an honest, caveated,
+standalone finding for the report as-is.
+
+**Interim result (shard0 only, ~105k raw / 51,103 usable samples — the
+first full-corpus attempt was killed mid-run by an environment interruption
+after ~1hr, unrelated to the script; retried on one shard to keep this
+bounded per the gate-lite framing):** trained fresh-init 3 epochs
+(val_sign_acc 0.8035→0.8168→**0.8344** — notably LOWER in-distribution fit
+than the Φ-shaped run, consistent with n-step being a sparser/harder target
+than dense shaping, as expected). Gated: **7.0% ± 2.5% (28W-372L, n=400)**
+— point estimate clearly above all three unshaped 3-epoch band reads
+(4.25/4.75/5.25%), achieved on roughly 1/4 to 1/2 the data those reads
+used. 95% CI [4.5%, 9.5%] is not FULLY separable from the band's upper
+edge (5.25%), so this doesn't cleanly clear the pre-registered "clearly
+above, CI-separable" bar on its own — but beating the band's point
+estimates on substantially less data is a real, encouraging directional
+signal, not noise-level. Given this result directly decides the frozen
+recipe for the (much larger, much more expensive) scale-up study, running
+one confirmatory pass on the FULL round-4+5 corpus (the originally-intended
+test) before finalizing the recipe decision — this is completing the
+original bounded check, not opening a new sub-investigation.
 
 ---
 

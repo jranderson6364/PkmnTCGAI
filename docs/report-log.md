@@ -243,8 +243,24 @@ Statistically consistent with (not distinguishable from) the earlier
 same-recipe-family 6-epoch/6.5-7.5% reference points from earlier
 tonight — confirms 2 vs. 6 epochs doesn't move this much, as the
 established "more epochs helps a little, not dramatically" pattern would
-predict. This stands as checkpoint-1 for the slope study. Collection
-toward checkpoint-2 (round-6 data combined with this baseline) continues.
+predict. This stands as checkpoint-1 for the slope study. Round-6
+collection continued to 541,910 samples (combined with baseline: 1.65x).
+
+**Checkpoint-2 attempts: 7 consecutive interruptions in ~50 minutes**
+(genuine kills, verified via disk artifacts each time — no checkpoint
+file, no new gate row), even after progressively reducing scope (2
+epochs → 1 epoch; full 1.65x corpus → `--limit`-capped 1.26x → 1.08x).
+**The size reductions did NOT meaningfully improve survival odds** — even
+the smallest attempt (900k samples, 1 epoch) died as fast as the largest.
+This indicates the current window is under an unusually dense
+interruption cluster (~7min average survival vs. earlier tonight's
+30-90min windows), not a job-size problem — matches the Modern Standby
+diagnosis (input-idle timeout is unrelated to job size or resource use).
+**Pulling back to a longer check interval** rather than continuing rapid
+retries, consistent with the earlier lesson that hammering an
+already-diagnosed external cause has diminishing returns. One more
+attempt left running regardless (costs nothing to have it in flight
+while waiting longer between checks).
 
 ---
 

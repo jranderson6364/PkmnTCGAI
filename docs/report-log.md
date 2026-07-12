@@ -357,6 +357,54 @@ this whole multi-hour investigation was looking for — worth confirming
 before declaring victory, but the mechanism now makes clean sense for
 the first time tonight.
 
+**FIX CONFIRMED — checkpoint-2 completed end-to-end via the detached
+process, ~4h47min wall-clock (08:42→13:29 training, gate finished
+13:40), no further interruptions.** Every collection chunk launched the
+same way (6, 7, 8) also completed cleanly. The detached-process approach
+is the real, durable fix for this session's background-task problem.
+
+**CHECKPOINT-2 RESULT — the real second slope-study data point:
+3.0% ± 1.67% (12W-388L, n=400), on the combined 1,373,553-sample corpus
+(baseline 831,643 + round-6's 541,910, ~1.65x).** This is BELOW
+checkpoint-1's 8.25% ± 2.7% (831,643 samples, ~1x) — and the two 95% CIs
+do not overlap at all (checkpoint-1: [5.55%, 10.95%]; checkpoint-2:
+[1.33%, 4.67%]). **This is not a flat slope — it is a real, CI-separable
+NEGATIVE slope: more data made the checkpoint measurably worse.**
+
+**Pre-registered kill rule fires, decisively.** The rule was "if the
+largest checkpoint's win-rate is not CI-separably above the smallest,
+close the line" — here the largest checkpoint is CI-separably BELOW the
+smallest, an even stronger trigger than the rule anticipated. **DMC local
+data-scaling (this recipe: fresh-init, big model, 2 epochs, full-MC
+targets) is CLOSED as a ladder-competitiveness lever.** Per the standing
+plan, this also means: do not proceed to the Kaggle-GPU-scale study —
+the one lever that might have justified that spend (a positive scaling
+trend) is now the opposite of what was found.
+
+**Plausible explanation, consistent with this project's own prior
+finding:** the original round-4 investigation already found large
+shard-to-shard quality variance in DMC self-play data (one shard scored
+~9-10%, another from the same procedure scored ~3%) — round-6's new data
+was collected under a different curriculum mix (pool-frac 0.2 vs the
+original 0.2-0.4 range, 8 separate chunks over many hours) and could
+easily be a net-negative addition by the same mechanism, dragging the
+combined-corpus checkpoint down despite having more total data. Not
+re-diagnosed further — per this project's own "one bounded check, then
+decide" discipline, the pre-registered gate has already given a clean
+answer.
+
+**FINAL STATUS: DMC round 4-6 arc closed.** Full trajectory this
+weekend: round 3 baseline 2.5% → fresh-init fix 4.25-5.25% → more epochs
+6.5% → bigger capacity 7.5% → checkpoint-1 (matching recipe, re-verified)
+8.25% → checkpoint-2 (more data) 3.0%, CI-separably BELOW checkpoint-1.
+**The honest conclusion: this DMC recipe does not benefit from more
+data past ~830k samples, and may actively regress — a real, decisive,
+pre-registered result, achieved despite a multi-hour infrastructure
+fight that is itself now fully diagnosed and fixed for future sessions.**
+Recommend: do not pursue further DMC data-scaling on this recipe;
+`training/nn/keep_awake.ps1` and the detached-process launch pattern are
+reusable infra for any future long-running local jobs.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

@@ -83,3 +83,4 @@ timestamp,path_a,path_b,n_requested,a_wins,b_wins,ties,errors,a_wins_p0,a_wins_p
 2026-07-11T23:19:11,training/nn/dmc_agent.py,main.py,400,13,387,0,0,9,4,191,196,0,0,0.0325,0.0174
 2026-07-12T00:35:05,training/nn/dmc_agent.py,main.py,400,28,372,0,0,11,17,189,183,0,0,0.07,0.025
 2026-07-12T03:47:45,training/nn/dmc_agent.py,main.py,400,33,367,0,0,20,13,180,187,0,0,0.0825,0.027
+2026-07-12T13:40:13,training/nn/dmc_agent.py,main.py,400,12,388,0,0,6,6,194,194,0,0,0.03,0.0167

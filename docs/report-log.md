@@ -277,9 +277,34 @@ interruption tonight). **Also corrected course per the same consult:**
 the 935k-sample (~1.13x) checkpoint-2 target was too small to be a
 meaningful slope-study data point regardless of whether it could be made
 to survive — reverted to targeting the full available 1.65x corpus now
-that keep-awake is running. Empirical verification (event log check for
-new Kernel-Power 506 entries after keep-awake started) planned for the
-next check-in.
+that keep-awake is running.
+
+**MAJOR CORRECTION: the Modern Standby diagnosis was wrong.** The job
+died again even with the keep-awake process confirmed alive and running.
+Empirical check (per the advisor's own prescribed verification step):
+`Get-WinEvent` for Kernel-Power 506/507 events shows **ZERO entries since
+10:02 PM the previous night** — spanning this entire session's ~20+ job
+kills. The machine has not entered Modern Standby even once during any
+of tonight's DMC work. **The original "confirmed root cause" was a
+correlation error**: the standby cycling observed earlier in the evening
+(before any DMC training/collection jobs were even running) was
+coincidental timing, not the actual cause of the later interruptions.
+**The real cause of tonight's ~20 job kills is still unknown** — not
+resource exhaustion (checked earlier: no orphaned processes, ample free
+RAM), not literal machine sleep (now ruled out directly). Possible
+remaining explanations, untested: a background-task lifecycle constraint
+in the CLI harness/sandbox itself (unrelated to Windows), or something
+else entirely. **Correcting the earlier user-facing guidance** (which
+recommended disabling sleep-on-AC — a fix that would not have addressed
+the real cause) via a follow-up notification. Given the actual cause is
+now unidentified and outside further productive diagnosis from this
+session, pulling back from aggressive retries of checkpoint-2 specifically
+and reporting the honest, real state: checkpoint-1 (8.25% ± 2.7%) stands
+as the study's one confirmed data point tonight; a second data point was
+not obtainable despite 15 attempts and multiple genuinely different
+mitigation strategies (job-size reduction, explicit minimal file lists,
+a keep-awake process) — a real, documented operational finding in its
+own right, separate from the DMC science itself.
 
 ---
 

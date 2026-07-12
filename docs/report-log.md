@@ -236,6 +236,16 @@ resuming collection — the retry strategy remains valid, the diagnosis of
 "do not blindly assume a status without checking the actual artifact/
 notification" is the real lesson here, not "stop trying."
 
+**Checkpoint-1 result (round-6 study's real ~1x baseline, full frozen
+recipe on the existing 831k-sample round-4/5 corpus, 2 epochs not yet
+6-10 — a partial version of the recipe): 8.25% ± 2.7% (33W-367L, n=400).**
+Statistically consistent with (not distinguishable from) the earlier
+same-recipe-family 6-epoch/6.5-7.5% reference points from earlier
+tonight — confirms 2 vs. 6 epochs doesn't move this much, as the
+established "more epochs helps a little, not dramatically" pattern would
+predict. This stands as checkpoint-1 for the slope study. Collection
+toward checkpoint-2 (round-6 data combined with this baseline) continues.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

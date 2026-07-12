@@ -4,9 +4,153 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-09 (DMC round 4 at real scale PRE-REGISTERED and
-launched — resuming the standing pre-registration early, at the user's
-explicit direction, after a strategic re-scope. See entry below.)
+**Last updated:** 2026-07-10 (PRE-REGISTRATION: shaped-DMC overnight autonomous
+loop, launched at user direction with a Fable consult on sequencing. See
+entry below.)
+
+---
+
+## 2026-07-10 — PRE-REGISTRATION: shaped-DMC retrain, real win-rate gate (autonomous overnight session)
+
+**Context:** user authorized an autonomous overnight loop continuing the DMC
+line, with the constraint that it stay in an automated training pipeline (no
+manual replay-loss mining) and that critical decisions get a Fable consult.
+Before scaling DMC by an order of magnitude (the standing recommendation from
+the 2026-07-09 session — see "TRUE FINAL SUMMARY" entry below), a Fable
+consult flagged that the project's one prior potential-based Φ-shaping result
+("clean negative", 2026-07-05 "Phase 0 ablation grid" entry) was gated on
+**cross-state sign-accuracy against real replays**, not on DMC's actual
+argmax-Q play win-rate — and the docstring for that result (`dmc_nstep.py`)
+already explains why that gate was the wrong instrument: potential-based
+shaping (`F_k = γΦ(s') − Φ(s)`) only guarantees the optimal action ranking
+*within* a state is preserved; it explicitly breaks cross-state value
+comparability by design, which is exactly what a sign-accuracy gate assumes.
+**The actual quantity that matters (does argmax(Q) win more games) has never
+been tested with shaping.** Independently verified by re-reading
+`dmc_nstep.py` and the original ablation entry before accepting this framing.
+
+**Hypothesis:** dense per-decision shaped reward (vs. today's flat ±1
+terminal-only label) may relieve the credit-assignment starvation that's the
+likely explanation for this session's additive-not-accelerating DMC scaling
+curve (2.5%→7.5% across 4 independent levers, no inflection) — cheaper to
+test than 10x more data/compute, and reuses the already-validated Φ v4-style
+potential function and the existing round-4/round-5 curriculum corpus (no
+new collection).
+
+**Method:** relabel the combined round-4 + round-5 curriculum corpus
+(`training/dmc_r4_batch1*.pkl.gz` + `training/dmc_r5_batch1*.pkl.gz`, ~1M raw
+decisions) offline via `dmc_relabel.py --phi-shaping` (full-MC + Φ, no
+n-step, isolating the shaping variable alone — same single-variable
+discipline as the original ablation). Train fresh-init (`train_dmc.py
+--no-init`, the confirmed-correct recipe from the 2026-07-09 session) on the
+shaped corpus. Gate via the REAL protocol this session established for every
+other DMC checkpoint: `ab_test.py` vs `main.py` (v29d), n=400, seats
+alternated, `NET_EPS=0` (greedy).
+
+**Pre-committed comparison bar:** the fresh-init/no-shaping reference band
+from 2026-07-09 at matched epoch count (3 epochs: 4.25/4.75/5.25%; 10
+epochs: 6.5%). Shaped run will be trained at both 3 and 10 epochs for direct
+comparability to both reference points.
+
+**Kill rule:** if shaped 3-epoch win rate is not clearly above the 4.25-5.25%
+unshaped band (i.e. within noise or worse), shaping-in-training is CLOSED for
+a second time, now with a methodologically correct gate — do not re-open
+without a further redesign. If positive, extend to bigger capacity
+(`model_big.py`) and/or combine with n-step, before considering the 10x
+data/compute scale-up.
+
+**Fallback if shaping is flat/negative:** per the 2026-07-09 "TRUE FINAL
+SUMMARY", the pre-registered 10x-scale study, explicitly framed as
+report-grade scaling evidence (not a ladder-competitiveness bet — even an
+optimistic 3x from scale lands ~22% vs v29d, nowhere near ladder-competitive)
+with a hard kill rule. This will also get a Fable consult before committing
+real Kaggle GPU/compute budget, per the user's "critical decisions" ask.
+
+**Status: LAUNCHED, running autonomously overnight.** Results to be appended
+to this entry as they land.
+
+**RESULT — clean negative, kill rule fires.** Trained fresh-init
+(`--no-init --seed 3`, 3 epochs) on the full relabeled corpus (831,643 raw /
+402,201 usable samples, 4,800 games). In-distribution fit is the best of
+any DMC checkpoint this project has produced: `val_sign_acc`
+0.9224→0.9269→**0.9288** (vs. ~0.80-0.85 for every unshaped checkpoint) —
+expected, since the shaped target is a denser, easier-to-fit continuous
+signal. Gated the real way this time (`ab_test.py` vs `main.py`, n=400,
+seats alternated, `NET_EPS=0`): **3.3% ± 1.7% (13W-387L)** — BELOW the
+pre-registered 4.25-5.25% unshaped-3-epoch comparison band, not just
+"not clearly above" it.
+
+**Conclusion: Φ-shaping-in-training is closed for a second time, now with
+the methodologically correct win-rate gate (not just cross-state
+sign-accuracy).** This is actually a stronger and more informative result
+than the original 2026-07-05 closure: it rules out the specific hope Fable's
+critique raised (that the earlier closure was an artifact of a bad gate,
+not a bad method) — the corrected gate agrees with the original verdict's
+practical conclusion (don't ship phi-shaped DMC), even though the original
+gate's reasoning was flawed. It also reproduces this project's single most
+recurring pattern one more time, now on its most extreme data point yet:
+the BEST in-distribution fit of any DMC checkpoint (0.9288) paired with
+the WORST win rate of any fresh-init checkpoint (3.3%, below even the
+lucky-outlier-corrected 4.25-5.25% band). Dense reward shaping made the
+regression problem easier to fit and the resulting policy worse — plausible
+explanation: the shaped per-decision targets are easier to overfit to
+self-play-distribution-specific patterns (matches the original autopsy's
+own concern about "a richer, continuous per-decision regression target...
+fit from only 300 games/3 epochs likely compounds via ordinary
+overfitting", now confirmed to generalize to a ~30x larger corpus too).
+**Decision: do not pursue Φ-shaping for DMC further in any form without a
+fundamentally different consumption design** (e.g. as a frozen leaf-eval
+prior kept outside the regression target, never as-implemented here).
+
+**Methodology flag (per Fable consult below): in-distribution `val_sign_acc`
+is now demonstrated ANTI-correlated with actual quality in at least one
+case** (this checkpoint: best-ever fit 0.9288, worst-ever win-rate 3.3%).
+Going forward, no DMC checkpoint gets any credence, selection weight, or
+early-stopping authority from in-distribution fit metrics — only small-n
+win-rate probes (n=100 screen, n=400 confirm) carry decision authority.
+This retroactively flags every sign-accuracy-only-gated DMC conclusion in
+this log (including the original 2026-07-05 n-step ablation, see next
+entry) as methodology-suspect, not necessarily wrong.
+
+**Next: Fable consult on sequencing (n-step retest vs. straight to
+scale-up) — see following entry.**
+
+---
+
+## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up
+
+**Why:** `n_step=5` was validated as a real positive lever on 2026-07-05
+(+0.020 ALL / +0.043 LATE sign-accuracy over matched full-MC, a clean
+CI-separable win) — but under two conditions now known to be compromised:
+(a) the OLD imitation-warm-started training recipe, since shown to
+actively hurt DMC (this session's central bug find), and (b) a
+sign-accuracy gate, just shown tonight to be capable of reading exactly
+backwards from actual win-rate (best-ever fit / worst-ever win-rate on the
+Φ-shaping checkpoint). Per tonight's Fable consult: n-step's original
+result is therefore "no evidence at all" under the corrected standard —
+treat it as an untested coin flip, not a precedented positive. Worth one
+more bounded check before freezing the recipe for the 10x scale-up study,
+since (per Fable) the scale-up's recipe should be decided BEFORE
+pre-registering that study, not discovered mid-run.
+
+**Method:** relabel the same round-4+round-5 corpus (`dmc_relabel.py
+--n-step 5`, bootstrap ckpt = tonight's `ptcg_dmc_shaped3.pth`... actually
+the most recent NON-shaped fresh-init checkpoint available for bootstrap
+value estimates, since n-step needs a Q-function to bootstrap from — using
+`ptcg_dmc_gen4_big.pth`/best available fresh-init checkpoint). Train
+fresh-init, 3 epochs (same recipe as every other 3-epoch comparison
+tonight). Gate: `ab_test.py` vs `main.py`, n=400, seats alternated, greedy.
+
+**Pre-committed decision rule (gate-lite, per Fable):** compare directly
+to the unshaped fresh-init 3-epoch band (4.25/4.75/5.25%).
+- Clearly above the band (CI-separable) → adopt n-step=5 as the frozen
+  recipe for the scale-up study.
+- Inside or below the band → do NOT iterate further on n-step variants
+  (no n=3/n=10 sweep) — take the plain full-MC fresh-init recipe into the
+  scale-up as-is and stop tinkering with the training target. This is a
+  single bounded check, not a new sub-investigation.
+
+**Status: LAUNCHING.**
 
 ---
 

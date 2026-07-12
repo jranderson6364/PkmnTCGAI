@@ -1,0 +1,8 @@
+﻿Set-Location 'C:\Users\jande\Downloads\Projects\PkmnTCGAI'
+python training/nn/train_dmc.py --data "training/dmc_r[456]_batch*.pkl.gz" --no-init --big --seed 5 --epochs 2 --out training/ptcg_dmc_r6_checkpoint2.pth *> 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\r6_checkpoint2_detached.log'
+Add-Content -Path 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\r6_checkpoint2_detached.log' -Value '=== CHECKPOINT-2 TRAINING DONE ==='
+$env:NET_CKPT = 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\ptcg_dmc_r6_checkpoint2.pth'
+$env:NET_BIG = '1'
+$env:NET_EPS = '0'
+python training/ab_test.py training/nn/dmc_agent.py main.py 400 --workers 16 *>> 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\r6_checkpoint2_detached.log'
+Add-Content -Path 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\r6_checkpoint2_detached.log' -Value '=== CHECKPOINT-2 GATE DONE ==='

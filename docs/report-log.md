@@ -330,6 +330,33 @@ Checkpoint-1 (8.25% ± 2.7%) stands as tonight's one real slope-study data
 point; a second is honestly unobtained, and this operational story is
 itself real, disclosed content for the report.
 
+**REAL ROOT CAUSE FOUND.** A subsequent check showed THREE simultaneous
+kills — including, for the first time tonight, a `dmc_collect.py`
+collection job (100% success rate until this point) AND a trivial
+one-line Python tally script (seconds of work). Re-checked the event log
+at this exact moment: still zero Modern Standby entries, and critically,
+**the keep-awake process (PID 26376, launched via PowerShell
+`Start-Process`, NOT the Bash tool's `run_in_background`) had been alive
+and uninterrupted for over an hour straight through this same window.**
+Every single Bash-tool-tracked background job — regardless of type,
+size, or duration, across ~17 attempts — has been killed at some point
+tonight; the one process NOT managed by that mechanism has never been
+interrupted once. **This isolates the real cause: something in the CLI
+harness's own `run_in_background` Bash task lifecycle, not Windows sleep,
+not resource exhaustion, not a duration ceiling, not anything
+job-specific.** The earlier Modern Standby correlation was doubly
+misleading — not just mistimed, but pointing at completely the wrong
+layer of the system.
+
+**Fix: bypass the Bash tool's background-task mechanism entirely**, using
+the same approach that kept the keep-awake process alive — PowerShell
+`Start-Process` launching a detached script, polled via `Get-Process`/log
+files rather than `TaskOutput`. Re-launched checkpoint-2 training and a
+new collection chunk both this way. If this holds, it is the real fix
+this whole multi-hour investigation was looking for — worth confirming
+before declaring victory, but the mechanism now makes clean sense for
+the first time tonight.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

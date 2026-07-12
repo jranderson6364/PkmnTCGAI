@@ -308,10 +308,43 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-10): a large-scale DMC (Deep Monte Carlo)
-push, run at the user's explicit direction after they pushed back on
-"heuristic + report only," reached a real, well-evidenced conclusion —
-read this before anything else.** User's stated goal: a genuinely
+**>>> NEXT STEP (as of 2026-07-12): DMC round-6 local data-scaling study
+CLOSED, decisively negative — read this before anything else.**
+Overnight autonomous session (user-authorized `/loop`, Fable-consulted on
+critical decisions): pre-registered a scaling study on the confirmed
+7.5%-win-rate DMC recipe (fresh-init + more epochs + `model_big.py`, full-MC
+targets). Checkpoint-1 (831,643-sample baseline, re-verified): **8.25% ±
+2.7%**. Checkpoint-2 (1,373,553 samples, ~1.65x, same recipe): **3.0% ±
+1.67%** — CI-separably BELOW checkpoint-1 (95% CIs [5.55,10.95] vs
+[1.33,4.67], no overlap). **This is a real negative slope, not a flat
+one — more data made the checkpoint measurably worse**, decisively firing
+the pre-registered kill rule. **DMC local data-scaling is closed; do NOT
+proceed to the Kaggle-GPU-scale follow-up** (its only justification, a
+positive trend, is now the opposite of what was found). Separately,
+Φ-shaping was retested with a corrected win-rate gate (the original
+2026-07-05 closure had used the wrong metric) — still a clean negative
+(3.3%), and n-step=5 showed an encouraging-but-not-clean 7.0% on 1/8th
+the data, deferred (not adopted) because relabeling doesn't scale
+cheaply. **Also resolved: a multi-hour infrastructure fight** — dozens
+of background job interruptions were first (wrongly) attributed to
+Windows Modern Standby sleep, then correctly isolated to the CLI
+harness's own `run_in_background` task lifecycle (confirmed via a
+control process launched outside that system surviving untouched for
+1hr+ while everything inside it kept dying). **Fix, now reusable infra:
+launch long local jobs as detached Windows processes via PowerShell
+`Start-Process`** (see `training/nn/keep_awake.ps1` and the
+`*_detached.ps1` pattern in `training/nn/`), monitored via `Get-Process`
++ log files instead of the Bash tool's background-task tracking. Full
+blow-by-blow, every correction included: `docs/report-log.md` 2026-07-11/12
+entries. Round-6 raw data (541,910+ samples across 8 chunks) remains on
+disk for any future DMC work. Open question for the user: whether to
+pursue a genuinely different DMC recipe (the deferred n-step lever, once
+GPU-batched relabeling makes it cheap) or treat the full round 3→6 DMC
+arc (2.5%→8.25%, closed) as concluded report material and move to
+another line. Prior 2026-07-10 next-step entry, superseded but kept for
+context: a large-scale DMC push, run at the user's explicit direction
+after they pushed back on "heuristic + report only," reached a real,
+well-evidenced conclusion. User's stated goal: a genuinely
 learned/RL model competitive at "top 5%" (both the report-judged Strategy
 track, which structurally requires a learned artifact, AND ideally the
 live ladder). Resumed this project's own standing DMC pre-registration

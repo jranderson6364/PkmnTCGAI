@@ -175,6 +175,24 @@ the ~7.5hr/4800-game observed rate, this will run across multiple
 overnight cycles — checking in at natural intervals rather than waiting
 for full completion, and gating intermediate checkpoints as they land.
 
+**Infrastructure note:** two independent background jobs (the ongoing
+collection and a separately-launched checkpoint-1 baseline train+gate)
+were killed SIMULTANEOUSLY partway through, the second such simultaneous-
+kill event tonight (the first being the original full-corpus n-step
+relabel, above). Two unrelated processes dying at the same instant points
+to a systemic interruption (most likely the host machine sleeping) rather
+than a bug in any of this session's scripts — flagged to the user
+directly, since only they can address the root cause (power/sleep
+settings). Salvaged 209,349 samples across 2 completed shards from the
+killed collection run (verified loadable, not corrupted — `dmc_collect.py`
+writes each 100k-sample shard as a complete, atomic pickle, unlike the
+earlier ad-hoc relabel script that lost data mid-write). **Adapted
+strategy: switched to smaller (~3,000-game) collection chunks** so a
+future interruption loses at most one chunk (~1.5-2hr) rather than
+arbitrary amounts of unsaved progress, and re-launched the checkpoint-1
+baseline separately. Continuing regardless — this doesn't change the
+study's design, only its logistics.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

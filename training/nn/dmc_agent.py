@@ -2,7 +2,9 @@
 Treats the net's per-action logit as Q(s,a): with prob epsilon picks a
 uniform-random legal action, else argmax over Q. Never used for ladder/eval.
 
-Env vars: NET_CKPT (checkpoint path), NET_EPS (epsilon, default 0.1).
+Env vars: NET_CKPT (checkpoint path), NET_EPS (epsilon, default 0.1),
+NET_BIG (1 = load as model_big.PTCGNetBig instead of the default PTCGNet —
+must match whatever --big setting the checkpoint was trained with).
 """
 import os
 import random
@@ -17,6 +19,21 @@ from main import DECK
 
 _CKPT = os.environ.get("NET_CKPT") or os.path.join(_HERE, "..", "ptcg_dmc_r2.pth")
 _EPS = float(os.environ.get("NET_EPS", "0.1"))
+_BIG = os.environ.get("NET_BIG") == "1"
+
+_big_models = {}
+
+
+def _load_big(ckpt_path):
+    m = _big_models.get(ckpt_path)
+    if m is None:
+        from model_big import PTCGNetBig
+        m = PTCGNetBig()
+        state = torch.load(ckpt_path, map_location="cpu")
+        m.load_state_dict(state, strict=True)
+        m.eval()
+        _big_models[ckpt_path] = m
+    return m
 
 
 def agent(obs_dict: dict) -> list:
@@ -34,7 +51,7 @@ def agent(obs_dict: dict) -> list:
         if random.random() < _EPS:
             picks = random.sample(range(n), k)
             return clamp(picks, sel)
-        model = load_model(_CKPT)
+        model = _load_big(_CKPT) if _BIG else load_model(_CKPT)
         batch, n_actions = encode_batch(obs_dict, sel)
         with torch.no_grad():
             logits, _ = model(*batch)

@@ -8,7 +8,61 @@ attempted. Everything else tried from the literature and the 120-method
 survey is closed with receipts — see §Why This, and `docs/report-log.md`
 2026-07-09 entries.*
 
-**Last updated:** 2026-07-09
+**STATUS: FULLY EXECUTED AND CLOSED, 2026-07-09 (corrected same day, then
+carried through to a real conclusion).** The first "CLOSED, information
+ceiling confirmed" verdict (76.6% fidelity at a 5-epoch checkpoint) was
+PREMATURE — the training curve was still descending steeply at epoch 4,
+not a plateau — and was retracted before any GPU compute was spent
+(caught via an `advisor` consult). Resumed training with fresh-game
+fidelity (not just train_acc, since there's no held-out val split) as the
+real stopping signal:
+
+| checkpoint | fidelity |
+|---|---|
+| epoch 1 | 62.8% |
+| epoch 4 (premature stop) | 76.6% — retracted |
+| epoch 5 | 82.17% |
+| epoch 6 | 82.90% (+0.73pp) |
+| epoch 7 | **83.03%** (+0.13pp — plateau confirmed) |
+
+**Real Gate 1 result: fidelity plateaus at ~83.0%, genuinely above BOTH
+reference points (BC-MLP 74.9%, DAgger-r2 81.9%)** — a real, replicated,
+if modest capacity signal once trained to actual convergence. Because
+83.0% cleared the pre-registered 82% threshold, Gate 2 (win-rate, n=400
+vs. the v29d teacher, seats alternated) was run next (built
+`training/nn/seq_agent.py` for live inference; confirmed CPU-safe timing
+first).
+
+**Real Gate 2 result: 12.2% ± 3.2% win rate (49W-351L/400)** — BELOW the
+35% threshold, and at the LOW end of the historical 12-17% BC/DAgger
+plateau, not above it, despite the fidelity gain being real. **This is the
+actual, non-premature conclusion: fidelity and win-rate decouple once
+fidelity clears roughly the mid-70s% — a second independent architecture
+(after DAgger's own MLP) shows the same disconnect.** More capacity,
+history-context, and Φ v4 features, trained correctly, buy real fidelity
+but not games. Full numbers, both gates, in `docs/report-log.md`'s
+2026-07-09 entry.
+
+**CONCLUSION FOR THE KAGGLE GPU QUESTION:** a bigger version of this same
+architecture (the plan's original "10-50x capacity" ask) is very unlikely
+to convert to win-rate either — the bottleneck this experiment isolated is
+not model capacity or missing context, it is something structural to pure
+imitation against a strong teacher (most plausibly a small number of
+game-deciding low-probability branches that an aggregate fidelity number
+can't see). **Do not spend Kaggle GPU quota scaling this architecture
+further on the same objective.** If a GPU push is still wanted, per
+`advisor`'s framing it should target the one lever with real precedent —
+DAgger-style on-policy correction, which is a data-collection/labeling
+change, not a capacity change, and doesn't obviously need GPU either.
+There's also an unresolved goal question that determines whether ANY
+bigger imitation model is the right target: imitation (BC/DAgger) can
+only asymptote toward teacher (v29d) parity by construction, never exceed
+it — every non-imitation path tried (search, AWR, IQL, DMC, AlphaZero-
+style self-play) is already closed negative. If the goal is to actually
+beat v29d rather than produce a well-documented learned clone of it, no
+tested method — including this one — gets there.
+
+**Last updated:** 2026-07-09 (fully executed: real plateau found, win-rate gated, final conclusion reached)
 
 ---
 

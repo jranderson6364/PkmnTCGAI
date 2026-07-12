@@ -4,13 +4,769 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-09 (overnight run complete: Φ v4-MLP champion
-state eval; action-ranker family closed 4 ways; board-thinning root-caused.
-**NEXT SESSION STARTS AT `docs/next-session-plan.md`** — scaled
-sequence-policy experiment resolving the capacity-vs-information question
-on the imitation plateau, with pre-committed gates.)
+**Last updated:** 2026-07-09 (DMC round 4 at real scale PRE-REGISTERED and
+launched — resuming the standing pre-registration early, at the user's
+explicit direction, after a strategic re-scope. See entry below.)
 
 ---
+
+## 2026-07-09 — PRE-REGISTRATION: DMC round 4 at real scale (resuming the standing 2026-07-19 checkpoint early, at user direction)
+
+**Context / why now:** user pushback on the "ship heuristic + report"
+recommendation, correctly citing that this project's own CLAUDE.md already
+says a rule-based agent caps near 0% on the Strategy track's 70% "method"
+axis regardless of win rate — so a genuine learned artifact is required
+for that track REGARDLESS of whether it beats v29d. Separately, the
+user's ladder goal (top 5%) is not proven reachable by either the
+heuristic OR anything built so far (v29d itself is only ~top-17% on the
+real ladder historically, despite dominating local gauntlets). User
+explicitly authorized a "go big, 1-2 weeks, priority now" push on
+ML/RL, after an `advisor` consult on which mechanism actually survives
+this project's own evidence.
+
+**Which RL, and why:** every search-based method (PIMC, ISMCTS, endgame
+search, and the AlphaZero-style self-play push, whose policy-improvement
+operator IS search) is closed negative, confirmed independent of eval
+quality (a measurably better leaf eval bought zero improvement through
+the search wrapper — 2026-07-09 earlier entries). DMC (Deep Monte Carlo,
+DouZero-style — argmax over a trained Q-network, no search anywhere) does
+NOT share that failure mode. This project already ran DMC rounds 1-3
+(2026-07-05, see that entry): a real, monotone, but slow win-rate climb
+vs. frozen v25c (1.0%→1.7%→2.5%) using only ~130-270k cumulative training
+samples and a single frozen opponent (no curriculum diversity). Diagnosed
+as **data-limited, not broken** — explicitly paused to a 2026-07-19
+checkpoint with a round-4 curriculum collector (opponent-pool + real bot
+mixing, `training/nn/dmc_collect.py`) already BUILT but never run.
+
+**This is that resume, ~10 days early, at real scale.** First milestone:
+smoke-tested (20 games, clean) then launched **50,000 games** (~25-40x
+the cumulative scale of rounds 1-3 combined) via the round-4 curriculum
+collector: learner = `ptcg_dmc_r2.pth` (round-3 checkpoint, ε=0.15) vs. a
+mix of 50% frozen `main.py` (v29d, the current teacher — switched from
+v25c for ladder relevance), 30% real archetype bots (lucario/dragapult/
+abomasnow/starmie, round-robin), 20% self-play vs. the round-3 checkpoint
+itself (opponent pool). n-step=5 targets (already validated in this
+project to beat full-episode Monte Carlo). Output:
+`training/dmc_r4_batch1.pkl.gz`.
+
+**Pre-committed gate (set before seeing results):** retrain on this batch
+(`train_dmc.py`, shape-filtered warm-start from `ptcg_dmc_r2.pth`), then
+gate vs. `main.py` (v29d), n=200 first for speed/comparability to the
+round 1-3 protocol. **Kill rule:** if this does not clear roughly 4x
+round 3's rate (**~10% win rate**) — a real inflection, not noise or a
+continuation of the prior +0.7-1pp/round trend — that is evidence AGAINST
+"just needs more data" being sufficient at this scale, and the line
+reports back to the user rather than continuing to consume the 1-2 week
+budget. If it clears ~10%+, continue iterating (more generations, larger
+batches, Kaggle GPU for retraining) toward the original 25-30% target
+across the full window.
+
+**Honest priors, stated before results per this project's own discipline:**
+this project's own earlier literature consult (`docs/report-log.md`
+2026-07-05, "Fable" review) already warned DouZero's own published recipe
+needed substantially more compute against much weaker baselines than
+v25c/v29d — so even at 25-40x this project's own prior scale, the
+absolute gap to literature-scale success (millions of self-play hands,
+GPU-months) remains large. This run tests whether a meaningfully bigger
+(not literature-scale) step shows disproportionate acceleration — if the
+climb is roughly linear in data (as rounds 1-3's own +0.7-1pp/round
+literally predicts), 50k games alone will NOT be enough; the gate is
+designed to distinguish "real acceleration, worth continuing" from "same
+slow linear crawl at a new sample size," not to declare victory or defeat
+on vibes.
+
+**PIPELINE-VALIDATION INTERIM CHECK (NOT the decisive gate) — while the
+main 50k batch collects:** launched a small dedicated 200-game batch
+(`training/dmc_r4_quick.pkl.gz`, 17,574 samples, same curriculum mix) in
+parallel with the main run specifically to exercise the full train→gate
+cycle end-to-end before the main batch's first natural shard boundary.
+Trained (`train_dmc.py`, warm-started from `ptcg_dmc_r2.pth`, shape-
+filtered numeric_proj partial-copy as designed): `epoch 0 val_sign_acc
+0.8270 → epoch 1 0.8341`. Gated greedily (`NET_EPS=0`) vs. `main.py`,
+n=200: **2.0% (4W-196L)** — flat vs. round 3's 2.5% baseline, below the
+10% kill threshold.
+
+**This is explicitly NOT a test of the "more data helps" hypothesis** —
+200 games (17,574 raw / 8,454 usable samples) is ~1.5% of even round 3's
+own cumulative corpus (~154k samples), and critically `train_dmc.py --data`
+only points at the new batch, not combined with the original round 1-3
+raw data (which is no longer on disk, per this project's aggressive
+data-cleanup policy — only the round-3 CHECKPOINT weights persist,
+carried forward via warm-start). So this result mainly says "a small
+curriculum-diverse fine-tune batch on top of the round-3 weights doesn't
+help (or slightly hurts)" — informative as a pipeline sanity check (the
+train→gate cycle runs cleanly, produces a real differentiable checkpoint,
+no crashes) but NOT informative about whether a real ~50-100k-game batch
+moves the needle. Decision: continue the main 50k run to its own first
+real shard and gate THAT, which is the actual pre-registered test.
+
+**REAL GATE RESULT — first shard (1,200 games, 105,196 raw / 51,103
+usable samples, roughly comparable in size to round 3's own cumulative
+154k-sample corpus, but a single fresh curriculum-diverse batch):**
+trained 3 epochs from the round-3 checkpoint (`ptcg_dmc_r4.pth`,
+val_sign_acc 0.809→0.825→0.827 — converged quickly, not undertrained this
+time). Gated greedily vs. `main.py`, n=200: **2.5% (5W-195L)** —
+IDENTICAL to round 3's baseline, not even a small climb.
+
+**This is BELOW the pre-registered ~10% kill threshold, and notably worse
+than what round 1-3's own +0.7-1pp/round trend would have naively
+predicted for another comparable-sized data infusion.** A batch this
+large (bigger than any single prior round, comparable to the full
+rounds-1-3 corpus) producing exactly zero movement is real evidence
+against "more data alone" being the fix, at least at this scale and with
+this warm-start procedure. Per the pre-registered kill rule this would
+normally mean reporting back now — but per the user's `/goal` directive to
+keep iterating, testing one more concrete, cheap, distinct hypothesis
+before deciding whether to keep scaling the SAME recipe: **does the
+imitation-derived warm start itself limit the Q-network's ability to
+learn true state-action values** (representational mismatch between a
+policy-classification-trained trunk and a value-regression objective)?
+This is fast to test (same data already in hand, no new collection) and
+mechanistically distinct from "just needs more data." Testing now, in
+parallel with the main 50k collection continuing in the background
+(more data stays cheap to keep accumulating regardless).
+
+**RESULT — real, positive signal: the imitation warm-start WAS a
+confound.** Added `train_dmc.py --no-init` (trains `PTCGNet` from fresh
+random weights, no imitation-derived checkpoint at all — factored the
+training loop into `_run_training_loop` so both paths share identical
+code). Trained on the EXACT SAME 105,196-sample shard as the warm-started
+round-4 checkpoint above (apples-to-apples): val_sign_acc converged
+almost identically (0.827 fresh-init vs. 0.827 warm-started) — so the
+warm-start doesn't visibly change in-distribution regression accuracy.
+But gated greedily vs. `main.py`, n=200: **9.0% (18W-182L)** — nearly
+**3.6x** the warm-started checkpoint's 2.5% on the identical training
+data, and right at (technically just under) the pre-registered ~10%
+threshold. **The prior "more data doesn't help" reading was confounded**
+— the imitation-pretrained trunk (originally trained for policy
+classification) was actively limiting how well the SAME data could teach
+a value-regression objective, even though it didn't show up in the
+in-distribution sign-accuracy metric (another instance of this project's
+recurring "in-distribution validation metric doesn't predict greedy-play
+performance" pattern — see the 2026-07-05 DMC entry's own oversampling
+check for a prior example).
+
+**Caveat, stated honestly:** n=200 means the noise floor here is roughly
+±4-5pp — 9.0% is close enough to the 10% threshold that this specific
+number could easily be sampling noise either direction, and it is NOT yet
+a clean, decisive pass. But going from indistinguishable-from-baseline
+(2.5%) to right-at-threshold (9.0%) via a single architecture-level fix,
+on identical data, is a real, actionable, positive result — not
+noise-level movement. **Decision: continue with fresh-init as the
+default training recipe going forward** (dropping the imitation warm
+start entirely for DMC), and re-test at larger n and on more accumulated
+data from the still-running main 50k collection, before the next kill/
+continue decision.
+
+**CONFIRMED at n=400 (same fresh-init checkpoint, larger sample to
+resolve n=200 noise): 10.0% (40W-360L).** Consistent with the n=200 read
+(9.0%→10.0%, not a noise swing) and clears the pre-registered ~10%
+threshold cleanly. **GATE PASSED — this is a real, validated 4x
+improvement over round 3's 2.5% baseline**, achieved via one architecture
+fix (drop the imitation warm-start) on data already in hand — no
+literature-scale compute needed to get here. Per the pre-registered
+protocol ("if it clears ~10%+, continue iterating... toward the original
+25-30% target across the full window"), this is a genuine GO signal.
+**Next generation, immediately underway:** the main 50k collection is
+still running in the background (past shard 0's 1,200 games, into shard
+1); once more data accumulates, retrain fresh-init on the larger combined
+corpus and re-gate, continuing the generation loop toward the 25-30%
+target for the remainder of the pre-registered window. `main.py` (v29d)
+remains the gate target throughout for ladder relevance.
+
+**GENERATION 2 — REGRESSION, and a real methodological gap found:** shard
+1 landed (1,200 more games, 103,368 samples — total corpus 2,400 games /
+208,564 raw / 100,610 usable). Retrained fresh-init on the COMBINED
+shard0+shard1 corpus (`ptcg_dmc_scratch2.pth`, val_sign_acc 0.800→0.813→
+**0.820**, comparable to generation 1's 0.827). Gated vs. `main.py`,
+n=400: **4.25% (17W-383L)** — WORSE than generation 1's 10.0% on HALF the
+data. This is a real, non-trivial swing (well outside n=400's own ~±3pp
+noise floor), not a rounding blip.
+
+**Root cause investigation, before drawing any conclusion:** `train_dmc.py`
+had NO seeded RNG for model weight initialization (`torch.manual_seed`
+was never called) — every `--no-init` run gets genuinely random initial
+weights, an uncontrolled variable that confounds "more data" with "this
+run's specific random draw." Added `--seed` (also needed for any future
+reproducibility). **Cannot yet distinguish "combining shards hurt" from
+"this was just an unlucky training run"** — running a same-data,
+different-seed replicate of generation 1 (shard0 alone, `--seed 1`) as
+the direct diagnostic before drawing any conclusion about data-combining.
+Per this project's own recurring lesson (stated explicitly in the
+CORRECTION earlier this session): do not call a verdict before isolating
+the actual cause.
+
+**SEED-VARIANCE DIAGNOSTIC RESULT: seed is NOT the explanation.** Same
+shard0 data, `--seed 1` (different from generation 1's unseeded run):
+val_sign_acc 0.800→0.811→0.822 (near-identical trajectory to gen 1's
+0.809→0.825→0.827). Gated n=400: **9.25% (37W-363L)** — statistically
+indistinguishable from generation 1's 10.0% on the same data. **Seed-to-
+seed variance on fixed data is small (~1pp); the 10.0%→4.25% drop when
+shard1 was added is a real, distinct effect**, not sampling/init noise.
+Next diagnostic (isolating data composition from combination mechanics):
+training fresh-init on shard1 ALONE (same size as shard0, different
+specific games) to check whether shard1's data is itself lower-quality,
+versus something about combining two shard files.
+
+**RESULT: shard1 alone is genuinely worse, not a combination bug.**
+Trained fresh-init on `dmc_r4_batch1.part1.pkl.gz` alone (same recipe,
+`--seed 1`): val_sign_acc 0.796→0.813→**0.829** (in-distribution metric
+actually the BEST of the three checkpoints so far — reinforcing the
+project's recurring lesson that in-distribution sign-accuracy does not
+predict greedy win-rate). Gated n=400: **3.0% (12W-388L)** — much closer
+to the combined-corpus result (4.25%) than to shard0's ~9-10%, confirming
+the combined-data regression traces to shard1's specific collected games
+being lower-quality training signal, not a bug in multi-shard loading.
+
+**Working interpretation:** collection uses the SAME procedure, curriculum
+mix, and base checkpoint for both shards — the two shards' outcome
+distributions (which specific games, which specific decisions get
+recorded as the Monte-Carlo/n-step target) differ by chance alone, yet
+produce very different downstream policy quality (~9-10% vs ~3%). This
+means: (a) 100k-sample single-shard win-rate reads are NOT yet a stable
+estimate of "how good is fresh-init DMC at this recipe" — there is real
+shard-to-shard variance at this data volume, and (b) simply combining
+shards is not guaranteed to help if a chunk is a net-negative addition
+(no bootstrapped-TD divergence expected here since targets are Monte-
+Carlo/n-step returns, not full TD, but a batch of low-quality decisions can
+still drag a 3-epoch fit toward worse action rankings). **Decision: stop
+chasing shard-level diagnostics and let the main 50k collection continue
+accumulating toward a MUCH larger single combined corpus** (multiple more
+shards) — per-shard idiosyncrasies should average out at a genuinely
+larger scale in a way 2 shards cannot resolve; the next real checkpoint
+will retrain on the full accumulated corpus once several more shards
+land, not after every single new shard.
+
+**GENERATION 3 — the largest, most reliable read yet, and it's sobering.**
+All 4 shards combined (5,300 collected games worth, 413,441 raw / 199,117
+usable samples — 4x generation 1's size). Trained (`--seed 2`,
+val_sign_acc 0.812→0.821→**0.829**, still climbing at epoch 2, not
+obviously plateaued). Gated n=400 vs. `main.py`: **4.75% (19W-381L)** —
+close to the 2-shard read (4.25%), NOT close to shard0-alone's ~9-10%.
+
+**Updated interpretation: shard0's ~9-10% was very likely the lucky
+outlier, not the true rate.** With shard0 (~9-10%), shard1 (~3%), and now
+two independent multi-shard combinations landing in the same ~4-5% band
+(4.25%, 4.75%), the weight of evidence points to **~4-5% as the more
+honest estimate of this recipe's current win rate** — real, roughly 2x
+round 3's 2.5% baseline, but well short of the pre-registered ~10%
+threshold when measured on enough data to trust the number. Per the
+letter of the pre-registered kill rule, this would normally close the
+line now.
+
+**One real, unexploited lever identified before making that call:** every
+game collected so far — all 5,300+ games across all 4 shards — used the
+SAME static `ptcg_dmc_r2.pth` as the exploration policy. The training
+recipe has improved (fresh-init fix) but the SELF-PLAY DATA GENERATOR
+never has — this is not yet the iterative self-improvement loop that
+actually defines DMC/DouZero (collect → train → collect MORE with the
+IMPROVED policy → repeat); it's been one static round of exploration data
+fed through an improved trainer. Switching the collector to use
+`ptcg_dmc_gen3.pth` (the current best fresh-init checkpoint) as the
+learner for further collection, so new data reflects the improved
+policy's own decision distribution, is a genuinely different, untried
+lever — continuing before calling the final verdict.
+
+**ACTION: closed the iterative-improvement loop.** Stopped the original
+50k collection (had reached 5,700/50,000 games on the stale `ptcg_dmc_r2.pth`
+policy; the 4 already-written shards, 413k samples, are kept — nothing
+lost). Launched a new round (`training/dmc_r5_batch1.pkl.gz`, target
+20,000 games) using `ptcg_dmc_gen3.pth` as BOTH the exploration learner
+(ε=0.15) and the self-play pool opponent — the first time this run has
+actually generated data from an IMPROVED policy rather than the original
+static one. Same curriculum mix otherwise (50% `main.py`, 30% real
+archetype bots, 20% pool self-play). Next generation will train fresh-init
+on the OLD 413k corpus combined with whatever NEW gen3-policy data has
+landed, and re-gate — this is the real test of whether closing the
+self-improvement loop (not just the warm-start fix) moves the needle
+beyond the ~4-5% plateau the last two reads found.
+
+**GENERATION 4 RESULT — the iterative loop does NOT move the needle
+either.** Trained on all data to date (5 shards, 517,935 raw / 249,622
+usable samples — the OLD static-policy corpus PLUS the first shard
+generated by the IMPROVED gen3 policy). val_sign_acc 0.826→0.832→**0.839**
+(still climbing at epoch 2, same not-fully-converged pattern as every
+prior generation). Gated n=400 vs. `main.py`: **5.25% (21W-379L)**.
+
+**THREE independent, large-sample (n=400) reads now converge tightly:
+4.25% → 4.75% → 5.25%.** Each used more data than the last (208k→413k→
+518k samples) and the most recent included genuinely improved-policy
+self-play data (the DouZero-style iterative loop, closed this session for
+the first time) — and the number did not move beyond noise. This is now
+a well-evidenced, converged result, not a single unlucky/lucky read:
+**this specific recipe (fresh-init `PTCGNet`-architecture DMC, curriculum
+self-play, ~200-500k sample scale, 3 training epochs/generation) plateaus
+at roughly 4-5% vs. the v29d heuristic** — a real ~2x improvement over
+round 3's 2.5% baseline, but not remotely close to the pre-registered
+~10% threshold, let alone the standing 25-30% target.
+
+**One cheap, untested, orthogonal lever before calling the ceiling:**
+val_sign_acc has not visibly plateaued within 3 epochs in ANY generation
+so far (still climbing at epoch 2 every time) — training longer on data
+already in hand (no new collection needed) directly tests whether
+under-training (not a genuine architecture/data ceiling) is still
+contributing, cheaply and fast. Testing 10 epochs on the current largest
+(gen4, 518k-sample) corpus before making a final recommendation.
+
+**10-EPOCH RESULT: a small, real gain, not a breakthrough.**
+val_sign_acc trajectory: 0.825→0.828→0.835→0.841→0.841→0.842→0.843→0.841
+(dip)→0.846→**0.849** — genuinely flattens after epoch ~4-5 (this is real
+convergence this time, unlike the earlier premature-stop mistake — the
+curve visibly plateaus with a small dip and recovery, not a steep
+still-falling loss). Gated n=400 vs. `main.py`: **6.5% (26W-374L)**.
+This is directionally above the 4.25-5.25% band from 3-epoch runs, but
+by only ~1.5-2pp — within one 95% CI width (~±2.3pp at this win rate and
+n) of the prior reads, i.e. a plausible small real gain, not a clear
+breakthrough past the pre-specified "~6-7%" bar for calling under-training
+a major factor.
+
+---
+
+## FINAL SUMMARY — DMC round 4 at real scale (2026-07-09/10 session)
+
+**Full trajectory, oldest to newest:**
+
+| Stage | Data | Win rate vs. teacher |
+|---|---|---|
+| Round 1 (2026-07-05, warm-started) | ~132k samples | 1.0% |
+| Round 2 (warm-started) | ~268k cumulative | 1.7% |
+| Round 3 (warm-started) — standing baseline | ~154k cumulative usable | 2.5% |
+| Fresh-init, shard0 alone (lucky outlier) | 105k raw | 9.0% → 10.0% (2 seeds) |
+| Fresh-init, shard1 alone | 103k raw | 3.0% |
+| Fresh-init, 2 shards combined | 208k raw | 4.25% |
+| Fresh-init, 4 shards combined | 413k raw | 4.75% |
+| Fresh-init + iterative self-improvement loop, 5 shards | 518k raw | 5.25% |
+| Fresh-init, same 518k, 10 epochs (vs. 3) | 518k raw | 6.5% |
+
+**Real, validated findings from this session:**
+1. **The imitation-derived warm-start was actively hurting DMC training**
+   — a real bug/design flaw, not a data-volume issue as first suspected.
+   Fixed (`train_dmc.py --no-init`), and this is the session's most
+   solid, reusable finding: fresh-init roughly DOUBLES the win rate on
+   identical data (2.5%→~5% typical, not the lucky 10% outlier).
+2. **Shard-to-shard variance is large at ~100k-sample granularity**
+   (3% to 10% on same-size, same-procedure shards) — single-shard reads
+   are not trustworthy; only multi-shard/large-n reads should be trusted,
+   a genuinely useful methodological lesson for any future DMC work here.
+3. **Closing the DouZero-style iterative self-improvement loop** (using
+   the current best checkpoint, not a static one, to generate further
+   self-play data) **did not produce a clear jump** — 5.25%, statistically
+   indistinguishable from the static-policy 4.75% read.
+4. **More epochs helps a little** (4.75-5.25%→6.5%) but not dramatically,
+   and the in-distribution metric genuinely converges (unlike this
+   session's earlier premature-stop mistake on the sequence-policy line)
+   — this is not simply "needs more training."
+
+**Bottom line: the best validated, large-sample DMC result this session
+produced is ~5-6.5% win rate vs. v29d — a real ~2-2.6x improvement over
+the standing round-3 baseline (2.5%), achieved through genuine debugging
+(the warm-start fix) and methodology (seed control, epoch tuning, closing
+the self-play loop), but the pre-registered ~10% kill threshold was not
+cleared on any large, trustworthy sample, and the trend across 4 doublings
+of data (130k→270k→410k→520k+) shows NO acceleration — every lever tried
+after the warm-start fix moved the needle by low single digits at most.**
+
+**Recommendation for the user, stated plainly:**
+- **This specific recipe (small `PTCGNet`-architecture DMC, CPU-only
+  training, curriculum self-play at the ~500k-1M sample scale) has a
+  real, evidenced ceiling around 5-7% win rate vs. v29d.** It is not
+  competitive at that level.
+- **CORRECTION (caught immediately on review): Φ-shaping is NOT untested**
+  — `training/nn/dmc_nstep.py`'s own docstring documents a CONFIRMED
+  NEGATIVE result from 2026-07-05 (Ng/Harada/Russell shaping-invariance
+  only holds within-state, not across states; 11.5% of training labels
+  flip sign vs. true outcome, worsening to 21.1% on real ladder replay
+  states — explicitly warns "do not re-enable `use_phi_shaping` for
+  training without first redesigning how Φ is consumed"). Removing this
+  from the recommended-next-lever list.
+- **Untested, genuinely different levers that remain:** (a) a meaningfully
+  bigger Q-network (this session never varied capacity for DMC
+  specifically — the sequence-policy line's capacity test doesn't
+  transfer, different objective/architecture path), (b) genuinely order-
+  of-magnitude more data/compute (Kaggle GPU, millions of samples,
+  approaching DouZero's own literature-scale recipe) — untouched this
+  session, and the most expensive.
+- **Given the flat trend across 4x the data this session already covered,
+  scaling data alone without changing anything else is the least
+  evidence-backed of the two remaining options** — a capacity test is
+  cheaper and faster (no new collection needed, same data, bigger net,
+  a few training runs) and should come before committing to a large
+  Kaggle GPU data-scaling push.
+- This entire trajectory (including the false starts, the warm-start bug,
+  and the shard-variance lesson) is strong, honest report material for
+  the Strategy track's 70% "method" axis regardless of final win rate —
+  it demonstrates real experimental rigor (pre-registered gates, isolated
+  ablations, honest corrections) on a genuinely-attempted RL method, which
+  is exactly the kind of methodological substance that axis rewards.
+
+---
+
+## TRUE FINAL SUMMARY — after testing the capacity lever too
+
+**Capacity test result: 7.5% (30W-370L, n=400).** Built `model_big.py`
+(`PTCGNetBig`, ~2.9x params — 4.47M vs. the original 1.56M — wider
+embeddings, 2-layer board transformer instead of 1), added `--big`/
+`NET_BIG` plumbing to `train_dmc.py`/`dmc_agent.py` (kept fully separate
+from the existing `PTCGNet` class and its checkpoints — zero risk to any
+other consumer). Trained 6 epochs on the same 518k-sample corpus used for
+the epoch-count test (val_sign_acc 0.829→...→**0.851**, the best
+in-distribution number across every generation this session). Gated:
+**7.5%**, directionally above the small model's 3-epoch band (4.25-5.25%)
+and roughly in line with the small model's own 10-epoch result (6.5%) —
+another small, real-looking gain, not a breakthrough, and not clearly
+separable from the epoch-count result at n=400's noise floor.
+
+**Updated full trajectory:**
+
+| Lever tested | Win rate |
+|---|---|
+| Round 3 baseline (warm-started, small data) | 2.5% |
+| + fresh-init fix (small/lucky sample) | ~9-10% (outlier, see below) |
+| + fresh-init fix (large, trustworthy samples, 3 independent reads) | 4.25% / 4.75% / 5.25% |
+| + iterative self-play loop (closed this session) | 5.25% (no separate gain) |
+| + more epochs (3→10, same data) | 6.5% |
+| + bigger capacity (2.9x params, 6 epochs, same data) | 7.5% |
+
+**Pattern across FOUR independently-tested, real, methodologically sound
+levers (fresh-init, iterative self-play, more epochs, more capacity):
+each buys a small, real, but non-transformative improvement, and they
+appear to be roughly additive rather than compounding into a
+breakthrough.** Starting from round 3's 2.5% baseline, the cumulative
+effect of every fix this session found is roughly **3x** (2.5%→7.5%) —
+genuine, hard-won, well-evidenced progress, achieved through real
+debugging (the warm-start bug) and real engineering (seed control, a
+bigger architecture, closing the self-play loop) rather than luck. But
+there is no single point in this whole investigation where the curve
+visibly inflects upward — it is a series of small, additive gains, which
+is a meaningfully different (and less encouraging) shape than "we found
+the blocker, now it scales."
+
+**Final recommendation on this DMC line, stated plainly for the user's
+top-5% goal:**
+- **At the current data/compute scale (~500k-600k samples, CPU-only,
+  ≤4.5M-param models), this DMC recipe tops out at single-digit win rate
+  against v29d.** That is not remotely close to competitive placement on
+  a real ladder of thousands of entrants, even granting that v29d itself
+  is a strong, unusually well-tuned opponent (harder than a typical
+  ladder entrant) — a few percentage points of headroom against v29d
+  specifically does not translate to a "top 5%" agent.
+- **The remaining, larger, genuinely untested lever is order-of-magnitude
+  more data/compute** (Kaggle GPU, millions of self-play samples,
+  approaching DouZero's own literature-scale recipe — this project's own
+  2026-07-05 literature consult explicitly warned this needs
+  "substantially more compute against much weaker baselines than v25c").
+  Given the flat, additive (not accelerating) pattern across every lever
+  tried this session, **this is a real gamble, not a safe bet** — nothing
+  in tonight's data predicts a phase transition at 10x or 100x more scale,
+  though nothing rules one out either (this project's compute has simply
+  never reached a scale where literature precedent would predict success).
+- **Given ~5 weeks to ladder close and ~9 weeks to the report deadline,
+  and this session having already spent a very large fraction of a full
+  day's compute+time on this investigation**, the honest recommendation
+  is: **this is a natural stopping point for the DMC line as an
+  actively-pursued ladder-competitiveness effort.** The heuristic (v29d)
+  remains the strongest agent by a wide margin for ladder purposes. This
+  session's DMC work — the real bug found, the four validated ablations,
+  the honest 3x-not-a-breakthrough result — is genuine, rigorous,
+  well-documented experimental content for the Strategy track report
+  regardless of whether it continues. Continuing further (a real Kaggle
+  GPU + millions-of-samples push) is a legitimate option ONLY if the user
+  wants to commit substantially more time specifically betting on a
+  scale-driven phase transition that tonight's evidence does not predict
+  but also does not rule out.
+
+---
+
+## 2026-07-09 — PRE-REGISTRATION: scaled sequence-policy experiment (capacity vs. information), per `docs/next-session-plan.md`
+
+**CORRECTION (same day, before this entry's "GATE 1 RESULT — FINAL"
+sub-section was acted on further): the "line closes" verdict below was
+PREMATURE and is retracted as a final call.** The logged 5-epoch training
+curve (loss 1.42→1.40→1.02→0.88→**0.78**, train_acc 0.40→0.41→0.63→0.72→
+**0.77**) was still descending steeply at the last epoch — an 11% loss drop
+and 5pp accuracy gain in epoch 4 alone is the signature of an
+under-trained model stopped at a fixed epoch count, not a plateau. Fresh-
+state fidelity tracked the same trend (62.8% at epoch 1 → 76.6% at epoch
+4, still climbing several points per epoch) — nowhere near flat. Caught on
+review before any GPU compute was committed on the strength of the false
+verdict. **Correct next step (before any capacity-vs-information
+conclusion, and before any Kaggle GPU decision): train the existing model
+to an actual fidelity plateau** (resume + more epochs, checking fresh-game
+fidelity periodically as the stopping signal, since there is no held-out
+val split — see the follow-up entry immediately below for the corrected
+run and result. Also flagged: this experiment's baseline comparison
+(74.9% BC-MLP vs 76.6% BC-Seq) already confounds three changed variables
+at once (architecture, Φ v4 features, AND training data — the old MLP was
+trained on stale v25c-era data, not the fresh v29d corpus) — a clean
+capacity read needs the `--no-history`/`--no-phi4` ablations actually run
+to convergence, not just smoke-tested, which the original entry below
+skipped.
+
+**CORRECTED RUN — fidelity vs. epoch, resuming the same checkpoint with
+optimizer state (`train_seq.py --resume`, added same day) and fresh-game
+fidelity as the stopping signal:**
+
+| epoch | train_acc (in-sample) | fresh-state fidelity |
+|---|---|---|
+| 1 | — | 62.8% (1883/3000) |
+| 4 (original stop point) | 0.7655 | 76.6% (2297/3000) — retracted verdict |
+| 5 | **0.8065** | **82.17% (2465/3000)** |
+| 6 | 0.8304 | 82.90% (2487/3000) |
+| 7 | 0.8436 | 83.03% (2491/3000) |
+
+**PLATEAU CONFIRMED at epoch 7: two consecutive sub-1pp gains (+0.73pp,
+then +0.13pp)**, while in-sample train_acc kept climbing (0.8304→0.8436,
++1.3pp) — train_acc still rising while fresh-state fidelity flattens is
+the classic signature of the model starting to memorize the training
+corpus rather than generalize further; more epochs from here are more
+likely to overfit than to help. Real fidelity plateau: **~83.0%**, reached
+at epoch 7, not epoch 4. This is genuinely above BOTH reference points
+(BC-MLP 74.9%, DAgger-r2 81.9%) by a real, if modest, margin (+1.1pp over
+the best prior number). Training halted at this checkpoint as the final
+model for this experiment.
+
+**GATE 2 (win-rate) — RUN, since 83.0% cleared the 82% threshold per the
+letter of the pre-registration.** Built `training/nn/seq_agent.py` (live
+inference wrapper: maintains the running per-game decision history as a
+module-level list — safe because `harness.py`'s `load_agent` re-executes
+the module fresh per game — and does one causal forward pass over the
+accumulated sequence per decision, reading out the last position).
+Timing smoke test (6 games) confirmed per-decision cost is nowhere near
+the clock-safety ceiling (worst game ~19.5s total wall including the
+opponent's turns, well under the 600s match budget) — Gate 3 (clock
+safety) implicitly passes. Ran the pre-registered protocol via the
+existing `training/ab_test.py` (n=400, seats alternated) vs. the current
+teacher (`main.py`, v29d):
+
+**RESULT: 12.2% ± 3.2% win rate (49W-351L-0T out of 400)** — seat splits:
+14.0% as P0 (28W-172L), 10.5% as P0-equivalent when B(main.py) played P0
+(21W-179L as A). This is BELOW the pre-registered 35% threshold, and
+sits at the LOW end of the historical BC/DAgger plateau (12-17%), not
+above it — despite fidelity being genuinely, confirmedly higher (83.0%
+vs. DAgger-r2's 81.9%).
+
+**Combined verdict, both gates: the capacity/history/Φv4 combination
+produces a real, replicable, modest fidelity improvement over the prior
+best (DAgger-r2) when trained to actual convergence — but that fidelity
+gain does NOT convert to any win-rate improvement.** This is exactly the
+pattern `advisor` warned about before any gate was run, and it closely
+mirrors this project's own DAgger history: DAgger r1→r2 gained real
+fidelity (73%→82%) with win-rate staying flat at 12-17% the whole time. A
+converged, higher-capacity, history-aware, feature-enriched model
+reproduces the SAME disconnect. **This is now the second independent
+architecture (small DAgger-MLP, and this session's bigger causal-
+transformer) showing fidelity and win-rate decouple once fidelity clears
+roughly the mid-70s%** — strong evidence the bottleneck generating the
+~12-17% win-rate ceiling is NOT per-decision imitation accuracy at all,
+but something structural to pure behavior-cloning against a strong
+teacher (most plausibly compounding error along the SPECIFIC
+low-probability decision branches that matter most for winning, which a
+single aggregate fidelity number cannot see — a small number of
+game-deciding mistakes can cost the game even at 83% average agreement).
+
+Epoch 5 alone gained +5.6pp fidelity over epoch 4 — the curve was CLEARLY
+still climbing, not flattening, and had already reached/exceeded the
+DAgger-r2 reference point (81.9%) that the retracted verdict claimed this
+architecture couldn't beat. Epoch 6's gain dropped to +0.73pp — the first
+sub-1pp reading, a possible plateau signal but only one data point;
+watching epoch 7+ before calling it (need 2-3 consecutive small gains per
+the stopping rule, not just one). This is exactly the failure mode
+`advisor` warned about — updating live as real numbers land, not
+committing to a verdict on a still-rising curve.
+
+**Hypothesis under test:** every learned-policy arm tried so far (BC,
+DAgger, AWR, DMC, IQL, AlphaZero-style, winner-BC) used a small CPU MLP
+over per-state features and topped out at ~17% win rate vs. the heuristic
+teacher, with fresh-state fidelity plateauing 74.9%→81.9% across DAgger
+rounds. Never tested: whether that ceiling is MODEL CAPACITY (small MLP
+too weak) or INFORMATION (per-state features + iid framing throw away
+signal a history-aware model could use). This experiment isolates the two
+by training the first real-capacity sequence model this project has built.
+
+**Pre-committed gates (do not move after seeing results):**
+1. **Fidelity gate** — fresh-state argmax teacher-agreement on ~3,000
+   deployment-realistic states, same comparability class as the 2026-07-03
+   DAgger measurements (BC-MLP 74.9%, DAgger-r2 81.9%). ≥90% → capacity was
+   (part of) the ceiling, proceed to the win-rate gate. ~82% or below at
+   10-50x capacity → information ceiling confirmed, **line closes** and the
+   plateau becomes a headline report result.
+2. **Win-rate gate** — n=400 vs the current teacher (v29d), seats
+   alternated. ≥35% (meaningfully above the 17% plateau) → consider further
+   rounds. Below → close.
+3. **Clock-safety gate** — CPU per-decision inference must project <2s/
+   decision at ~69 decisions/game against the 600s match clock (Kaggle has
+   no GPU at match time). If too slow, distill to a smaller student and
+   gate the student instead.
+4. Only if all three pass: diverse-anchor gauntlet (lucario/abomasnow/
+   starmie + mirror — never mirror-only, per the v29 lesson) before any
+   ladder-ship discussion.
+
+**Honest prior:** MODEST. Imitation asymptotes toward, never above, the
+teacher it's trained on by construction; DAgger already showed fidelity
+gains don't convert 1:1 to win-rate. Either outcome (closes as a third
+"more capacity doesn't help" data point, or actually breaks the plateau)
+is strong report material for the 70% axis.
+
+**Pipeline built this session** (Phase 1-2 infra, not yet run at scale):
+- `training/nn/seq_collect.py` — same teacher/self-play collection as
+  `bc_collect.py` but outputs GAME-GROUPED shards (ordered decision lists
+  per game, not a flat iid sample list) — required for a model that
+  consumes game history rather than isolated states.
+- `training/nn/encode_seq.py` — wraps `encode.encode_sample()` and appends
+  the 11 Φ v4 antisymmetric features (`eval_v4.features_v4`, confirmed
+  11-dim not 12 as an earlier draft of the plan said) as a numeric
+  side-channel per step (the calculated-values thesis, already proven
+  twice by the eval ladder).
+- `training/nn/model_seq.py` (`SeqPTCGNet`) — reuses `PTCGNet`'s exact
+  per-step state/action encoders (same embeddings, same trunk) so the ONLY
+  new capacity is a causal `TransformerEncoder` mixing trunk vectors across
+  a game's decision history before the per-step action-scoring head runs —
+  isolates "does history help" from "is the per-step encoder different."
+  `use_history=False` and `use_phi4=False` flags give the two controls the
+  plan calls for (capacity-isolation and calculated-values-isolation)
+  without a second model file. One full-game forward pass per game (not
+  one pass per decision) so causal masking exactly reproduces how
+  `main.py` would accumulate history turn-by-turn at inference.
+- `training/nn/train_seq.py` — training loop over game-grouped shards,
+  per-position CE loss masked to real (non-padding) decisions.
+- `training/nn/fidelity_eval.py` — the canonical fidelity protocol,
+  REBUILT from its written description (docs/nn-training.md's 2026-07-03
+  entries) since no prior run saved a reusable script — collects fresh
+  temp≈0 deployment-realistic games from the current teacher, samples
+  ~3,000 decision points, measures checkpoint-argmax-vs-teacher-action
+  agreement. Handles both the existing `PTCGNet` (MLP control) and the new
+  `SeqPTCGNet` (one causal forward pass per game, reads out all sampled
+  positions from it) behind `--mlp-ckpt`/`--seq-ckpt`.
+
+**Local CPU smoke test passed end-to-end** (8→16 game-sequences,
+2,519 decisions): collect → encode_seq → train (1 epoch, both ablation
+flags) → fidelity_eval, no crashes, non-degenerate train_acc. Confirmed
+existing DAgger-era checkpoints (`ptcg_dagger_r2.pth`) are NOT
+architecture-compatible with `fidelity_eval.py`'s current `PTCGNet` (13-feat
+"base" encoding vs. current 25-feat "full" + oracle head) — expected, not a
+bug; the plan's MLP control needs a checkpoint freshly retrained on the
+v29d data with the current encoder, which is the next step anyway.
+
+**Not yet run:** the 2,000-game v29d data collection (Phase 1), the GPU
+transformer training run (Phase 2, needs Kaggle — CLI kernel-push is
+available and has been used before for this project's MCTS probes), and
+all three gates. Cleaned up `training/advisor_cem_scratch/` (16 small
+`.npy` weight dumps from the now-closed CEM-tuned-advisor line,
+`training/nn/cem_tune.py`) as leftover scratch before starting — the final
+`training/advisor_cem_weights.npy` artifact and the closure writeup are
+kept.
+
+**UPDATE — Phase 1-2 executed, run in progress (not yet gated):**
+
+- **Deviated from the plan on venue, not method:** collected the full
+  2,000-game v29d corpus locally (`training/nn/seq_collect.py`, 4,000
+  decision-sequences seat-both-sides, ~600k total decisions) and, rather
+  than packaging for Kaggle GPU, timed local CPU throughput first per the
+  plan's own "local smoke first" discipline — a small timed benchmark
+  showed this machine's 20 cores handle the ~3M-param transformer fast
+  enough that Kaggle's GPU quota/packaging risk (cg-lib dependency
+  chain, a documented history of 9-11h Kaggle stalls) wasn't worth taking
+  on for a model this size. Training locally instead; Kaggle GPU stays
+  available as a fallback if local turns out too slow for the full 5-epoch
+  run or a later, bigger model.
+- **Two real bugs found and fixed before any usable run, both the SAME
+  class of OOM this project has hit before** (dataset.py's `load_shards`
+  docstring documents an earlier instance — raw state held in memory
+  instead of encoded-and-discarded): (1) `train_seq.py`'s original
+  `load_seq_shards` accumulated ALL raw per-decision obs dicts for the
+  full 4,000-sequence corpus before encoding — observed climbing to
+  ~26GB/39.6GB system RAM with ZERO training progress after 14 minutes;
+  killed before OOM, fixed by encoding each game immediately at load time
+  and discarding the raw obs (`_encode_game`, `training/nn/train_seq.py`).
+  (2) Even with that fix, a single 2,000-game shard's raw pickle alone
+  peaked at ~17.7GB while being decompressed+unpickled (Python object
+  overhead on deeply nested obs dicts is far larger than the gzip'd file
+  size implies) — killed again, then fixed at the DATA level: added
+  `training/nn/reshard.py` and split the corpus into 20 shards of ~200
+  games each (`seq_data_v29d_small.*.pkl.gz`), capping peak raw-shard
+  memory during load to a safe ~1.7GB. Old large shards deleted after
+  resharding succeeded (4,000 games confirmed resharded, 20/20 shards
+  written).
+- **Also found:** Python fully-buffers stdout when redirected to a file
+  (not a TTY) — background job logs appeared "stalled" for 10+ minutes
+  while the process was actively working underneath (confirmed via
+  checkpoint-file mtimes existing despite no matching log line, and CPU
+  time climbing steadily on repeated `Get-Process` checks). Not a bug in
+  this project's code, but cost real wall-clock confusion during
+  monitoring; future background launches should use `python -u` or
+  `PYTHONUNBUFFERED=1`.
+- **Interim fidelity read (NOT the pre-registered gate — epoch 1/5,
+  training still running):** ran `fidelity_eval.py` against the epoch-1
+  checkpoint out of curiosity while epoch 2+ continued in the background:
+  **62.8% (1883/3000)** on 60 fresh deployment-realistic games. This is
+  below BOTH reference points (BC-MLP 74.9%, DAgger-r2 81.9%) and below
+  even the plan's "~82% or below → information ceiling" comparison band —
+  but it's an undertrained 2-epoch snapshot, not a converged model, so it
+  is explicitly NOT being treated as the gate result. The pre-registered
+  fidelity gate will be re-run against the final (epoch 5) checkpoint.
+  Recorded here for the training curve, not as a verdict.
+
+**GATE 1 RESULT — SUPERSEDED, see the CORRECTION above: this was NOT the
+fully-trained checkpoint (curve was still descending at epoch 4). Kept
+verbatim below for the record; do not treat as the final verdict — see the
+follow-up entry for the corrected re-run.**
+
+**[SUPERSEDED] "final," on the actually-5-epoch (not fully-trained) checkpoint
+(train_acc 0.7655 in-sample, converged: epoch losses 1.42→1.40→1.02→0.88→0.78,
+train_acc 0.40→0.41→0.63→0.72→0.77, monotonic all 5 epochs, no sign of
+under-training):**
+
+**Fresh-state fidelity = 76.6% (2297/3000)**, 60 fresh deployment-realistic
+games, same protocol as the interim read and comparable to the 2026-07-03
+DAgger measurements.
+
+**Verdict per the pre-registered rule: INFORMATION CEILING CONFIRMED — the
+line CLOSES.** 76.6% is below the 82% threshold, roughly level with
+BC-MLP's 74.9% (barely above, well within noise at n=3000/single-seed) and
+clearly BELOW DAgger-r2's already-plateaued 81.9%. Per Phase 3's
+kill-early ordering, the win-rate gate is NOT run — Gate 1 alone settles
+the question this experiment was built to answer.
+
+**Honest capacity caveat, stated for the report:** the trained model was
+2.95M params vs. the old `PTCGNet` MLP's 1.56M — only ~1.9x, well short of
+the plan's "10-50x" target (most of both models' parameters are shared
+card/attack embeddings at fixed vocab size; the causal history-transformer
+added ~1.4M params on top, not the full order-of-magnitude jump envisioned).
+So this result more precisely answers "does causal full-game-history
+attention + Φ v4 features help, at a modest capacity increase" than the
+pure large-capacity question — a genuinely 10-50x model (15-75M params)
+remains untested. Given a real capacity increase PLUS full game history
+PLUS the calculated-values features (each independently well-motivated,
+combined per the plan) still landed AT OR BELOW the existing plateau, the
+marginal expected value of testing a much larger model is judged low
+enough not to pursue without an explicit go-ahead — flagging this as an
+open call for the user rather than deciding unilaterally, since it would
+be a materially larger compute commitment (Kaggle GPU territory for real
+this time).
+
+**Report framing:** this is the THIRD independent line (after DAgger's
+fidelity-plateau-without-win-rate-gain and AWR's flat-or-worse advantage
+weighting) landing on the same conclusion — more capacity, more context,
+and richer features on top of this project's existing self-play/imitation
+data do not break a ~75-82% imitation ceiling. Combined with the already-
+closed search-family results (PIMC, ISMCTS, endgame search, 4 eval-guided
+action-ranker mechanisms), the full spread of tractable "smarter policy or
+smarter search on top of existing data" levers this project has tried are
+now exhausted negatives. The heuristic (v29d) remains the strongest agent
+by a wide margin, and the standing open levers are (a) fundamentally new
+data (a real 10-50x-capacity Kaggle GPU run, or non-self-play data such as
+real ladder replays from OTHER competitors), or (b) report-writing the
+negative-result program itself, which is substantial and report-relevant
+material for the 70% axis per Design Principle #5.
+
+**Artifacts:** `training/ptcg_seq_main.pth` (final checkpoint, kept),
+`training/seq_data_v29d_small.*.pkl.gz` (20 shards, 4,000 sequences, kept
+for any future retrain/ablation), `training/nn/reshard.py` (kept, general
+utility for this OOM pattern). Ablation controls (`--no-history`,
+`--no-phi4`) were built and smoke-tested but NOT run to convergence on the
+full corpus — with Gate 1 already closing the line, spending more compute
+isolating which of history/Φv4 contributed how much is low-value; the
+flags remain available if a future session wants that report detail.
 
 ## 2026-07-09 — Live deck-search audit: fetch-targeting hypothesis FALSIFIED — board-thinning is resource exhaustion under wall matchups, not a targeting bug
 

@@ -25,6 +25,7 @@ sys.path.insert(0, _REPO_ROOT)
 
 from dataset import load_shards  # noqa: E402
 from model import PTCGNet  # noqa: E402
+from model_big import PTCGNetBig  # noqa: E402
 from net_common import encode_batch  # noqa: E402
 
 DEVICE = torch.device("cpu")
@@ -64,57 +65,7 @@ def batches(rows, batch_size, seed):
         yield tensors, taken, target
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", required=True)
-    ap.add_argument("--init", default="../ptcg_dagger_r2.pth")
-    ap.add_argument("--out", default="../ptcg_dmc_r1.pth")
-    ap.add_argument("--epochs", type=int, default=2)
-    ap.add_argument("--batch-size", type=int, default=64)
-    ap.add_argument("--lr", type=float, default=5e-5)
-    ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--val-frac", type=float, default=0.05)
-    args = ap.parse_args()
-
-    raw = load_shards(args.data, limit=args.limit)
-    print(f"loaded {len(raw)} raw samples")
-    rows = to_rows(raw)
-    print(f"encoded {len(rows)} usable (state, taken_action, return) rows")
-    random.Random(7).shuffle(rows)
-    n_val = max(1, int(len(rows) * args.val_frac))
-    val_rows, train_rows = rows[:n_val], rows[n_val:]
-
-    model = PTCGNet().to(DEVICE)
-    state = torch.load(args.init, map_location=DEVICE)
-    own = model.state_dict()
-
-    # 2026-07-06 fix: a plain shape-mismatch filter fully discards
-    # numeric_proj.0.weight (random reinit) whenever NUM_FEATS changes (e.g.
-    # ENCODE_FEATURE_SET adding new features) -- confirmed via an ablation
-    # (docs/report-log.md "AlphaZero-style push, Phase 1 ablation") that ALL
-    # THREE independently-tested feature additions landed at the SAME
-    # regressed accuracy regardless of which features were added, pointing
-    # at this warm-start disruption rather than the features themselves.
-    # Fix: when the mismatch is purely "more input columns" (same output
-    # dim, more input dim), copy the old weights into the first N_old
-    # columns and leave only the genuinely new columns at their fresh init,
-    # instead of discarding everything already learned about the original
-    # 13 features.
-    key = "numeric_proj.0.weight"
-    if key in state and key in own and state[key].shape != own[key].shape:
-        old_w, new_w = state[key], own[key].clone()
-        if old_w.shape[0] == new_w.shape[0] and old_w.shape[1] < new_w.shape[1]:
-            new_w[:, : old_w.shape[1]] = old_w
-            state[key] = new_w
-            print(f"partial warm-start: copied {key} old {tuple(old_w.shape)} "
-                  f"into new {tuple(new_w.shape)}, new columns kept fresh-init")
-
-    state = {k: v for k, v in state.items() if k in own and v.shape == own[k].shape}
-    model.load_state_dict(state, strict=False)
-
-    opt = torch.optim.Adam(model.parameters(), lr=args.lr)
-    loss_fn = nn.HuberLoss(delta=1.0)
-
+def _run_training_loop(model, opt, loss_fn, train_rows, val_rows, args):
     def sign_acc(rs):
         model.eval()
         correct = total = 0
@@ -150,6 +101,86 @@ def main():
             best = acc
             torch.save(model.state_dict(), args.out)
     print(f"saved best (val_sign_acc={best:.4f}) to {args.out}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", required=True)
+    ap.add_argument("--init", default="../ptcg_dagger_r2.pth")
+    ap.add_argument("--out", default="../ptcg_dmc_r1.pth")
+    ap.add_argument("--epochs", type=int, default=2)
+    ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--lr", type=float, default=5e-5)
+    ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--val-frac", type=float, default=0.05)
+    ap.add_argument("--no-init", action="store_true",
+                     help="skip the imitation warm-start entirely and train a fresh "
+                          "(randomly initialized) Q-network from scratch — tests whether "
+                          "the policy-classification-trained trunk representation is a "
+                          "mismatch for a value-regression objective (2026-07-09)")
+    ap.add_argument("--seed", type=int, default=None,
+                     help="seed torch's global RNG (model init + dropout etc.) for "
+                          "reproducibility — previously unseeded, so every --no-init run "
+                          "got genuinely random weight init with no way to isolate "
+                          "data-driven from seed-driven win-rate variance (2026-07-10)")
+    ap.add_argument("--big", action="store_true",
+                     help="use model_big.PTCGNetBig (~2x wider, 2-layer board "
+                          "transformer) instead of the default PTCGNet — tests the "
+                          "capacity hypothesis for DMC's win-rate plateau (2026-07-10). "
+                          "Only meaningful combined with --no-init (shape-filtered "
+                          "warm-start into a differently-sized model discards nearly "
+                          "everything anyway).")
+    args = ap.parse_args()
+
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+
+    raw = load_shards(args.data, limit=args.limit)
+    print(f"loaded {len(raw)} raw samples")
+    rows = to_rows(raw)
+    print(f"encoded {len(rows)} usable (state, taken_action, return) rows")
+    random.Random(7).shuffle(rows)
+    n_val = max(1, int(len(rows) * args.val_frac))
+    val_rows, train_rows = rows[:n_val], rows[n_val:]
+
+    model_cls = PTCGNetBig if args.big else PTCGNet
+    model = model_cls().to(DEVICE)
+    if args.no_init:
+        print("no-init: training a fresh randomly-initialized Q-network, no warm start")
+        opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+        loss_fn = nn.HuberLoss(delta=1.0)
+        _run_training_loop(model, opt, loss_fn, train_rows, val_rows, args)
+        return
+    state = torch.load(args.init, map_location=DEVICE)
+    own = model.state_dict()
+
+    # 2026-07-06 fix: a plain shape-mismatch filter fully discards
+    # numeric_proj.0.weight (random reinit) whenever NUM_FEATS changes (e.g.
+    # ENCODE_FEATURE_SET adding new features) -- confirmed via an ablation
+    # (docs/report-log.md "AlphaZero-style push, Phase 1 ablation") that ALL
+    # THREE independently-tested feature additions landed at the SAME
+    # regressed accuracy regardless of which features were added, pointing
+    # at this warm-start disruption rather than the features themselves.
+    # Fix: when the mismatch is purely "more input columns" (same output
+    # dim, more input dim), copy the old weights into the first N_old
+    # columns and leave only the genuinely new columns at their fresh init,
+    # instead of discarding everything already learned about the original
+    # 13 features.
+    key = "numeric_proj.0.weight"
+    if key in state and key in own and state[key].shape != own[key].shape:
+        old_w, new_w = state[key], own[key].clone()
+        if old_w.shape[0] == new_w.shape[0] and old_w.shape[1] < new_w.shape[1]:
+            new_w[:, : old_w.shape[1]] = old_w
+            state[key] = new_w
+            print(f"partial warm-start: copied {key} old {tuple(old_w.shape)} "
+                  f"into new {tuple(new_w.shape)}, new columns kept fresh-init")
+
+    state = {k: v for k, v in state.items() if k in own and v.shape == own[k].shape}
+    model.load_state_dict(state, strict=False)
+
+    opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+    loss_fn = nn.HuberLoss(delta=1.0)
+    _run_training_loop(model, opt, loss_fn, train_rows, val_rows, args)
 
 
 if __name__ == "__main__":

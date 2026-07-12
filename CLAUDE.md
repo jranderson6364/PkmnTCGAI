@@ -308,12 +308,77 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-09, end of session): follow
-`docs/next-session-plan.md`** — the scaled sequence-policy experiment
-(resolve capacity-vs-information on the 82% imitation plateau; Kaggle GPU;
-pre-committed fidelity/win-rate/clock gates), with blunder-mining and
-report assembly as parallel tracks. The heuristic-fix line is deprioritized
-per user direction 2026-07-09. Prior same-day state, for context: the
+**>>> NEXT STEP (as of 2026-07-10): a large-scale DMC (Deep Monte Carlo)
+push, run at the user's explicit direction after they pushed back on
+"heuristic + report only," reached a real, well-evidenced conclusion —
+read this before anything else.** User's stated goal: a genuinely
+learned/RL model competitive at "top 5%" (both the report-judged Strategy
+track, which structurally requires a learned artifact, AND ideally the
+live ladder). Resumed this project's own standing DMC pre-registration
+(originally paused to a 2026-07-19 checkpoint) early, at real scale.
+**Found and fixed a real bug**: DMC's imitation-derived warm-start was
+actively hurting training (`train_dmc.py --no-init` roughly doubles win
+rate on identical data). Then systematically tested every other cheap,
+real lever: closing the DouZero-style iterative self-play loop, more
+training epochs, and a ~2.9x-bigger Q-network (`model_big.py`). **Full
+trajectory: round-3 baseline 2.5% → fresh-init ~5% (3 independent large-
+sample reads, tight convergence) → +more epochs 6.5% → +bigger capacity
+7.5%.** Every lever gave a small, real, additive gain; none produced a
+breakthrough or inflection. Cumulative effect: a genuine, hard-won ~3x
+improvement (2.5%→7.5%) — real progress, but not remotely competitive for
+a "top 5%" ladder goal. **Recommendation, stated to the user: this is a
+natural stopping point for actively pursuing DMC as a ladder-
+competitiveness effort** — the only untested lever left is a genuine
+order-of-magnitude data/compute jump (Kaggle GPU, millions of samples),
+which is a real gamble (no accelerating trend in tonight's data predicts
+success at 10-100x scale, though nothing rules it out either) and would
+need explicit user buy-in given the size of that commitment. This
+session's real bug-find + 4 clean ablations are strong, rigorous report
+material for the Strategy track's 70% axis regardless. Full numbers,
+every gate, every correction: `docs/report-log.md` 2026-07-09 entries,
+"PRE-REGISTRATION: DMC round 4 at real scale" through "TRUE FINAL
+SUMMARY — after testing the capacity lever too." New reusable infra:
+`training/nn/dmc_collect.py` (round-4 curriculum collector, now
+validated), `training/nn/model_big.py`, `--no-init`/`--big`/`--seed`
+flags on `train_dmc.py`, `NET_BIG` env var on `dmc_agent.py`. Prior
+same-day item, for context, still relevant and unaffected by the above:
+the scaled
+sequence-policy experiment from `docs/next-session-plan.md` was EXECUTED
+to a real, gated conclusion.** Its first "CLOSED, information ceiling
+confirmed" verdict was WRONG (a premature 5-epoch checkpoint stopped
+mid-descent, 76.6% fidelity) and was RETRACTED same day via an `advisor`
+consult, before any Kaggle GPU compute was spent. Resumed training with
+fresh-game fidelity as the stopping signal (no held-out val split exists)
+and found the REAL plateau at epoch 7: **83.0% fidelity — genuinely above
+both reference points (BC-MLP 74.9%, DAgger-r2 81.9%)**, a real if modest
+capacity signal once trained to convergence. Because that cleared the
+82% threshold, ran the pre-registered win-rate gate too (built
+`training/nn/seq_agent.py` for live inference, n=400 vs. main.py, seats
+alternated): **12.2% ± 3.2% win rate — BELOW the 35% threshold, at the
+LOW end of the historical 12-17% BC/DAgger plateau, not above it.**
+**Real conclusion: fidelity and win-rate decouple once fidelity clears
+roughly the mid-70s%** — a second independent architecture (after
+DAgger's own MLP) shows the same disconnect, meaning the ~12-17%
+win-rate ceiling is not primarily a per-decision-accuracy problem.
+**Recommendation to the user: do not spend Kaggle GPU quota scaling this
+architecture further on the same objective** — a bigger version buys more
+fidelity, not more wins. If a GPU push is still wanted, the one lever
+with real precedent (per `advisor`) is DAgger-style on-policy correction,
+not raw capacity — though even DAgger's own historical fidelity gains
+(73%→82%) never moved win-rate either, so temper expectations there too.
+Two real OOM bugs were found and fixed along the way regardless (raw obs
+dicts held in memory instead of encoded-and-discarded, both in the
+training loop and at the raw-shard level; see `training/nn/reshard.py`)
+— those fixes stand as reusable infra. Full numbers, both gates:
+`docs/report-log.md` 2026-07-09 "PRE-REGISTRATION: scaled sequence-policy
+experiment" entry, full thread from "CORRECTION" through the Gate 2
+result. **Still unresolved, flagged by `advisor`:** every tested method
+(imitation now included) can only approach v29d's own performance, never
+exceed it, by construction (imitation) or by empirical closure (search,
+AWR, IQL, DMC, AlphaZero-style self-play — all closed negative). Whether
+the goal is report-grade documentation of a learned agent or an agent
+that actually beats v29d is an open question for the user; no tested
+method gets to the latter. Prior same-day state, for context: the
 overnight run's last active item was the live deck-search audit —
 board-thinning confirmed as the
 dominant live failure (10/27 fresh v29d losses end with zero Alakazam-line

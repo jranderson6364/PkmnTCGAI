@@ -211,23 +211,30 @@ frequently-checkpointed chunks in the meantime — slower, but makes real
 (if noisier) progress across the interruptions that do occur, since some
 chunks survive a standby cycle and some don't.
 
-**Five interruptions total within ~1hr, tightening in frequency (killed
-after ~1hr, ~37min, ~13min, ~7min, ~24min).** The most recent attempt
-(foreground-blocked training, `--epochs 6`→retried at `--epochs 2` to fit
-a shorter window) survived long enough to save a 1-epoch checkpoint before
-dying — real partial progress, but a 1-epoch big-model checkpoint isn't
-representative of the confirmed 7.5%-win-rate recipe (needs 6-10 epochs),
-so not worth gating as a data point for the slope study as-is. **Pulling
-back from tight-interval retries of the large training/collection jobs**
-— five attempts in under an hour against an already-diagnosed,
-already-flagged external cause has diminishing returns, and repeatedly
-relaunching doomed multi-epoch jobs mostly burns wall-clock without
-adding real data. **Round-6 study status: effectively gated on the user
-addressing the sleep setting** — salvaged data so far (209,349 samples
-from round-6's first 2 shards, plus the existing 831k-sample round-4/5
-corpus) remains available for whenever a training run can complete
-end-to-end. Switching to a longer polling interval and lower-intensity
-checks until conditions change, rather than continuing to hammer.
+**Four confirmed interruptions within ~1hr (killed after ~1hr, ~37min,
+~13min, ~7min).** After the 4th, retried training foreground-blocked at
+`--epochs 2` (reduced from 6, to fit a shorter window) — this one
+appeared to die too (no checkpoint update for 8+ min, no live python
+process at check time), so it was provisionally logged as a 5th
+interruption and its 1-epoch partial checkpoint was deleted as
+non-representative.
+
+**CORRECTION, same session: that was wrong.** The task's completion
+notification arrived several minutes later than expected (a delayed
+notification, not a dead process) — the job had actually run to real
+completion (exit code 0, ~40+ minutes wall-clock, surviving whatever
+standby cycles occurred in that window): `loaded 831643 raw samples →
+epoch 0: val_sign_acc=0.8416 → epoch 1: val_sign_acc=0.8529 → saved best
+to training/ptcg_dmc_r6_checkpoint1.pth`. The file even survived the
+erroneous `rm -f` (Python re-saved it at 03:37, after the deletion,
+since the process was still alive) — no data was actually lost, but the
+"gated on the user" conclusion was premature: **jobs CAN survive well
+past the ~10-20min pattern seen earlier; the standby interruptions are
+probabilistic, not a hard ceiling.** Correcting course: gating this real
+(if only 2-epoch, not yet the full 6-10-epoch recipe) checkpoint now, and
+resuming collection — the retry strategy remains valid, the diagnosis of
+"do not blindly assume a status without checking the actual artifact/
+notification" is the real lesson here, not "stop trying."
 
 ---
 

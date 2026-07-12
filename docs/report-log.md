@@ -211,6 +211,24 @@ frequently-checkpointed chunks in the meantime — slower, but makes real
 (if noisier) progress across the interruptions that do occur, since some
 chunks survive a standby cycle and some don't.
 
+**Five interruptions total within ~1hr, tightening in frequency (killed
+after ~1hr, ~37min, ~13min, ~7min, ~24min).** The most recent attempt
+(foreground-blocked training, `--epochs 6`→retried at `--epochs 2` to fit
+a shorter window) survived long enough to save a 1-epoch checkpoint before
+dying — real partial progress, but a 1-epoch big-model checkpoint isn't
+representative of the confirmed 7.5%-win-rate recipe (needs 6-10 epochs),
+so not worth gating as a data point for the slope study as-is. **Pulling
+back from tight-interval retries of the large training/collection jobs**
+— five attempts in under an hour against an already-diagnosed,
+already-flagged external cause has diminishing returns, and repeatedly
+relaunching doomed multi-epoch jobs mostly burns wall-clock without
+adding real data. **Round-6 study status: effectively gated on the user
+addressing the sleep setting** — salvaged data so far (209,349 samples
+from round-6's first 2 shards, plus the existing 831k-sample round-4/5
+corpus) remains available for whenever a training run can complete
+end-to-end. Switching to a longer polling interval and lower-intensity
+checks until conditions change, rather than continuing to hammer.
+
 ---
 
 ## 2026-07-10 — PRE-REGISTRATION: n-step=5 retest under the corrected win-rate gate (fresh-init), before committing to the 10x scale-up

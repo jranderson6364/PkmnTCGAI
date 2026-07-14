@@ -4,9 +4,292 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-10 (PRE-REGISTRATION: shaped-DMC overnight autonomous
-loop, launched at user direction with a Fable consult on sequencing. See
-entry below.)
+**Last updated:** 2026-07-13 (PIVOT: "learn inside the champion" — GitHub
+issue #3; the three interrupted jobs are SKIPPED at user direction, not
+resumed. Phase A regime detector fitted and pre-registered below.)
+
+---
+
+## 2026-07-13 — PIVOT + PRE-REGISTRATION: learn-inside-the-champion regime detector (Phase A of issue #3)
+
+**Strategic decision (user, after a full gstack CEO review + spec
+interrogation):** skip the three interrupted 2026-07-12 jobs entirely and
+pivot. Every prior learned/search method had to beat v29d GLOBALLY to
+matter; the pivot changes the win condition — v29d stays the pilot
+everywhere except its documented failure regime (board-thinning/deck-out:
+18/18 exploiter wins, 10/27 fresh ladder losses), where a small learned
+Q-net takes over, `_safe_return`-guarded. Imitation is structurally
+excluded in-regime (the teacher loses these states by definition), so the
+signal is outcome-based: self-play continued FROM mined failure states.
+Full architecture, phases, gates: GitHub issue #3
+(`gh issue view 3`) and the spec archive in `~/.gstack/projects/`.
+
+**Phase A method:** `training/nn/regime_detector.py` walks the 28 mined
+board-thinning losses (18 `replays/exploiter_wins/` + 10 `v29d_ladder`
+losses whose final decision state has zero Alakazam-line pieces in play)
+and the 33 `v29d_ladder` WINS; fits conjunctive/disjunctive rules over
+obs-derivable features. Fitting metric (chosen after a first per-state
+attempt failed — this deck draws itself thin in WINS too, hand size IS
+damage): per-GAME capture (detector fires ≥1x in the loss's final-6-turn
+window, i.e. the subpolicy gets a chance to act) vs per-STATE false-positive
+rate over all 3,514 win-game decisions. Pre-registered bars: capture ≥90%,
+FP ≤2%.
+
+**FITTED RULE (canonical: `regime_detector.regime_fires`):**
+`turn >= 9 AND (line_in_play == 0 OR (deck <= 6 AND hand >= 15))`
+
+| Metric | Value |
+|--------|-------|
+| Game capture | 26/28 = 92.9% (bar: ≥90%) |
+| Per-state FP on wins | 19/3514 = 0.54% (bar: ≤2%) |
+| State coverage in loss windows | 62.9% |
+| Median headroom (first fire → terminal) | 3 turns |
+
+**Negative results inside the fit (report-relevant):** (1) per-state
+capture is unfittable at any acceptable FP — deck≤10/hand≥13 describes
+healthy v29d wins as well as losses; the per-game reframe is what made the
+problem separable. (2) The 2026-07-09 fix candidate (fieldable_line≤1 AND
+opp_armed, the "last-piece trade gate") REJECTED as a detector clause: FP
+3.2-3.7% — v29d wins through those states too often to override there.
+(3) The 2 uncaptured losses are early setup collapses (turn 3/8, board=1)
+— a different failure class, out of regime by design and documented as such.
+
+**Decision:** rule frozen and codified as `regime_fires()`; proceed to
+Phase B (from-state collection) gated on the seat-swap verification
+protocol. Detector verification reproduced 19/3514 exactly end-to-end from
+raw obs. Deadline discipline: kill date Aug 6 (issue #3 Phase D), v29d
+re-ship backstop Aug 14.
+
+---
+
+## 2026-07-12 — Kaggle GPU scale-up: scoped, real use case identified (not yet executed)
+
+**Scoping finding (checked before assuming GPU trivially fixes scale):** this
+project's self-play data COLLECTION is CPU-bound — it's the local `cabt`
+game engine advancing turn by turn, ~0.5s/game, with no GPU-acceleratable
+step. A Kaggle GPU session's CPU allocation is not meaningfully larger than
+the user's own 20-logical-processor laptop, so collection speed would not
+improve by moving to Kaggle. **The honest, well-motivated GPU use case is
+TRAINING-STEP throughput and batched inference, not data volume by itself**
+— stated plainly per the user's directive to keep this analysis honest
+rather than oversold.
+
+**Reusable infra already exists and was previously validated:**
+`scratch_kaggle_collect_notebook/ptcg-p2-round3-collect-retrain-gate.ipynb`
+(built 2026-07-07 for the AlphaZero-style push's Phase 2 round 3) is a real,
+working pattern: `%%writefile` cells materialize the entire repo tree
+(`main.py`, `training/harness.py`, `training/nn/*.py`, `opponents/*.py`)
+inside `/kaggle/working/repo`, assembles a real `cg` package (native binary
+from the installed `kaggle_environments` + Python source from the
+`kiyotah/cg-lib` Kaggle dataset — the same trick `training/setup_local_search.py`
+does locally), then runs collection/training/gating entirely inside the
+notebook session. This is directly reusable for DMC with a fresh set of
+`%%writefile` cells (`dmc_collect.py`, `train_dmc.py`, `dmc_agent.py`,
+`net_common.py`, `encode.py` + `tempo_features.py`, `model.py`/`model_big.py`).
+
+**The single most concrete, already-partially-validated use of real GPU
+compute available right now: unblock the deferred n-step lever.** The
+2026-07-10 n-step=5 retest (see that entry) found an encouraging-but-not-
+clean 7.0% ± 2.5% on only 1/8th the data, and was explicitly deferred (NOT
+closed negative) purely because relabeling cost doesn't scale cheaply on
+CPU (~1hr for 831k samples → ~10hrs at 10x). Computing n-step bootstrap
+targets requires a Q-network forward pass per sample
+(`dmc_nstep.compute_nstep_targets`) — this is exactly the kind of batched-
+inference workload a GPU accelerates by 1-2 orders of magnitude over serial
+CPU relabeling. This turns a previously-deferred, still-open, genuinely
+promising result into something affordable to actually test at full scale,
+rather than starting a new speculative "10x more data" run with no
+accelerating trend to justify it (per the round-6 study's own honest
+conclusion).
+
+**Not yet executed this session** (three jobs already running locally —
+the 8-epoch undertraining diagnostic and the two-arm tempo-feature
+ablation — plus this scoping write-up itself is the deliverable for now).
+**Recommended next concrete step:** build the DMC-specific Kaggle notebook,
+upload the accumulated local corpus (`dmc_r[456]_batch*.pkl.gz` +
+`dmc_r[45]_batch1*.pkl.gz`, ~1.37M samples and growing) as a Kaggle Dataset,
+GPU-batch-relabel it with n-step=5 targets, retrain, and gate with the same
+n=400 win-rate protocol — a clean, well-motivated use of the user's
+authorized GPU/compute budget, not a repeat of an already-closed line.
+
+---
+
+## 2026-07-12 — PRE-REGISTRATION: tempo/tactical feature functions as DMC input, paired ablation
+
+**Hypothesis:** three new hand-crafted "tempo" (rate-of-change) features —
+prize-race pace, hand-growth pace, evolution-setup pace, each computed as
+(my value − opp value) / turns-elapsed, antisymmetric, clipped to [-1,1] —
+fed as additional DMC Q-network inputs improve win rate over the identical
+recipe without them. Rationale: every existing hand-crafted feature in this
+project (Phi v2/v4, threat.py, encode.py's census/belief groups) is a
+snapshot; none use turn count as a RATE divisor. This is a genuinely new
+information class, not a repeat of the 2026-07-09 sequence-policy aux-feature
+experiment (that fed Phi v4's snapshot features to an IMITATION transformer;
+no DMC checkpoint has ever received any calculated feature beyond the plain
+`encode.py` numeric vector). Built as `training/nn/tempo_features.py`
+(pure-math, no cg/heuristic dependency, unit-testable), wired into
+`encode.py` as a new `full+tempo` feature-set (28 dims vs the default 25,
+gated by the existing `ENCODE_FEATURE_SET` env var so every other consumer
+of `encode.py` — BC, DAgger, sequence, AlphaZero-style — is untouched).
+Validated against 2000 real states from `dmc_r6_batch1.pkl.gz`: 0 errors,
+sensible non-degenerate spread (prize_pace std=0.093, hand_pace std=0.268,
+setup_pace std=0.232), all within [-1,1] as designed.
+
+**Method:** paired ablation, identical everything except `ENCODE_FEATURE_SET`.
+Both arms: `--data "training/dmc_r[45]_batch1*.pkl.gz"` (the exact 831,643-
+sample corpus checkpoint-1 used — confirmed by summing shard counts:
+103368+101909+102968+105196+105352+104682+103674+104494 = 831643 exactly,
+excluding `dmc_r4_quick.pkl.gz`), `--no-init --big --seed 5 --epochs 2`
+(checkpoint-1's exact recipe). Control arm reproduces checkpoint-1 fresh
+(same corpus/recipe, doubles as a training-run-variance sanity check, given
+checkpoint-2's saga this session showed "same recipe" runs aren't
+automatically low-variance). Tempo arm differs only by
+`ENCODE_FEATURE_SET=full+tempo`. Both gated via the standard `ab_test.py`
+n=400 vs `main.py` (v29d), seats alternated, `NET_EPS=0` (greedy).
+
+**Kill rule (pre-committed):** tempo arm's win rate must be CI-separably
+above the control arm's to count as a real effect (not just "higher point
+estimate") — same discipline as the round-6 scaling study. If CIs overlap,
+the tempo features are a null result for DMC specifically (may still be
+worth testing under imitation/AWR objectives later, but not adopted here).
+If the control arm itself doesn't land near checkpoint-1's original 8.25%
+±2.7%, that's a training-variance finding in its own right and the tempo
+comparison must be read relative to the fresh control, not the original
+checkpoint-1 number.
+
+**Launched:** both arms as detached background processes (the confirmed-
+working pattern from this session's infrastructure fix), in parallel with
+the still-running 8-epoch checkpoint-2 undertraining diagnostic.
+
+**INTERRUPTED, no result (2026-07-12, same day):** the user needed the
+machine for other use and asked to stop all three jobs before any of them
+reached a checkpoint or a gate. Confirmed via `ab_history.csv` (no new row
+beyond checkpoint-2's original 3.0% result) and via `ls` on the three
+expected output paths (`training/ptcg_dmc_r6_checkpoint2_8ep.pth`,
+`training/ptcg_dmc_tempo_control.pth`, `training/ptcg_dmc_tempo_arm.pth` —
+none exist). All three processes were force-stopped cleanly (`Stop-Process`
+on the confirmed child PIDs, verified gone). **This is NOT a negative
+result — it's an incomplete one.** The pre-registration above (hypothesis,
+method, kill rule) is still valid and unexecuted; `training/nn/tempo_features.py`
+and the `full+tempo` encode.py wiring are committed, tested (0 errors on
+2000 real states), and ready to re-run as-is. **Resume instructions for a
+future session:** re-launch both training+gate commands exactly as written
+in the "Method" section above (the exact `--data` glob, `--seed 5`, `--big
+--no-init --epochs 2`, differing only in `ENCODE_FEATURE_SET=full+tempo`
+for the tempo arm), using the detached-PowerShell-process pattern
+(`training/nn/tempo_control_detached.ps1` / `tempo_arm_detached.ps1` are
+already on disk from this session and can be re-run directly). The 8-epoch
+checkpoint-2 undertraining diagnostic (`training/nn/r6_checkpoint2_moreepochs_detached.ps1`,
+also on disk) likewise needs a fresh re-launch — it never produced a
+checkpoint either.
+
+---
+
+## 2026-07-12 — Strategic reframe: four unexplored axes, not a ninth algorithm; live-ladder ship of a learned model (first ever)
+
+**Context:** after the DMC round-6 local data-scaling study closed decisively
+negative (checkpoint-2 CI-separably worse than checkpoint-1 — see 2026-07-11/12
+entry below) and an 8-epoch undertraining-diagnostic retrain was launched to
+rule out an artifact explanation, the user was asked where to focus next. When
+offered "report assembly" as a default option the user explicitly rejected it:
+*"We need to figure SOMETHING rl/AI/ML out. Coming up empty handed is not
+going to land me top 8. I don't care how long it takes, we still have a month
+for leader submissions and another month after that for the report."* This is
+a standing directive: continue pursuing a genuinely working RL/ML result, not
+settle for a well-documented negative, with an explicit ~1-month ladder-close
+/ ~2-month report-deadline budget.
+
+**`advisor` consult (before committing to any specific next algorithm) surfaced
+the real pattern:** every closed method this project has tried (BC, DAgger,
+AWR, 4 search variants, AlphaZero-style self-play, sequence-transformer, DMC)
+was evaluated identically — **offline, argmax, vs v29d only, on a 50%-v29d
+training curriculum, on a CPU laptop, at <=4.5M params.** Nine algorithm
+variations were tried while four other axes sat fixed the entire time:
+1. **No learned model has ever gotten a real live-ladder read.** Every "weak"
+   verdict rests on offline-vs-v29d, which Design Principle #1 explicitly
+   warns can lie (v5's 64% offline vs 0-5% live is the project's own historical
+   example) — and v29d itself is only ~top-17% live, so "beat v29d offline"
+   was never the actual top-8 bar.
+2. **No genuine GPU/data-scale push** (literature's working card-game agents —
+   DouZero, Suphx — train on millions of hands over GPU-days; this project has
+   run 2-3 orders of magnitude below that, always on a flaky laptop).
+3. **Every RL curriculum trains 50% against the frozen v29d heuristic itself**,
+   optimizing "counter v29d specifically" rather than general ladder strength.
+4. Moving real training off the local laptop entirely would also resolve this
+   session's multi-hour background-process-interruption saga in one move.
+
+Per the advisor's explicit framing, this reframe was brought to the user
+rather than silently acted on (a month of compute is the user's runway to
+commit, not mine to spend on my own read). **User's choice (multi-select):**
+(a) ship a live-ladder read, (b) Kaggle GPU scale-up, and (c) a self-directed
+third direction: *"I think if we focus on creating a few functions that
+calculate different numbers/vectors that real players use, but turned into
+functions like tempo or other stuff, and feed that along with the game state
+and choices, that may have a good effect. We need to start experimenting and
+getting creative."* — i.e., hand-crafted tactical feature functions (tempo,
+board control, race-clock, etc.) fed as additional network inputs.
+
+**Important scoping note on (c), checked before treating it as novel:** this
+project already tried "feed calculated tactical features as extra network
+input" once, in the 2026-07-09 scaled sequence-policy experiment — the 11
+Φ v4 antisymmetric features (`eval_v4.features_v4`: prize diff, threat, KO
+speed, energy/board/armed/hand/deck diffs, wall, stage diff, condition diff)
+were appended to every state's encoding (`encode_seq.py`) for an **imitation**
+(BC/DAgger-style) transformer, which still landed only 12.2% win rate despite
+83.0% fidelity (decoupled). **However, this was never tried for DMC** —
+`net_common.encode_batch` (what every DMC checkpoint has trained on,
+`ptcg_dmc_r6_checkpoint1/2.pth` included) uses the plain `encode.py` numeric
+vector, with NO Φ v4 features wired in. Whether engineered tactical features
+help transfers very differently under a TD/MC-regression objective vs. a
+pure-imitation objective is a genuinely untested combination, not a repeat of
+the closed result — tracked as its own task (feature design -> wire into DMC
+encoding -> fresh retrain ablation with vs without -> n=400 win-rate gate).
+
+**Action taken this session (item a — live-ladder ship):** built
+`training/nn/package_dmc_submission.py`, staging `dmc_agent.py` (greedy,
+`NET_EPS=0`, `NET_BIG=1`) with `training/ptcg_dmc_r6_checkpoint1.pth` (the
+round-6 study's checkpoint-1, 8.25%+-2.7% offline vs v29d, n=400 — the
+project's best DMC checkpoint) as a standalone multi-file submission. Same
+staging trick as `package_endgame_submission.py`: repo `main.py` (the v29d
+heuristic) copied to `heuristic.py` inside the staged dir because `encode.py`
+depends on it directly (`_belief_posterior`/`_census`/`PH_DMG_PER_CARD` — the
+DMC net's own state features already include the heuristic's belief model).
+**Hit the exact same `__file__` NameError v29's first ship attempt hit**
+(Kaggle execs the submitted `main.py` from a raw string into a bare
+namespace with no `__file__`) — caught by re-validating against Kaggle's
+actual `get_last_callable` loader before shipping (not skipped this time),
+fixed identically: derive the base path from `heuristic.__file__` instead.
+Re-validated after the fix: `get_last_callable` loads the agent cleanly, 3
+full `env.run` games complete with `DONE`/`DONE` statuses and 0 errors
+(using the project's existing `training/local_cg` shim from a prior session
+for a real `cg.api`, not the local no-op stub). **No heuristic-fallback
+wrapper** — unlike the endgame-agent ship, this ships the raw DMC policy
+uncontaminated, so the ladder read reflects the learned policy itself, not a
+safety net (dmc_agent.py's own try/except still returns a safe legal default
+action on any inference exception, per Design Principle #2 — it just never
+falls back to heuristic play).
+
+**Shipped:** submission `54624481`, `SubmissionStatus.PENDING` at ship time.
+v29d (`54481189`) remains on record at 723.0 publicScore as the standing
+non-experimental submission. **Since only the latest 2 submissions count
+toward final standing, v29d should be re-shipped before any point where this
+experimental read is the most recent submission and the ladder is about to
+close** — noted here so a future session doesn't leave a deliberately-weak
+calibration submission as one of the final 2 by accident.
+
+**Report relevance:** directly addresses the report's 70% "model approach"
+axis — this is the first time any learned/RL artifact in the project has a
+real (not offline-proxy) evaluator, and the reframe itself (varying algorithm
+while holding measurement/target/curriculum/scale fixed for 9 iterations) is
+a legitimate methodological finding in its own right, regardless of how the
+live read comes back.
+
+**Still open, not yet run this session:** the Kaggle GPU scale-up scoping
+(task tracked, not started — collection is CPU-bound via `kaggle_environments`
+so the realistic GPU win is training-step throughput on an accumulated local
+corpus, not data-collection speed; this nuance needs stating plainly to the
+user before assuming GPU trivially fixes scale) and the tactical-feature
+design + DMC ablation (task tracked, not started).
 
 ---
 

@@ -308,9 +308,28 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-12, end of session): three local training
-jobs stopped mid-run at user request (machine needed for other use) — read
-this before anything else, then just re-launch the three jobs below.**
+**>>> HARD DEADLINE Aug 14: re-ship v29d (submission `54481189` packaging,
+`training/nn/package_endgame_submission.py`-era known-good) unless a gated
+better agent is already the 2 newest submissions — only the latest 2 count
+at ladder close (~Aug 16). Do not let an experimental read be final.**
+
+**>>> NEXT STEP (as of 2026-07-13): PIVOT — "learn inside the champion"
+(GitHub issue #3). The 2026-07-12 interrupted jobs are SKIPPED at user
+direction — do NOT relaunch them. Phase A DONE: data-derived regime
+detector fitted, pre-registered, and codified
+(`training/nn/regime_detector.py::regime_fires` — `turn>=9 AND
+(line_in_play==0 OR (deck<=6 AND hand>=15))`, game capture 92.9%, FP 0.54%
+— see report-log 2026-07-13). Next: Phase B, `training/nn/regime_collect.py`
+(from-state self-play via `training/belief/determinize.py`), seat-swap
+verification on a 20-game batch BEFORE any full collection (this bug class
+recurred 3x), then ≥50k in-regime samples detached
+(`Start-Process` pattern). Then Phase C: `train_dmc.py --no-init` on regime
+samples, two-part gate (held-out scenario suite + anchor non-regression
+n=200/anchor vs lucario+abomasnow). Kill date Aug 6. Full spec: issue #3.
+Prior 2026-07-12 next-step block below kept for context — superseded.**
+
+Prior next-step block (superseded 2026-07-13, kept for context): three local
+training jobs stopped mid-run at user request (machine needed for other use).
 Context: after the DMC round-6 closure further below, the user rejected
 "closed, move to report" and directed continued RL/ML pursuit: *"We need to
 figure SOMETHING rl/AI/ML out. Coming up empty handed is not going to land
@@ -870,3 +889,11 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+## Health Stack
+
+- lint: ruff check .
+- test: python training/regression/regression_states.py
+- test2: python training/belief/test_determinize.py --games 2
+- typecheck: none (mypy not installed)
+- deadcode: none

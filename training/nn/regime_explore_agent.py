@@ -16,6 +16,8 @@ for p in (_HERE, _REPO_ROOT):
 import main as heuristic  # noqa: E402
 from regime_detector import regime_fires  # noqa: E402
 
+DECK = heuristic.DECK  # harness.load_agent requires the module to export DECK
+
 _EPS = float(os.environ.get("REGIME_EPS", "0.25"))
 _rng = random.Random()
 

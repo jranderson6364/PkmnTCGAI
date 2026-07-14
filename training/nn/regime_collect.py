@@ -178,6 +178,22 @@ def continue_from(seed_obs, seed_seat, eps, rng, unit_checks):
             pass
 
 
+SHARD_SAMPLES = 50_000
+
+
+def maybe_flush(args, samples, counters, force=False):
+    """Incremental shard write — the mcts_collect lesson (a 9-11h run once
+    lost everything to a crash with no interim checkpoints; this collector
+    repeated that on 2026-07-14 night 1 and lost Source A to a Source B
+    crash). Flush every SHARD_SAMPLES and at source boundaries."""
+    if not samples or (len(samples) < SHARD_SAMPLES and not force):
+        return
+    write_shard(args.out, counters["shard_idx"], list(samples))
+    counters["shard_idx"] += 1
+    counters["flushed"] += len(samples)
+    samples.clear()
+
+
 def run_source_a(args, samples, csv_w, counters, rng):
     train_seeds, heldout_seeds = load_seeds()
     print(f"seeds: {len(train_seeds)} train, {len(heldout_seeds)} HELD OUT "
@@ -203,8 +219,10 @@ def run_source_a(args, samples, csv_w, counters, rng):
             samples.extend(decisions)
         print(f"  seed {sid}: cum games={counters['games']} "
               f"winrate={counters['wins']/max(1,counters['games']):.2%} "
-              f"samples={len(samples)} capped={counters['capped']}",
+              f"samples={counters['flushed'] + len(samples)} "
+              f"capped={counters['capped']}",
               file=sys.stderr)
+        maybe_flush(args, samples, counters)
     if unit_checks is not None:
         print(f"seat-flip unit check: {len(unit_checks)} terminals verified OK")
 
@@ -259,7 +277,8 @@ def run_source_b(args, samples, csv_w, counters):
                 csv_w.writerow(["B", f"{label}:seat{net_seat}", gid, outcome,
                                 kept, len(r["steps"])])
         print(f"  fresh vs {label}: cum games={counters['games']} "
-              f"samples={len(samples)}", file=sys.stderr)
+              f"samples={counters['flushed'] + len(samples)}", file=sys.stderr)
+        maybe_flush(args, samples, counters)
     if args.verify_seats:
         print(f"seat-swap harness check: {swap_stats['checked']} decisive games, "
               f"all reward pairs zero-sum with labels keyed to net_seat OK")
@@ -294,18 +313,21 @@ def main():
     csv_w.writerow(["source", "seed_id", "game_id", "outcome", "n_regime_decisions", "plies"])
 
     samples = []
-    counters = {"games": 0, "wins": 0, "capped": 0}
+    counters = {"games": 0, "wins": 0, "capped": 0, "shard_idx": 0, "flushed": 0}
 
     if args.continuations > 0:
         run_source_a(args, samples, csv_w, counters, rng)
+        maybe_flush(args, samples, counters, force=True)  # source boundary
     if args.fresh_games > 0:
         run_source_b(args, samples, csv_w, counters)
 
     csv_f.close()
-    write_shard(args.out, 0, samples)
+    if samples or counters["shard_idx"] == 0:
+        write_shard(args.out, counters["shard_idx"], samples)
+        counters["flushed"] += len(samples)
     wr = counters["wins"] / max(1, counters["games"])
     print(f"TOTAL games={counters['games']} winrate={wr:.2%} "
-          f"samples={len(samples)} capped={counters['capped']}")
+          f"samples={counters['flushed']} capped={counters['capped']}")
     if not 0.02 < wr < 0.98:
         print("WARNING: outcome distribution degenerate — Q targets carry "
               "little contrast; inspect before training.")

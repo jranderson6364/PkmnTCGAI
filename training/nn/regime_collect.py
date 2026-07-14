@@ -231,10 +231,12 @@ def run_source_b(args, samples, csv_w, counters):
     from harness import run_matches
     from bc_collect import extract_decisions
     wrapper = os.path.join(_HERE, "regime_explore_agent.py")
-    opponents = [os.path.join(_REPO_ROOT, "main.py"),
-                 os.path.join(_REPO_ROOT, "opponents", "lucario_agent.py"),
-                 os.path.join(_REPO_ROOT, "opponents", "abomasnow_agent.py"),
-                 os.path.join(_REPO_ROOT, "opponents", "starmie_agent.py")]
+    all_opponents = {"main": os.path.join(_REPO_ROOT, "main.py"),
+                     "lucario": os.path.join(_REPO_ROOT, "opponents", "lucario_agent.py"),
+                     "abomasnow": os.path.join(_REPO_ROOT, "opponents", "abomasnow_agent.py"),
+                     "starmie": os.path.join(_REPO_ROOT, "opponents", "starmie_agent.py")}
+    names = [n.strip() for n in args.opponents.split(",") if n.strip()]
+    opponents = [all_opponents[n] for n in names]
     os.environ["REGIME_EPS"] = str(args.eps)
     per_opp = max(1, args.fresh_games // len(opponents))
     swap_stats = {"checked": 0}
@@ -251,10 +253,17 @@ def run_source_b(args, samples, csv_w, counters):
                 if "error" in r or "steps" not in r:
                     continue
                 outcome = r["rewards"][net_seat]
+                other = r["rewards"][1 - net_seat]
+                if outcome is None or other is None:
+                    # a side crashed mid-game — not a legitimate outcome
+                    # label (and not a seat bug; night-2 finding: a starmie
+                    # crash produced rewards=[1, None] and the strict
+                    # assertion killed the run). Skip the game entirely.
+                    counters["crashed"] = counters.get("crashed", 0) + 1
+                    continue
                 # seat-swap verification: label derives from net_seat, and
                 # the two rewards must be a zero-sum pair when decisive
                 if args.verify_seats and outcome in (1, -1):
-                    other = r["rewards"][1 - net_seat]
                     assert other == -outcome, (
                         f"seat-swap FAILED: rewards={r['rewards']} net_seat={net_seat}")
                     swap_stats["checked"] += 1
@@ -297,7 +306,9 @@ def main():
     ap.add_argument("--continuations", type=int, default=600,
                     help="Source A continuations per train seed")
     ap.add_argument("--fresh-games", type=int, default=0,
-                    help="Source B whole games (split across mirror+3 anchors, seats alternated)")
+                    help="Source B whole games (split across --opponents, seats alternated)")
+    ap.add_argument("--opponents", default="main,lucario,abomasnow,starmie",
+                    help="Source B opponent subset (comma list of main,lucario,abomasnow,starmie)")
     ap.add_argument("--eps", type=float, default=0.25,
                     help="in-regime exploration epsilon (both sources)")
     ap.add_argument("--verify-seats", action="store_true",

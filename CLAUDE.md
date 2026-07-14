@@ -308,8 +308,60 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
-**>>> NEXT STEP (as of 2026-07-12): DMC round-6 local data-scaling study
-CLOSED, decisively negative — read this before anything else.**
+**>>> NEXT STEP (as of 2026-07-12, end of session): three local training
+jobs stopped mid-run at user request (machine needed for other use) — read
+this before anything else, then just re-launch the three jobs below.**
+Context: after the DMC round-6 closure further below, the user rejected
+"closed, move to report" and directed continued RL/ML pursuit: *"We need to
+figure SOMETHING rl/AI/ML out. Coming up empty handed is not going to land
+me top 8. I don't care how long it takes, we still have a month for leader
+submissions and another month after that for the report."* An `advisor`
+consult found every closed method (BC/DAgger/AWR/4 search variants/
+AlphaZero/sequence-transformer/DMC) was tested identically — offline, vs
+v29d only, on a 50%-v29d curriculum, CPU, ≤4.5M params — nine algorithm
+variations, four other axes never varied. User chose three fronts:
+**(1) ship a live-ladder read — DONE**, submission `54624481`
+(`training/nn/package_dmc_submission.py`, DMC checkpoint-1, greedy, no
+heuristic fallback — the FIRST live read for any learned model this project
+has shipped; hit and fixed the same `__file__` NameError v29 did, caught by
+re-validation before shipping this time). v29d (`54481189`, 723.0
+publicScore) remains on record — **must be re-shipped before ladder close
+if this experimental read is still the most recent submission**, since only
+the latest 2 count. **(2) Kaggle GPU scale-up — SCOPED, not executed.**
+Collection is CPU-bound (the local game engine, no GPU-acceleratable step),
+so GPU's honest value is training-step throughput / batched inference, not
+raw data volume. The concrete, already-partially-validated use: GPU-batch-
+relabel the corpus with n-step=5 targets (the 2026-07-10 retest found an
+encouraging 7.0%±2.5% on 1/8th data, deferred only because CPU relabeling
+doesn't scale) using the existing reusable pattern in
+`scratch_kaggle_collect_notebook/ptcg-p2-round3-collect-retrain-gate.ipynb`
+(a real working `%%writefile`-cells + cg-lib-assembly notebook from the
+2026-07-07 AlphaZero push — needs a DMC-specific fork, not yet built). See
+`docs/report-log.md` 2026-07-12 "Kaggle GPU scale-up" entry. **(3)
+hand-crafted tempo features fed as DMC input — BUILT, TESTED, ABLATION
+INTERRUPTED before any result.** `training/nn/tempo_features.py` (3 new
+antisymmetric rate-of-turn features: prize-race pace, hand-growth pace,
+setup pace — genuinely new since every existing feature is a snapshot, none
+divide by turn count) wired into `encode.py` as a `full+tempo` feature-set
+(env-gated via `ENCODE_FEATURE_SET`, every other `encode.py` consumer
+untouched). Validated against 2000 real states, 0 errors. Checked first for
+overlap with the closed 2026-07-09 sequence-policy aux-feature experiment
+(that was imitation-only; no DMC checkpoint has ever received calculated
+features as input) — genuinely untested combination. **A paired ablation
+(control vs. control+tempo, identical corpus/seed/epochs) was launched and
+running cleanly when the user asked to stop all jobs to free up the
+machine — NOT a negative result, just incomplete.** Exact resume commands
+(re-run as-is, no changes needed):
+```
+powershell -File training/nn/tempo_control_detached.ps1
+powershell -File training/nn/tempo_arm_detached.ps1
+powershell -File training/nn/r6_checkpoint2_moreepochs_detached.ps1   # 8-epoch undertraining diagnostic, also interrupted, also unresolved
+```
+See `docs/report-log.md` 2026-07-12 entries (Kaggle GPU scoping, tempo
+ablation pre-registration + interruption note, strategic reframe) for full
+detail and the exact user quotes. Prior (2026-07-11/12) entry, for context,
+unchanged below: DMC round-6 local data-scaling study CLOSED, decisively
+negative.
 Overnight autonomous session (user-authorized `/loop`, Fable-consulted on
 critical decisions): pre-registered a scaling study on the confirmed
 7.5%-win-rate DMC recipe (fresh-init + more epochs + `model_big.py`, full-MC
@@ -799,3 +851,22 @@ Rules:
    English method, numbers, decision, report relevance); **every ladder ship →
    `training/ladder_history.csv` row.** The report is assembled from these —
    nothing is reconstructed in September.
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+
+Key routing rules:
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
+- Author a backlog-ready spec/issue → invoke /spec

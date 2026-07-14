@@ -10,6 +10,49 @@ resumed. Phase A regime detector fitted and pre-registered below.)
 
 ---
 
+## 2026-07-14 — PRE-REGISTRATION: Phase B collection + Phase C training/gate config (issue #3, overnight)
+
+**Phase B (running, detached):** `training/nn/regime_collect.py`
+(launched via `regime_r1_detached.ps1`) — Source A: 1000 mirror
+continuations per TRAIN seed (13 of 18 exploiter-win first-in-regime
+states; 5 HELD OUT by fixed split_seed=7: win_003/008/010/015/017),
+`search_begin` + fresh determinization per continuation, main.agent both
+sides, eps=0.25 uniform-random exploration at OUR in-regime single-select
+decisions only, full-MC outcome labels. Source B: 2000 fresh games of
+`regime_explore_agent.py` vs mirror+lucario+abomasnow+starmie, seats
+alternated, in-regime decisions only. **Seat verification (criterion 2)
+integrated in-run:** terminal sign-flip assertions (Source A) + zero-sum
+reward-pair assertions keyed to the alternated learner seat (Source B) —
+the smoke run verified 26/26 terminals.
+
+**Protocol amendment (honest, decided before training):** the scenario
+suite gates on the 5 HELD-OUT exploiter seeds only. The 10 ladder
+thinning-loss states CANNOT be coherently continued (their opponents are
+Archaludon-class decks with no local pilot; mirror-filling their hidden
+zones reproduces the 2026-07-08 archetype-mismatch rollout bug). Diverse-
+opponent coverage is instead carried by the anchor non-regression gate
+(full games, n=200/anchor vs lucario+abomasnow) exactly as issue #3
+specifies.
+
+**Phase C training config (pre-registered before the run,
+`regime_train_chained.ps1` chains it behind collection):**
+`train_dmc.py --data training/regime_r1*.pkl.gz --no-init --big --seed 0
+--epochs 6 --out training/regime_qnet.pth` — the confirmed-best DMC recipe
+(fresh-init + capacity), full-MC targets, on regime-only samples.
+
+**Gate bars (unchanged from issue #3):** (1) scenario suite — hybrid
+(`training/nn/hybrid_agent.py`, greedy Q in-regime, `_safe_return`
+fallback) vs plain v29d from identical held-out restored states, paired
+continuations, CI-separable win-rate improvement required; (2) anchor
+non-regression — n=200/anchor vs lucario+abomasnow, hybrid within CI of
+same-day plain-v29d reads. Kill date Aug 6.
+
+**Early Phase B read (first 5 seeds):** 77k samples, continuation win rate
+10.2%, 0 ply-caps — outcome contrast healthy, ≥50k criterion already
+exceeded.
+
+---
+
 ## 2026-07-13 — PIVOT + PRE-REGISTRATION: learn-inside-the-champion regime detector (Phase A of issue #3)
 
 **Strategic decision (user, after a full gstack CEO review + spec

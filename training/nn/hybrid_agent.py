@@ -5,7 +5,7 @@ picks argmax Q(s, option). Any error anywhere falls back to the heuristic's
 own choice — the subpolicy can never crash or stall a game (Design
 Principle #2: timeout = instant loss).
 
-Env vars: REGIME_CKPT (Q-net checkpoint), REGIME_BIG (1 = model_big),
+Env vars: REGIME_CKPT (Q-net checkpoint), REGIME_BIG (default 1 = model_big),
 REGIME_LOG (optional JSONL: one line per overridden decision, for audit).
 """
 import json
@@ -21,9 +21,13 @@ for p in (_HERE, _REPO_ROOT):
 import main as heuristic  # noqa: E402
 from regime_detector import regime_fires  # noqa: E402
 
+DECK = heuristic.DECK  # harness.load_agent requires the module to export DECK
+
 _CKPT = os.environ.get("REGIME_CKPT") or os.path.join(
     _REPO_ROOT, "training", "regime_qnet.pth")
-_BIG = os.environ.get("REGIME_BIG") == "1"
+# default "1": the pre-registered recipe trains with --big; loading a big
+# checkpoint into the small net would silently drop every mismatched key
+_BIG = os.environ.get("REGIME_BIG", "1") == "1"
 _LOG = os.environ.get("REGIME_LOG")
 
 overridden = 0  # introspection for gates

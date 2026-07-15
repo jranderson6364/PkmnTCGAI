@@ -313,19 +313,23 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 better agent is already the 2 newest submissions — only the latest 2 count
 at ladder close (~Aug 16). Do not let an experimental read be final.**
 
-**>>> NEXT STEP (as of 2026-07-13): PIVOT — "learn inside the champion"
+**>>> NEXT STEP (as of 2026-07-15): PIVOT — "learn inside the champion"
 (GitHub issue #3). The 2026-07-12 interrupted jobs are SKIPPED at user
-direction — do NOT relaunch them. Phase A DONE: data-derived regime
-detector fitted, pre-registered, and codified
+direction — do NOT relaunch them. Phase A DONE: detector codified
 (`training/nn/regime_detector.py::regime_fires` — `turn>=9 AND
-(line_in_play==0 OR (deck<=6 AND hand>=15))`, game capture 92.9%, FP 0.54%
-— see report-log 2026-07-13). Next: Phase B, `training/nn/regime_collect.py`
-(from-state self-play via `training/belief/determinize.py`), seat-swap
-verification on a 20-game batch BEFORE any full collection (this bug class
-recurred 3x), then ≥50k in-regime samples detached
-(`Start-Process` pattern). Then Phase C: `train_dmc.py --no-init` on regime
-samples, two-part gate (held-out scenario suite + anchor non-regression
-n=200/anchor vs lucario+abomasnow). Kill date Aug 6. Full spec: issue #3.
+(line_in_play==0 OR (deck<=6 AND hand>=15))`, game capture 92.9%, FP 0.54%).
+Phase B DONE: ~176k seat-verified in-regime samples
+(`training/regime_r1*.pkl.gz`; night-2 starmie-crash accounting corrected —
+see report-log 2026-07-15). Phase C IN FLIGHT: gate harness built + dry-run
+validated (`training/nn/regime_gate.py`), full detached chain running as of
+2026-07-15 — r1e re-collection → retrain on complete corpus
+(`training/regime_qnet.pth`) → full two-part gate (scenario suite 300
+pairs/seed on the 5 held-out seeds + anchor non-regression n=200 vs
+lucario+abomasnow). Results: `training/nn/regime_gate.log`. **Dry-run early
+warning (n=6, inconclusive): hybrid may bleed won anchor games via the
+deck≤6∧hand≥15 branch firing in winning positions — if gate 2 fails this
+way, refine the detector, fresh FP audit, re-gate.** Kill date Aug 6. Full
+spec: issue #3.
 Prior 2026-07-12 next-step block below kept for context — superseded.**
 
 Prior next-step block (superseded 2026-07-13, kept for context): three local

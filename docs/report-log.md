@@ -4,9 +4,68 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-13 (PIVOT: "learn inside the champion" — GitHub
-issue #3; the three interrupted jobs are SKIPPED at user direction, not
-resumed. Phase A regime detector fitted and pre-registered below.)
+**Last updated:** 2026-07-15 (Phase B corpus accounting corrected + Phase C
+gate harness built, dry-run validated, full chain running detached.)
+
+---
+
+## 2026-07-15 — Phase B accounting correction + Phase C gate harness (issue #3)
+
+**Corpus accounting (correction to the night-2 read):** the night-2 starmie
+crash killed Source B BEFORE any of its samples flushed — the fresh-game
+decisions vs main/lucario/abomasnow were accumulating in memory (Source B's
+yield never reaches the 50k flush threshold, and the per-block boundary
+flush hadn't run). The four `regime_r1` shards are Source A only (55,156 +
+52,696 + 52,923 + 14,923 = 175,698); the starmie re-collection added 130
+(382 decisive games, 95.8% explorer win rate — the regime rarely fires in
+games v29d is winning easily, as expected). The chained trainer's first
+fire therefore consumed 175,828 samples (6 epochs, val_sign_acc 0.9569 —
+caveat: ~94% of labels are losses, so the base rate alone gives ~0.94).
+**Fix, running now:** the three missing blocks re-collected as
+`regime_r1e.pkl.gz` (500 games each vs main/lucario/abomasnow,
+`regime_r1e_detached.ps1`), with the pre-registered retrain re-chained
+behind it (`regime_train_chained.ps1` globs `regime_r1*`) and the full gate
+chained behind that (`regime_gate_chained.ps1`).
+
+**Two ship-blocking hybrid_agent bugs fixed before any gate ran:**
+(1) missing `DECK` export — the exact night-1 crash class; the anchor gate
+loads hybrid_agent through the harness and would have crashed 100% of
+games; (2) `REGIME_BIG` defaulted OFF while the pre-registered recipe
+trains `--big` — an unset env var would have silently loaded the big
+checkpoint into the small net (strict=False key-filtering) and gated an
+effectively random Q-net. Both are one-line fixes; both would have
+invalidated the gate silently.
+
+**Q-net chain smoke test (checkpoint-1):** `_qnet_choice` executed directly
+(no exception-swallowing) on all 5 held-out seeds — 5/5 inference OK,
+`overridden==5`, and on 2/5 seeds the greedy Q pick differs from the
+heuristic's choice (win_008: option 9 vs 16 of 19; win_010: 11 vs 8 of 28).
+The net is not merely mimicking v29d in-regime.
+
+**Gate harness (`training/nn/regime_gate.py`) built + dry-run validated**
+(3 pairs/seed + 6 games/anchor, checkpoint-1): both gates execute
+end-to-end, 101 Q-net overrides, 0 crashes, CSV audit log written. Gate 1
+pairs share determinizations by seeding the global RNG (mcts.py's `_filler`
+uses `random.shuffle`) with `crc32(seed_id:k)` in both arms.
+
+**Early warning from the dry run (n=6/anchor, NOT conclusive):** hybrid
+2W-4L vs lucario while same-run plain v29d went 6W-0L (abomasnow 3W-3L vs
+4W-2L). Hypothesis if it replicates at n=200: the detector's
+`deck<=6 AND hand>=15` branch fires in WINNING anchor positions too (this
+deck deliberately draws itself huge — the same reason per-state fitting
+failed in Phase A), handing won games to a Q-net trained on 94%-loss mirror
+continuations. This is precisely the failure mode the anchor gate was
+pre-registered to catch. If gate 2 fails this way, the candidate fix is a
+detector refinement (e.g. requiring `line_in_play==0` OR an opponent-armed
+condition alongside deck-thinness), which would need a fresh FP audit
+before any re-gate.
+
+**Full gate config (finalized before the run):** scenario suite 300
+pairs/seed x 5 held-out seeds (1500 pairs; n chosen for power — the
+pre-registration fixed the design and bar but not N), anchors n=200/agent
+(pre-registered). Chain: collector -> retrain (complete corpus) -> gate,
+all detached; results land in `training/nn/regime_gate.log` +
+`training/regime_gate_games.csv`.
 
 ---
 

@@ -350,8 +350,9 @@ top-level import chain died; local validation missed it because
 training/local_cg is always importable locally — same environment-gap class
 as v29's `__file__`). Fixed (threat.py falls back to bundled
 `card_tables.json`; tempo_features.py added to the package) and re-shipped
-same day as **v-dmc1b, submission `54740723`**, clean-room-validated from
-the extracted tarball with cg unimportable. See report-log 2026-07-15.
+same day as **v-dmc1b, submission `54740723`, `SubmissionStatus.COMPLETE`**
+— the learned-model live read is now actually running; clean-room-validated
+from the extracted tarball with cg unimportable. See report-log 2026-07-15.
 v29d (`54481189`, 685.4 at the 07-15 read) remains on record — **must be
 re-shipped before ladder close if this experimental read is still the most
 recent submission**, since only the latest 2 count. **(2) Kaggle GPU scale-up — SCOPED, not executed.**

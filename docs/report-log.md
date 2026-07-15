@@ -46,9 +46,11 @@ real recorded obs, Kaggle's `get_last_callable` on the raw main.py string,
 and 5 full `env.run` self-play games: 0 errors, decisive rewards both
 seats.
 
-**Re-shipped same day as v-dmc1b, submission 54740723** (same round-6
+**Re-shipped same day as v-dmc1b, submission 54740723 —
+`SubmissionStatus.COMPLETE`, validation passed** (same round-6
 checkpoint-1, greedy, no heuristic fallback — the read stays
-uncontaminated). `training/ladder_history.csv` row added. Standing note:
+uncontaminated; the first learned-model live read is now actually
+running). `training/ladder_history.csv` row added. Standing note:
 v29d (54481189, COMPLETE, 685.4 at today's read) remains the
 non-experimental submission; only the latest 2 count.
 

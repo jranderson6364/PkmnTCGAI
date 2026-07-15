@@ -343,14 +343,18 @@ consult found every closed method (BC/DAgger/AWR/4 search variants/
 AlphaZero/sequence-transformer/DMC) was tested identically — offline, vs
 v29d only, on a 50%-v29d curriculum, CPU, ≤4.5M params — nine algorithm
 variations, four other axes never varied. User chose three fronts:
-**(1) ship a live-ladder read — DONE**, submission `54624481`
-(`training/nn/package_dmc_submission.py`, DMC checkpoint-1, greedy, no
-heuristic fallback — the FIRST live read for any learned model this project
-has shipped; hit and fixed the same `__file__` NameError v29 did, caught by
-re-validation before shipping this time). v29d (`54481189`, 723.0
-publicScore) remains on record — **must be re-shipped before ladder close
-if this experimental read is still the most recent submission**, since only
-the latest 2 count. **(2) Kaggle GPU scale-up — SCOPED, not executed.**
+**(1) ship a live-ladder read — CORRECTED 2026-07-15: 54624481 ERRORED at
+validation and never played an episode** (`ModuleNotFoundError: No module
+named 'cg'` — Kaggle's agent sandbox has no cg module; the encode→threat
+top-level import chain died; local validation missed it because
+training/local_cg is always importable locally — same environment-gap class
+as v29's `__file__`). Fixed (threat.py falls back to bundled
+`card_tables.json`; tempo_features.py added to the package) and re-shipped
+same day as **v-dmc1b, submission `54740723`**, clean-room-validated from
+the extracted tarball with cg unimportable. See report-log 2026-07-15.
+v29d (`54481189`, 685.4 at the 07-15 read) remains on record — **must be
+re-shipped before ladder close if this experimental read is still the most
+recent submission**, since only the latest 2 count. **(2) Kaggle GPU scale-up — SCOPED, not executed.**
 Collection is CPU-bound (the local game engine, no GPU-acceleratable step),
 so GPU's honest value is training-step throughput / batched inference, not
 raw data volume. The concrete, already-partially-validated use: GPU-batch-

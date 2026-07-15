@@ -4,8 +4,59 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-15 (Phase B corpus accounting corrected + Phase C
-gate harness built, dry-run validated, full chain running detached.)
+**Last updated:** 2026-07-15 (Phase C gate chain running detached; v-dmc1
+live read discovered ERRORED — no-cg-module gap fixed, re-shipped as
+v-dmc1b 54740723.)
+
+---
+
+## 2026-07-15 — v-dmc1 live read NEVER RAN (SubmissionStatus.ERROR): Kaggle sandbox has no `cg` module; fixed + re-shipped as v-dmc1b (54740723)
+
+**Finding (routine E1 check):** submission 54624481 — believed shipped
+2026-07-12 as the first-ever live-ladder read of a learned model — is
+`SubmissionStatus.ERROR`. It never played a single ladder episode; the
+"first live read" never actually happened. Validation episode 85648727's
+agent log shows the root cause: `ModuleNotFoundError: No module named
+'cg'`. Kaggle's agent sandbox does not provide the `cg` module — the
+top-level import chain `main.py → dmc_agent → net_common → encode →
+threat → cg.api` dies at load time. The pre-ship validation (which
+specifically re-ran Kaggle's real `get_last_callable` after the v29
+`__file__` lesson) still missed it, because locally
+`training/local_cg` is always importable — threat.py itself inserts it
+into sys.path. **Same environment-gap class as the v29 `__file__`
+NameError: the local validation environment silently provided something
+Kaggle's doesn't.**
+
+**Two fixes (both ship-blocking for ANY submission that ships encode.py,
+including the issue-#3 hybrid):**
+1. `threat.py::_load_tables` now try/excepts the `cg.api` import and falls
+   back to a bundled `training/nn/card_tables.json` (44 KB dump of
+   `all_card_data()`/`all_attack()`, generated locally). cg.api is still
+   preferred when importable.
+2. `package_dmc_submission.py` ships `tempo_features.py` (encode.py has
+   imported it at module level since 2026-07-12 but it was never added to
+   the package list — a rebuilt package would have crashed on it
+   immediately after the threat fix) and `card_tables.json`.
+
+**Hardened validation protocol (new, mandatory for future ships):**
+validate from an EXTRACTED copy of the actual tarball in a temp dir with
+no repo paths — not from the repo tree. This run asserted `cg` was never
+imported (proving the fallback engaged), ran the full Q-net forward on a
+real recorded obs, Kaggle's `get_last_callable` on the raw main.py string,
+and 5 full `env.run` self-play games: 0 errors, decisive rewards both
+seats.
+
+**Re-shipped same day as v-dmc1b, submission 54740723** (same round-6
+checkpoint-1, greedy, no heuristic fallback — the read stays
+uncontaminated). `training/ladder_history.csv` row added. Standing note:
+v29d (54481189, COMPLETE, 685.4 at today's read) remains the
+non-experimental submission; only the latest 2 count.
+
+**Report relevance:** second confirmed instance of the
+local-validation-environment gap class (after v29's `__file__`) — direct
+evidence for the report's robustness/verification section that agent-side
+validation must reproduce the DEPLOYMENT environment, not just the
+deployment loader.
 
 ---
 

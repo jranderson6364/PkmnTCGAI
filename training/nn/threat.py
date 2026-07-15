@@ -29,10 +29,14 @@ requirements (treats `len(attack.energies)` as a fungible count) -- both are
 deliberate simplifications, not oversights; a color-aware bag-matching
 implementation would be the natural next refinement if this proves useful.
 
-Requires `cg.api` on sys.path (training/setup_local_search.py's local shim,
-or the real Kaggle environment) -- NOT available to main.py's own
-dependency-free ladder submission; this is a training/eval-side module only.
+Card database source: `cg.api` when importable (training/setup_local_search.py's
+local shim), else the bundled `card_tables.json` dump of the same two tables.
+The fallback exists because Kaggle's agent sandbox has NO `cg` module — the
+2026-07-12 DMC live-read submission (54624481) died on this exact top-level
+import chain (encode.py -> threat.py -> cg.api) at validation
+(episode 85648727), so any submission shipping encode.py must bundle the JSON.
 """
+import json
 import os
 import sys
 
@@ -42,8 +46,6 @@ _LOCAL_CG = os.path.join(_REPO_ROOT, "training", "local_cg")
 if _LOCAL_CG not in sys.path:
     sys.path.insert(0, _LOCAL_CG)
 
-from cg.api import all_card_data, all_attack  # noqa: E402
-
 _CARD_ATTACKS = None
 _ATTACK_INFO = None
 
@@ -51,8 +53,17 @@ _ATTACK_INFO = None
 def _load_tables():
     global _CARD_ATTACKS, _ATTACK_INFO
     if _CARD_ATTACKS is None:
-        _CARD_ATTACKS = {c.cardId: c.attacks for c in all_card_data()}
-        _ATTACK_INFO = {a.attackId: (a.damage, len(a.energies)) for a in all_attack()}
+        try:
+            from cg.api import all_card_data, all_attack
+            _CARD_ATTACKS = {c.cardId: c.attacks for c in all_card_data()}
+            _ATTACK_INFO = {a.attackId: (a.damage, len(a.energies))
+                            for a in all_attack()}
+        except ImportError:
+            with open(os.path.join(_HERE, "card_tables.json"),
+                      encoding="utf-8") as f:
+                t = json.load(f)
+            _CARD_ATTACKS = {int(k): v for k, v in t["card_attacks"].items()}
+            _ATTACK_INFO = {int(k): tuple(v) for k, v in t["attack_info"].items()}
 
 
 def _pk_id(pk):

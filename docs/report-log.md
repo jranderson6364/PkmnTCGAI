@@ -4,9 +4,50 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-16 (tie-breaker gate: adopt=NO per mirror bar,
-BUT lucario +12.5pp CI-separable — first-ever separable positive for a
-learned component; anchor-centric follow-up pre-registered + launched.)
+**Last updated:** 2026-07-16 (tie-breaker CLOSED: the +12.5pp lucario
+signal evaporated at n=400/anchor — pooled −0.7pp [−4.2, +2.8], exact
+parity with array-order tie-breaking. v30-exp ladder read pending.)
+
+---
+
+## 2026-07-16 — Tie-breaker CLOSED: the anchor-centric follow-up lands at exact parity — the +12.5pp lucario read was baseline fluctuation, precisely as pre-cautioned
+
+**Follow-up results (n=400/anchor × lucario+abomasnow+starmie, same-run
+plain baselines, 2,400 games):** lucario −1.0pp [−7.4, +5.4] (the n=200
+block had read +12.5pp [+3.5, +21.5]); abomasnow −1.0pp [−7.4, +5.4];
+starmie −0.2pp [−3.4, +2.9]; **pooled −0.7pp [−4.2, +2.8] — not
+separable, point-negative.** The pre-registered adopt bar (pooled CI
+lower bound > 0) fails decisively → **the learned tie-breaker line is
+CLOSED.**
+
+**What it means:** the round-6 DMC Q-net's preferences within
+heuristic-indifferent tie sets carry ZERO measurable outcome value —
+Q-over-ties plays exactly as well as array order (~14 tie-breaks/game, 76%
+of picks changed, net effect −0.7 ± 3.5pp). Combined with issue #3's
+closure this completes the picture: this Q-net's argmax adds no value
+whether it overrides the heuristic (harmful) or only acts where the
+heuristic is indifferent (neutral). The bounded-by-construction
+integration pattern itself is validated as SAFE (no regression anywhere,
+as designed) — it just needs a value signal that actually discriminates,
+which no checkpoint this project has trained possesses.
+
+**Methodological exhibit (report-grade):** a CI-separably-positive read
+(+12.5pp, p≈0.007) evaporated to −1.0pp at double n. The pre-registration
+had flagged it in advance: four same-day plain-vs-lucario baselines
+spanned 63.0–70.5%, so a single n=200 comparison against the lowest was
+suspect. This is the sharpest single demonstration yet of why every
+adoption in this project requires a pre-registered bar and why
+non-registered positives are never shipped — alongside the 2026-07-05
+publicScore retractions and the 2026-07-09 "40% was noise" correction.
+
+**Ledger after today:** learned components tried against v29d in
+integration roles: per-decision override (issue #3, harmful), tie-breaking
+(parity). Standing open item: v30-exp (rescue-mode heuristic fix, mined
+from RL-collected deviation data — the one intervention with all-positive
+instrument reads) is on the ladder awaiting its 48h read vs the v29d
+copies. The learned artifacts' real contribution so far is as DATA
+GENERATORS: the deviation corpus that produced the v30-exp fix could not
+have been mined from pure heuristic self-play.
 
 ---
 

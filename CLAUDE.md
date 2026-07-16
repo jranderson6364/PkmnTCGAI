@@ -330,13 +330,28 @@ known-good heuristic — Aug-14 backstop executed early; still VERIFY at
 Aug 14 that the latest-2 are as intended. Any future learned-model ship
 MUST use the extracted-tarball clean-room protocol + bundled
 card_tables.json (report-log 2026-07-15 no-cg-module entry).
-**Candidate next directions (user's call):** (a) mine the ~2,330 winning
-rescue continuations now on disk (`training/regime_r2*.pkl.gz` +
-`regime_r2_games.csv` outcome=1) for heuristic-codifiable rescue patterns —
-heuristic fixes are this project's only consistently positive lever, and
-this is the first-ever corpus of SUCCESSFUL play from the board-thinning
-regime; (b) more ladder-loss replay mining; (c) report assembly from the
-report-log; (d) Aug 1 merger criteria / Aug 9 merger call.
+**2026-07-16 evening state (user directive: "fix the heuristic and keep
+researching RL"):** rescue mining DONE — development-before-non-lethal-
+attack rescues 19-22% vs 7.9% baseline (END/RETREAT catastrophic from the
+same states); codified as `rescue_mode`/`rescue_hold_ko` in main.py
+(defer the KO while hand keeps ≥3 cards of lethal slack, never in
+desperation, attack always above END). Offline gate: mirror 51.5% (adopt
+bar not met) but ALL FOUR instruments point-positive, none negative →
+**SHIPPED as v30-exp (54766181, COMPLETE)** per Design Principle #1 with a
+pre-registered revert rule (report-log 2026-07-16): after ≥48h, v30-exp
+≥30 below the LOWER v29d copy on 2 consecutive reads ≥6h apart → revert
+main.py to `training/baselines/v29d_pre_rescue.py` + re-ship v29d;
+comparable-or-better after ~4-5 days → fix becomes champion v30.
+**>>> NEXT CHECK ~2026-07-18: read v30-exp (54766181) vs 54760870/54760877
+publicScores and apply the rule.** RL track: the learned TIE-BREAKER
+(Q-net argmax within exact heuristic score ties, 31.7% of MAIN-phase
+multi-option decisions) CLOSED same day — an n=200 lucario read of
++12.5pp CI-separable evaporated to pooled −0.7pp [−4.2, +2.8] at
+n=400×3 anchors (textbook baseline-volatility exhibit; adopt=NO). The
+bounded-integration pattern is validated safe; no trained checkpoint has
+a discriminating value signal. Remaining candidates: (b) more ladder-loss
+replay mining; (c) report assembly; (d) Aug 1 merger criteria / Aug 9
+merger call.
 Prior 2026-07-12 next-step block below kept for context — superseded.**
 
 Prior next-step block (superseded 2026-07-13, kept for context): three local

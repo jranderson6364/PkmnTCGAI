@@ -10,6 +10,66 @@ v-dmc1b 54740723.)
 
 ---
 
+## 2026-07-15 — GATE RESULTS (issue #3 Phase C): gate 1 FAIL (CI-separably NEGATIVE), gate 2 PASS — root cause: the regime corpus contains ZERO wins
+
+**Retrain (pre-registered recipe, complete 187,206-sample corpus):** 6
+epochs, val_sign_acc 0.9618 (base-rate-inflated: ~94%+ of labels are
+losses). Checkpoint `training/regime_qnet.pth`.
+
+**GATE 1 (scenario suite, 300 paired continuations x 5 held-out seeds,
+n=1500 pairs, 0 capped, 21,565 Q-net overrides): FAIL — hybrid is
+CI-separably WORSE than plain v29d.** Paired mean diff −0.0153
+[−0.0218, −0.0088]. The pair cross-tab is the sharpest version: both lose
+1471, control-wins-hybrid-loses 24, both win 4, hybrid-wins-control-loses
+1. Plain v29d rescues 28/1500 (1.9%) of these failure states; the hybrid
+rescues 5/1500 (0.33%) — the Q-net override actively destroys ~5/6 of the
+few winnable continuations.
+
+**GATE 2 (anchor non-regression, n=200/agent/anchor, same day): PASS.**
+lucario: hybrid 0.665 vs v29d 0.728, diff −0.062 [−0.152, +0.027] — not
+separable (the dry-run alarm did not confirm, though the point estimate
+leans negative); abomasnow: 0.610 vs 0.600, diff +0.010 [−0.086, +0.106].
+
+**Root cause, found immediately after via the collection CSV: Source A
+produced 0 wins in 13,000 continuations — all 13 train seeds 0/1000.**
+Every one of the 175,698 Source A samples is labeled −1; the only win
+labels in the whole corpus come from Source B fresh games (~6.8k samples,
+almost none of them from the failure regime). The Q-net had literally
+zero examples of winning from the states it was supposed to rescue — its
+in-regime argmax is noise fit to a constant target, which explains both
+the inflated val_sign_acc and the gate-1 harm. Two non-exclusive
+explanations, diagnostic running: (a) uniform-random eps=0.25 exploration
+at ~14 in-regime decisions/continuation is near-certain self-destruction
+(P(no random action) ≈ 0.75^14 ≈ 2%), so exploration itself destroyed the
+few winnable lines; (b) the train-seed states are simply deader than the
+held-out ones (control wins 1.9% on held-out; unknown on train). NOTE:
+the pre-registration's night-1 "continuation win rate 10.2% (first 5
+seeds)" early read cannot be reconciled or audited — night-2 overwrote
+the night-1 log and games CSV (same --out path); treat 10.2% as
+unverified.
+
+**Pre-registered consequence: no ship.** Issue #3 allows ONE
+diagnosis-driven iteration before the Aug 6 kill date. The candidate
+iteration (to be pre-registered before running): redesign collection for
+win-contrast — heuristic-guided exploration (deviate to heuristic-plausible
+alternatives, not uniform-random over 19-28 mostly-catastrophic options),
+lower eps, and/or seed from earlier in-regime states; retrain only if the
+new corpus shows a non-degenerate win rate in-regime. An eps=0 baseline on
+train seeds (v29d's own rescue rate through the identical continuation
+machinery) is running to decide whether the seeds themselves have any
+rescue headroom at all.
+
+**Report relevance:** strongest evidence yet for the project's recurring
+finding, now replicated INSIDE the failure regime with a
+regime-specialized net: per-decision value override without a coherent
+plan signal degrades the heuristic even where the heuristic demonstrably
+fails. Also a clean methodological exhibit: outcome-labeled RL from
+mined failure states is vacuous when the behavior policy cannot reach a
+win from those states — label contrast must be verified BEFORE training,
+not discovered at the gate.
+
+---
+
 ## 2026-07-15 — v-dmc1 live read NEVER RAN (SubmissionStatus.ERROR): Kaggle sandbox has no `cg` module; fixed + re-shipped as v-dmc1b (54740723)
 
 **Finding (routine E1 check):** submission 54624481 — believed shipped

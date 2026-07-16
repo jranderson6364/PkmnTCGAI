@@ -4,8 +4,101 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-16 (issue #3 CLOSED after round 2 — see closure
-entry; v-dmc1b live read landed at 374.7; v29d safety pair re-shipped.)
+**Last updated:** 2026-07-16 (issue #3 CLOSED; rescue mining done — two new
+pre-registered experiments launched: development-first heuristic fix +
+learned tie-breaker.)
+
+---
+
+## 2026-07-16 — Rescue mining on the round-2 corpus: non-lethal attacking is the failure; development-first rescues at ~2.5x — TWO pre-registered follow-ups
+
+**Method (`training/nn/rescue_mining.py`):** for each one-step-deviation
+game in the round-2 corpus, recover the deviation point by replaying
+main.agent over the recorded decisions (fresh stall-memo per game, exactly
+one mismatch expected — games with ≠1 skipped: 118 wins were rng-picked-
+the-same-action no-ops, 373 of 2000 sampled losses likewise), classify
+(what v29d would do → what the deviation did), and compare win rates within
+classes. All 568 true-deviation wins + 2000 sampled losses (x3.29 scale).
+
+**Finding 1 — the money table.** P(win|deviated) baseline 7.9%. From
+states where v29d's choice was ATTACK, deviating to a DEVELOPMENT action
+wins ~2.5x baseline: →PLAY 21.9% (36W), →ATTACH 19.4% (31W), →EVOLVE
+19.8% (13W), →ABILITY 23.3%. The within-class control that makes this
+causal rather than state-health confounding: from those SAME
+attack-pending states, deviating to END (forgo the attack, gain nothing)
+wins 2.7% and →RETREAT 0.0% — so the value is the development, not the
+delay. Smaller same-direction signals: RETREAT→EVOLVE 31.3%,
+RETREAT→PLAY 20.2%, END→ATTACH 12.3% (v29d ending turn with a free
+energy attach available).
+
+**Finding 2 — what a successful rescue looks like** (per-seed last-decision
+means, wins vs losses): consistently +3–7 more cards in hand, more line
+pieces in hand, and 3–4 more turns survived. Rescue = patience + rebuild,
+then strike; hand size IS damage, and attacking non-lethally wastes the
+turn the rebuild needed.
+
+**Finding 3 — the seeds split.** Rescuable under re-determinization
+(win_001 clean-rescue up to 97.7% length-biased / 31% unbiased, win_004
+41%, win_002 16%) vs truly dead (win_011, win_013: 0/1000 under every
+condition). Rescue headroom is real but not universal.
+
+**PRE-REGISTRATION A — heuristic fix ("development-first in the thinning
+regime"):** in main.py's MAIN-phase scoring, when the inlined regime
+condition holds (turn≥9 AND (line_in_play==0 OR (deck≤6 AND hand≥15)) —
+the issue-#3 detector, reused as a hand-written mode trigger) AND the
+would-be attack is NOT lethal on the opponent's active, score available
+development actions (ATTACH/EVOLVE/PLAY/ABILITY) above the ATTACK option.
+Gate bars: (1) mirror A/B vs current v29d, n=400, seats alternated —
+adopt only if win-rate 95% CI lower bound > 0.50; (2) anchors
+non-regression n=200 vs lucario+abomasnow with same-day plain reads;
+(3) held-out scenario suite via regime_gate.py gate-1 machinery (fixed
+heuristic as the treated arm) — directional read, not a bar. Regression
+suite must stay green.
+
+**AMENDMENT to A (same day, BEFORE any gate ran, forced by a behavior
+check):** the pre-registered "non-lethal attacks only" demotion is a
+near-no-op — the regime's hand≥15 branch makes every available un-misted
+attack a KO (300+ damage), so the mining's ATTACK states were can_ko
+states. The real lesson: the KO does not expire within the turn — attack
+LAST, after development, as long as lethality is preserved. Amended fix
+(implemented as `rescue_mode`/`rescue_hold_ko` in main.py): in the regime
+and NOT in desperation, while hand keeps ≥3 cards of slack over the KO
+threshold, ATTACK scores 1.2 (below positive developments, above END=0.8);
+the per-select re-score restores ATTACK to 500 the moment slack thins.
+The pre-existing `can_ko` early-outs on ATTACH/generic-PLAY/EVOLVE fall
+through to their normal routing under rescue_hold_ko (they were exactly
+the 19-22% deviation classes); the DRAW-ability can_ko early-out falls
+through to its deck-safety gating instead (drawing 3 at deck≤6 before the
+deferred KO is a deck-out hazard the demotion would otherwise enable).
+Behavior check on 500 real regime states (Alakazam active, un-misted, KO
+available): big-slack states develop first 395/500 (rest are desperation),
+END never outranks the deferred attack, thin-slack KOs attack immediately,
+regression suite 7/7. Gate bars unchanged; frozen pre-fix baseline:
+`training/baselines/v29d_pre_rescue.py`; battery: `training/nn/fix_gate.py`.
+
+**DISCARDED RUN (protocol violation, own fault):** the first tie-breaker
+gate run (launched before the heuristic-fix work) was contaminated — it
+loads `main.py` from disk as both its baseline arm and inside tie_agent,
+and main.py was edited mid-run. Its summary line (adopt=NO, gate A mirror
+FAIL) was seen but is unattributable to either baseline and is DISCARDED
+unread-in-detail; the gate re-runs against the settled champion after the
+fix decision. Lesson folded into fix_gate.py's docstring: never edit the
+module under measurement while a gate is running.
+
+**PRE-REGISTRATION B — learned tie-breaker (`training/nn/tie_agent.py`,
+the RL track):** measured on 40 mirror games: 31.7% of multi-option
+MAIN-phase decisions have EXACT argmax score ties (mean tie set 3.0, max
+12; 141/956 cross-type — incl. PLAY+END and ATTACH+END), all currently
+broken by array order — the v29c retreat-bug class, generalized. tie_agent
+plays v29d verbatim except within exact tie sets, where it argmaxes Q from
+the round-6 DMC checkpoint (best broad-coverage Q-net; standalone 8.25%
+offline/374.7 live, but the bar here is beating ARRAY ORDER, not beating
+v29d — it cannot override any expressed heuristic preference by
+construction). Smoke: ~14 tie-breaks/game, 76% change the pick, 0 errors.
+Gate (`training/nn/tie_gate.py`): (A) mirror A/B n=400, adopt only if CI
+lower bound > 0.50; (B) anchors non-regression n=200 as usual. Negative
+result → clean report exhibit either way (first bounded-by-construction
+learned integration).
 
 ---
 

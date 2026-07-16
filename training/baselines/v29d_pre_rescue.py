@@ -1,4 +1,4 @@
-import sys, glob, random, math
+﻿import sys, glob, random, math
 
 for _pat in ['/kaggle/input/**/cg-lib', '/kaggle/input/cg-lib']:
     _paths = glob.glob(_pat, recursive=True)
@@ -943,35 +943,14 @@ def _main_phase_features(obs,sel):
         (not cen['has_alakazam'] and
          ((active_below_half and opp_prizes<=3) or phase in(PHASE_PRESSURE,PHASE_CLOSING) or
           candy_lethal_soon)))
-    # Rescue mode (report-log 2026-07-16 rescue mining + same-day amendment):
-    # in the board-thinning regime (issue-#3's pre-registered detector rule,
-    # inlined: turn>=9 AND (no line piece in play OR deck<=6 with hand>=15)),
-    # attacking IMMEDIATELY forfeits the turn's remaining development for
-    # nothing -- the KO does not expire within the turn. One-step-deviation
-    # data: from states where this scorer chose ATTACK, deviating into
-    # ATTACH/PLAY/EVOLVE/ABILITY rescued ~2.5x baseline (19-22% vs 7.9%),
-    # while deviating to END (2.7%) or RETREAT (0%) from the SAME states was
-    # catastrophic -- the value is the development, not the delay. Amendment
-    # (behavior check, same day, before any gate ran): hand>=15 makes every
-    # available un-misted attack a KO, so the demotion must apply to LETHAL
-    # attacks too, margin-gated -- develop first only while the hand keeps
-    # >=3 cards of slack over the KO threshold (each development spends <=1
-    # hand card = 20 damage; the per-select re-score restores ATTACK to 500
-    # the moment slack thins). Never in desperation (opponent about to win:
-    # take the prize NOW), and ATTACK always stays above END.
-    rescue_mode=(turn_n>=9 and not desperation and
-                 (cen['line_count']==0 or (deck_count<=6 and hand_n>=15)))
-    rescue_hold_ko=rescue_mode and hand_n-cards_needed>=3
 
     def score(o):
         ot=o.get('type'); cid=_opt_card_id(o,hand,my_active,bench)
         if ot==ATTACK:
             if not active_can_attack: return-5
             if opp_mist: return-5
-            if rescue_hold_ko: return 1.2
             if can_ko: return 500
             if at_threshold: return W['atk_threshold']
-            if rescue_mode: return 1.2
             if hand_too_small: return 0.5
             return W['atk_default']
         if ot==RETREAT:
@@ -1014,10 +993,7 @@ def _main_phase_features(obs,sel):
             if lone: return-10
             if cid in SUPPRESS_ABILITY_IDS: return-10
             if cid in DRAW_ABILITY_CARD_IDS:
-                # rescue_hold_ko: fall through to the normal deck-safety-gated
-                # scoring -- the flat 2.0 would now fire BEFORE the deferred
-                # KO attack and draw 3 at deck<=6 is a deck-out hazard
-                if can_ko and not rescue_hold_ko: return 2.0
+                if can_ko: return 2.0
                 if cid==DUDUNSPARCE:
                     if hand_surplus: return 0.5
                     if (desperation or lone_active_opportunity) and not emergency_draw: return W['desperation_draw']
@@ -1039,7 +1015,7 @@ def _main_phase_features(obs,sel):
             evo_area=o.get('inPlayArea',4)
             if cid==ALAKAZAM:
                 if evo_area==5:
-                    if can_ko and not rescue_hold_ko: return 3.0
+                    if can_ko: return 3.0
                     if not cen['has_alakazam']: return 50.0
                     if phase==PHASE_ESTABLISH: return W['evo_bench_establish']
                     if phase==PHASE_CONVERT: return W['evo_bench_convert']
@@ -1055,7 +1031,7 @@ def _main_phase_features(obs,sel):
                 if not cen['has_alakazam']: return 16.0
                 return 10.0
             if cid==KADABRA:
-                if can_ko and not rescue_hold_ko: return 3.0
+                if can_ko: return 3.0
                 if evo_area==4 and active_abra_can_evolve and candy_playable:
                     if racing_for_alakazam:
                         # Rare Candy can take THIS SAME active Abra straight to
@@ -1069,7 +1045,7 @@ def _main_phase_features(obs,sel):
                     # skips (net +1 card over the 2-turn climb, piloting-guide §3).
                     return 15.0
                 return 13.0
-            if can_ko and not rescue_hold_ko: return 2.0
+            if can_ko: return 2.0
             if active_non_atk: return 12.0
             return 8.5
         if ot==PLAY:
@@ -1109,9 +1085,7 @@ def _main_phase_features(obs,sel):
                     return 4.0 if (mist_threat and not opp_mist) else W['boss_mega_chip']
                 if opp_mist and ready_alak_exists: return W['boss_mist_escape']
                 return 4.0
-            # rescue_hold_ko: KO deferred within the turn -- keep normal PLAY
-            # routing (development plays were the 21.9%-win deviation class)
-            if can_ko and not rescue_hold_ko: return 1.0
+            if can_ko: return 1.0
             if cid in BENCHABLE_BASIC_IDS:
                 bc=cen['bench_count']
                 if cid==FEZ:
@@ -1244,11 +1218,7 @@ def _main_phase_features(obs,sel):
             return 4.0
         if ot==SKILL: return 5.0
         if ot==ATTACH:
-            # rescue_hold_ko: the KO is deliberately deferred within the turn,
-            # so attaches keep their normal routing value (fueling the backup
-            # line was the 19.4%-win deviation class) instead of the "game's
-            # about to be won, don't waste the attach" guard.
-            if can_ko and not rescue_hold_ko: return 0.5
+            if can_ko: return 0.5
             tgt=_attach_target(o,my_active,bench); tid=_pk_id(tgt)
             is_energy_card=cid in PSYCHIC_ENERGY_IDS or cid==ENRICHING
             if active_immobile and tgt is my_active and is_energy_card:
@@ -1318,10 +1288,6 @@ def _main_phase_features(obs,sel):
             return 3.0
         if ot==DISCARD: return 0.0
         if ot==END:
-            # rescue_mode: END must stay strictly below the demoted non-lethal
-            # ATTACK (1.2) in every phase branch -- ending without the free
-            # chip damage was the 2.7%-win deviation class.
-            if rescue_mode: return 0.8
             if phase==PHASE_CONVERT and hand_n>=8: return W['end_convert']
             if phase==PHASE_PRESSURE and at_threshold: return 3.0
             return 1.0

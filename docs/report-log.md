@@ -4,9 +4,44 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-16 (rescue-fix gate: offline bar not met but all
-four instruments point-positive, zero negative → shipped as experimental
-ladder read v30-exp per Design Principle #1, revert rule pre-registered.)
+**Last updated:** 2026-07-16 (tie-breaker gate: adopt=NO per mirror bar,
+BUT lucario +12.5pp CI-separable — first-ever separable positive for a
+learned component; anchor-centric follow-up pre-registered + launched.)
+
+---
+
+## 2026-07-16 — Tie-breaker gate (clean re-run): adopt=NO per the mirror bar, but lucario +12.5pp [+3.5, +21.5] is the FIRST CI-separably-positive learned-component read in project history → one pre-registered anchor-centric follow-up
+
+**Clean re-run results (vs the fixed main.py = v30-exp, untouched
+mid-run):** GATE A mirror 0.510 [0.461, 0.559] n=400 — FAIL (bar: CI
+lower > 0.50) → **adopt=NO per the pre-registration.** GATE B: lucario
+tie 0.755 vs plain 0.630, **diff +12.5pp [+3.5, +21.5] — CI-separably
+POSITIVE** (a non-regression gate that came back as a significant
+improvement); abomasnow 0.675 vs 0.640, +3.5pp [−5.8, +12.8].
+
+**Cautions, stated before any follow-up ran:** (1) one significant result
+among three same-run comparisons; (2) today's four independent
+plain-main-vs-lucario baseline blocks read 0.630 / 0.665 / 0.703 / 0.705
+(n=200 each) — the baseline itself bounces ~7pp, so +12.5pp against the
+lowest of them likely overstates; against the pooled baseline (~0.676)
+the effect is ~+8pp. (3) The mirror bar may simply be the wrong
+instrument for this component: mirror games are self-play where both
+sides share the tie distribution; the ladder is ~90% non-mirror, and
+mirror-neutral + anchor-positive is the profile that would actually help
+there — the inverse of the v29b/v29c search failure (mirror +9pp, anchors
+−16-29pp, reverted).
+
+**PRE-REGISTERED FOLLOW-UP (the one allowed; before running):**
+anchor-centric power boost. tie_agent vs plain main.py, n=400/anchor
+across lucario + abomasnow + starmie, with same-run plain-main baseline
+blocks (n=400 each). **Adopt bar: pooled across the three anchors, the
+tie-vs-plain diff must be CI-separably positive (95% CI lower bound > 0),
+AND no single anchor CI-separably negative.** Mirror is already measured
+(0.510 ± 0.049, non-negative) and is not re-run. If adopted → ship as a
+multi-file submission via the mandatory extracted-tarball protocol
+(torch + encode chain + card_tables.json). If the pooled diff is not
+separable → the tie-breaker closes as the strongest near-miss in the
+learned-component ledger.
 
 ---
 

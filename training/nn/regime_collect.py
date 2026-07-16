@@ -64,6 +64,7 @@ from eval_v4 import our_seat  # noqa: E402
 SPLIT_SEED = 7
 HELDOUT_FRAC = 0.30
 MAX_PLIES = 300
+DEVIATE_AT_MAX = 24  # ~2x the observed median in-regime decisions/continuation
 
 
 def load_seeds():
@@ -119,10 +120,18 @@ def _restore_stateful(saved):
             setattr(module, a, v)
 
 
-def continue_from(seed_obs, seed_seat, eps, rng, unit_checks):
+def continue_from(seed_obs, seed_seat, eps, rng, unit_checks, deviate_at=None):
     """One continuation: fresh mirror determinization -> play to terminal.
-    Returns (regime_decisions, outcome, plies) or None if the ply cap hit.
-    regime_decisions: [{"obs":…, "action":[i]}] for OUR in-regime decisions."""
+    Returns (regime_decisions, outcome, plies, deviated) or None on ply cap.
+    regime_decisions: [{"obs":…, "action":[i]}] for OUR in-regime decisions.
+
+    deviate_at (round 2, the pre-registered iteration): instead of eps-random
+    at EVERY in-regime decision — which round 1 proved destroys all win
+    contrast (0/13,000 wins; a rescue needs a ~30-decision clean sequence and
+    0.75^30 ≈ 2e-4) — take ONE uniform-random action at the deviate_at-th
+    in-regime decision and play pure heuristic everywhere else. This is the
+    one-step-deviation estimator of Q^v29d(s, a), the exact counterfactual
+    the hybrid deploys (override v29d at a state, v29d plays on)."""
     from cg.api import to_observation_class, search_begin, search_step, search_end
 
     observation = to_observation_class(seed_obs)
@@ -146,6 +155,7 @@ def continue_from(seed_obs, seed_seat, eps, rng, unit_checks):
                           manual_coin=False)
         cur_id, cur_obs = ss.searchId, seed_obs
         decisions = []
+        in_regime_seen = 0
         for ply in range(MAX_PLIES):
             if _is_terminal(cur_obs):
                 out = _terminal_value(cur_obs, seed_seat)
@@ -156,7 +166,8 @@ def continue_from(seed_obs, seed_seat, eps, rng, unit_checks):
                     assert flipped == -out, (
                         f"seat-flip check FAILED: {out} vs {flipped}")
                     unit_checks.append(True)
-                return decisions, out, ply
+                deviated = deviate_at is not None and in_regime_seen >= deviate_at
+                return decisions, out, ply, deviated
             yours = cur_obs["current"]["yourIndex"]
             sel = cur_obs.get("select") or {}
             opts = sel.get("option") or []
@@ -164,7 +175,11 @@ def continue_from(seed_obs, seed_seat, eps, rng, unit_checks):
             action = list(action) if action else [0]
             if yours == seed_seat and not _is_multiselect(sel) and len(opts) > 1 \
                     and regime_fires(cur_obs["current"], seed_seat):
-                if rng.random() < eps:
+                in_regime_seen += 1
+                if deviate_at is not None:
+                    if in_regime_seen == deviate_at:
+                        action = [rng.randrange(len(opts))]
+                elif rng.random() < eps:
                     action = [rng.randrange(len(opts))]
                 decisions.append({"obs": cur_obs, "action": list(action)})
             ss = search_step(cur_id, action)
@@ -203,15 +218,18 @@ def run_source_a(args, samples, csv_w, counters, rng):
     unit_checks = [] if args.verify_seats else None
     for sid, obs, seat in train_seeds:
         for k in range(args.continuations):
-            res = continue_from(obs, seat, args.eps, rng, unit_checks)
+            deviate_at = rng.randint(1, DEVIATE_AT_MAX) if args.deviate_once else None
+            res = continue_from(obs, seat, args.eps, rng, unit_checks, deviate_at)
             if res is None:
                 counters["capped"] += 1
                 continue
-            decisions, outcome, plies = res
+            decisions, outcome, plies, deviated = res
             gid = counters["games"]
             counters["games"] += 1
             counters["wins"] += 1 if outcome == 1 else 0
-            csv_w.writerow(["A", sid, gid, outcome, len(decisions), plies])
+            counters["deviated"] += 1 if deviated else 0
+            csv_w.writerow(["A", sid, gid, outcome, len(decisions), plies,
+                            int(deviated)])
             for d in decisions:
                 d["outcome"] = outcome
                 d["game_id"] = gid
@@ -220,7 +238,7 @@ def run_source_a(args, samples, csv_w, counters, rng):
         print(f"  seed {sid}: cum games={counters['games']} "
               f"winrate={counters['wins']/max(1,counters['games']):.2%} "
               f"samples={counters['flushed'] + len(samples)} "
-              f"capped={counters['capped']}",
+              f"capped={counters['capped']} deviated={counters['deviated']}",
               file=sys.stderr)
         maybe_flush(args, samples, counters)
     if unit_checks is not None:
@@ -284,7 +302,7 @@ def run_source_b(args, samples, csv_w, counters):
                     samples.append(d)
                     kept += 1
                 csv_w.writerow(["B", f"{label}:seat{net_seat}", gid, outcome,
-                                kept, len(r["steps"])])
+                                kept, len(r["steps"]), ""])
         print(f"  fresh vs {label}: cum games={counters['games']} "
               f"samples={counters['flushed'] + len(samples)}", file=sys.stderr)
         maybe_flush(args, samples, counters)
@@ -311,6 +329,10 @@ def main():
                     help="Source B opponent subset (comma list of main,lucario,abomasnow,starmie)")
     ap.add_argument("--eps", type=float, default=0.25,
                     help="in-regime exploration epsilon (both sources)")
+    ap.add_argument("--deviate-once", action="store_true",
+                    help="Source A round-2 mode: ONE uniform-random action at "
+                         "a random in-regime decision per continuation, pure "
+                         "heuristic otherwise (ignores --eps for Source A)")
     ap.add_argument("--verify-seats", action="store_true",
                     help="run the mandatory seat verifications (criterion 2)")
     ap.add_argument("--out", default=os.path.join(_REPO_ROOT, "training", "regime_r1.pkl.gz"))
@@ -321,10 +343,12 @@ def main():
     csv_path = args.out.replace(".pkl.gz", "").replace(".pkl", "") + "_games.csv"
     csv_f = open(csv_path, "w", newline="")
     csv_w = csv.writer(csv_f)
-    csv_w.writerow(["source", "seed_id", "game_id", "outcome", "n_regime_decisions", "plies"])
+    csv_w.writerow(["source", "seed_id", "game_id", "outcome",
+                    "n_regime_decisions", "plies", "deviated"])
 
     samples = []
-    counters = {"games": 0, "wins": 0, "capped": 0, "shard_idx": 0, "flushed": 0}
+    counters = {"games": 0, "wins": 0, "capped": 0, "shard_idx": 0,
+                "flushed": 0, "deviated": 0}
 
     if args.continuations > 0:
         run_source_a(args, samples, csv_w, counters, rng)

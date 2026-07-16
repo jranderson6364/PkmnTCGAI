@@ -10,6 +10,48 @@ v-dmc1b 54740723.)
 
 ---
 
+## 2026-07-15 — PRE-REGISTRATION: round-2 iteration (the ONE allowed by issue #3) — one-step-deviation collection
+
+**Diagnosis driving it (see gate-results entry below):** round 1's eps=0.25
+per-decision exploration destroyed all win contrast — a rescue needs a
+~30-decision clean sequence (P(clean) ≈ 0.75^30 ≈ 2e-4 → expected wins in
+13,000 continuations ≈ 0.25; observed 0). Verified same-day: eps=0 through
+the identical machinery rescues 10.6% (53/500; per-seed win_001 31%,
+win_009 12%, win_016 4%, held-out win_003 0%, win_008 6%) — the seed states
+HAVE headroom, the exploration design was the bug. (Night-1's "10.2% first-5-
+seeds" mid-run read remains unverifiable — night-2 overwrote its artifacts —
+but is consistent with eps having effectively not fired that night; cause
+unknown, code diff between nights rules out the collector logic.)
+
+**Round-2 collection (`--deviate-once`, smoke-tested: 60 continuations,
+18.3% wins, 36/60 deviated, 0 caps):** per continuation, deviate with ONE
+uniform-random action at the k-th in-regime decision (k ~ Uniform[1,24]),
+pure v29d otherwise; continuations that end before k are pure on-policy.
+This is the one-step-deviation estimator of Q^v29d(s,a) — the exact
+counterfactual the hybrid deploys (override once, v29d plays on).
+Config: 1000 continuations x 13 train seeds + Source B 2000 fresh games
+(mirror+lucario+abomasnow+starmie, eps=0 → organic in-regime data only),
+`--verify-seats`, out `training/regime_r2.pkl.gz`.
+
+**Contrast precondition (new, enforced in the chain):** the trainer aborts
+unless the collection TOTAL win rate is ≥ 3% — the round-1 failure mode
+(training on a degenerate corpus) can no longer reach the gate.
+
+**Training (identical recipe to round 1 — data is the ONLY change):**
+`train_dmc.py --data training/regime_r2*.pkl.gz --no-init --big --seed 0
+--epochs 6 --out training/regime_qnet_r2.pth`. Round-1 corpus is NOT mixed
+in: its labels estimate Q under a 25%-random-thereafter behavior policy,
+which is pessimistically biased for exactly the counterfactuals round 2
+needs.
+
+**Gate: unchanged** (same `regime_gate.py`, same bars, same 5 held-out
+seeds, 300 pairs/seed + 200/anchor, REGIME_CKPT=regime_qnet_r2.pth). Both
+pass → F3 ship checklist (with the extracted-tarball clean-room protocol
+and the card_tables.json fix, mandatory since v-dmc1). Gate 1 fails again →
+issue #3 CLOSES per its own rule; closure entry + v29d re-ship path.
+
+---
+
 ## 2026-07-15 — GATE RESULTS (issue #3 Phase C): gate 1 FAIL (CI-separably NEGATIVE), gate 2 PASS — root cause: the regime corpus contains ZERO wins
 
 **Retrain (pre-registered recipe, complete 187,206-sample corpus):** 6

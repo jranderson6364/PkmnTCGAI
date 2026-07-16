@@ -318,18 +318,24 @@ at ladder close (~Aug 16). Do not let an experimental read be final.**
 direction — do NOT relaunch them. Phase A DONE: detector codified
 (`training/nn/regime_detector.py::regime_fires` — `turn>=9 AND
 (line_in_play==0 OR (deck<=6 AND hand>=15))`, game capture 92.9%, FP 0.54%).
-Phase B DONE: ~176k seat-verified in-regime samples
-(`training/regime_r1*.pkl.gz`; night-2 starmie-crash accounting corrected —
-see report-log 2026-07-15). Phase C IN FLIGHT: gate harness built + dry-run
-validated (`training/nn/regime_gate.py`), full detached chain running as of
-2026-07-15 — r1e re-collection → retrain on complete corpus
-(`training/regime_qnet.pth`) → full two-part gate (scenario suite 300
-pairs/seed on the 5 held-out seeds + anchor non-regression n=200 vs
-lucario+abomasnow). Results: `training/nn/regime_gate.log`. **Dry-run early
-warning (n=6, inconclusive): hybrid may bleed won anchor games via the
-deck≤6∧hand≥15 branch firing in winning positions — if gate 2 fails this
-way, refine the detector, fresh FP audit, re-gate.** Kill date Aug 6. Full
-spec: issue #3.
+Phase B DONE: ~187k seat-verified in-regime samples. **Phase C ROUND 1
+GATED 2026-07-15: gate 1 FAIL (CI-separably negative, hybrid rescues 5/1500
+held-out continuations vs plain v29d's 28), gate 2 PASS (no anchor
+regression). Root cause found: the round-1 corpus contained ZERO wins —
+eps=0.25 per-decision exploration destroys the ~30-decision clean sequences
+a rescue needs (verified: eps=0 through the same machinery rescues 10.6%).**
+ROUND 2 (the ONE iteration issue #3 allows) pre-registered + chain running
+detached as of 2026-07-15 night: `--deviate-once` collection (one random
+action at a random in-regime decision, pure v29d otherwise — the
+one-step-deviation Q^v29d estimator; smoke: 18.3% wins), contrast
+precondition ≥3% enforced before training, identical recipe →
+`training/regime_qnet_r2.pth`, unchanged gate → results in
+`training/nn/regime_gate_r2.log`. **Gate 1 fails again → issue #3 CLOSES
+per its own rule (closure entry + v29d re-ship path).** Kill date Aug 6.
+Full spec: issue #3. Separately: v-dmc1b (54740723, COMPLETE) is the live
+learned-model read; any future learned-model ship MUST use the
+extracted-tarball clean-room protocol + bundled card_tables.json (see
+report-log 2026-07-15 no-cg-module entry).
 Prior 2026-07-12 next-step block below kept for context — superseded.**
 
 Prior next-step block (superseded 2026-07-13, kept for context): three local

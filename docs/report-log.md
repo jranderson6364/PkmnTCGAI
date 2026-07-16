@@ -4,9 +4,42 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-16 (issue #3 CLOSED; rescue mining done — two new
-pre-registered experiments launched: development-first heuristic fix +
-learned tie-breaker.)
+**Last updated:** 2026-07-16 (rescue-fix gate: offline bar not met but all
+four instruments point-positive, zero negative → shipped as experimental
+ladder read v30-exp per Design Principle #1, revert rule pre-registered.)
+
+---
+
+## 2026-07-16 — Rescue-fix gate result: adopt=NO offline (51.5% mirror, bar not met) BUT all four instruments point-positive → ladder A/B (v30-exp) with pre-registered revert rule
+
+**Battery results (fix_gate.py, frozen baseline, main.py untouched
+mid-run):** mirror 0.515 [0.466, 0.564] n=400 — FAILS the pre-registered
+adopt bar (CI lower > 0.50); anchors PASS with lucario +0.2pp
+[−8.7, +9.2] and abomasnow +8.0pp [−1.3, +17.3]; held-out scenario suite
+(directional) +0.67pp [−0.59, +1.92] n=750 — per-seed: win_010 +6.7pp,
+win_008 −4.0pp, others ≈0. Note the qualitative contrast with the closed
+Q-net hybrid on the SAME suite: −1.5/−1.6pp CI-separably NEGATIVE both
+rounds. The fix is the first regime intervention with a non-negative
+scenario read. 0 crashes anywhere.
+
+**Decision:** per the pre-registered rule the fix is NOT adopted on
+offline evidence. But all four instruments are point-positive and none
+negative — the exact signature of a small true effect under an
+underpowered mirror (the fix only changes play inside a regime occurring
+in a minority of games; a +10pp in-regime effect dilutes to ~1-2pp
+overall, unresolvable at any practical offline n). Design Principle #1:
+the ladder is the only honest evaluator. **Shipping the fixed main.py as
+an experimental read (v30-exp)** — the v29d safety pair (54760870/
+54760877) keeps one copy in the counting slots regardless.
+
+**Pre-registered revert rule (before the ship):** after ≥48h on the
+ladder, compare v30-exp's publicScore against BOTH v29d copies at the
+same read times (this ladder's score is volatile and age-confounded —
+2026-07-05 lesson, never trust 1-2 reads). If v30-exp reads ≥30 points
+below the LOWER v29d copy on 2 consecutive reads ≥6h apart → revert repo
+main.py to `training/baselines/v29d_pre_rescue.py` content and re-ship
+v29d. If comparable or better after ~4-5 days → the fix becomes the
+champion (v30) and the frozen baseline retires.
 
 ---
 

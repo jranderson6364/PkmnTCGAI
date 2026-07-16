@@ -4,9 +4,68 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-15 (Phase C gate chain running detached; v-dmc1
-live read discovered ERRORED — no-cg-module gap fixed, re-shipped as
-v-dmc1b 54740723.)
+**Last updated:** 2026-07-16 (issue #3 CLOSED after round 2 — see closure
+entry; v-dmc1b live read landed at 374.7; v29d safety pair re-shipped.)
+
+---
+
+## 2026-07-16 — CLOSURE: issue #3 ("learn inside the champion") — round 2 fails gate 1 identically; the regime Q-net override is strictly harmful in both rounds
+
+**Round-2 run (pre-registered 2026-07-15, executed overnight, all
+preconditions green):** collection 14,865 games / 190,324 samples /
+**15.69% win rate** (contrast precondition ≥3% passed — the round-1
+degenerate-labels failure mode was fixed), 0 ply-caps, seat checks OK.
+Training identical recipe, val_sign_acc 0.9486, `training/regime_qnet_r2.pth`.
+
+**GATE 1: FAIL — paired mean diff −0.0160 [−0.0224, −0.0096], n=1500
+(13,273 Q-net overrides).** Round 1 was −0.0153 [−0.0218, −0.0088] — the
+two rounds are statistically indistinguishable from each other. The round-2
+pair cross-tab is absolute: both-lose 1476, control-wins-hybrid-loses 24,
+**hybrid wins 0 of 1500** (round 1: 5). GATE 2: PASS again (lucario +2.0pp
+[−7.2,+11.2], abomasnow −3.5pp [−13.0,+6.0]).
+
+**Closure verdict (per issue #3's own rule — one iteration, then stop):**
+two rounds with independently-constructed corpora — one degenerate
+(all-loss labels), one with verified 15.7% win contrast and the
+theoretically-correct one-step-deviation Q^v29d counterfactual — produce
+the same strictly-harmful override within 0.1pp. The residual explanations
+are structural, not fixable by more/better data of this kind:
+(a) deployment deviates at EVERY in-regime decision (~9/continuation)
+while the round-2 labels price exactly ONE deviation — compounding
+off-policy drift the moment the first override lands; (b) at 10-16% win
+base rates, per-(s,a) Monte-Carlo Q estimates over this state diversity
+are far noisier than v29d's plan-coherent choice. This is the SAME
+signature as the 2026-07-09 closure of the calculated-values-as-action-
+ranker family (4 override mechanisms, 62-75% vs anchors where the plain
+heuristic reads 94-96%) — now replicated twice more with a
+regime-specialized net inside the regime it specialized for. **Per-decision
+value override of this heuristic does not work at any label quality this
+project can produce.**
+
+**What stands as report material (all pre-registered, all gated):** the
+data-derived regime detector (92.9% game capture / 0.54% FP); two full
+collection→train→gate rounds; the exploration-design diagnosis (eps=0.25
+per-decision exploration provably destroys rescue contrast: a rescue needs
+~30 clean decisions, 0.75^30 ≈ 2e-4 — verified by the same machinery
+rescuing 10.6% at eps=0); the one-step-deviation collection infrastructure;
+and the paired-determinization gate harness. Also on disk for any future
+work: ~2,330 WINNING rescue continuations with full decision logs
+(`training/regime_r2*.pkl.gz`, outcome=1 games in
+`training/regime_r2_games.csv`) — raw material for mining what successful
+rescues actually do, e.g. as heuristic-codifiable patterns.
+
+**Live-read calibration landed the same morning: v-dmc1b publicScore
+374.7** (v29d same-read: 673.5; fresh-submission floor is 600). The
+first-ever live read of a learned model in this project confirms Design
+Principle #1 in its harshest form: "8.25% offline vs v29d" is not a weak
+ladder agent, it is a catastrophic one. Every offline-only learned-model
+number in this project should be read through that lens.
+
+**Actions taken:** GitHub issue #3 closed. **v29d safety pair re-shipped**
+(54760870 + 54760877, identical to 54481189, clean-room validated) so both
+counting submission slots hold the known-good heuristic — the documented
+Aug-14 backstop executed early now that the live read has its answer.
+Verify at Aug 14 that the latest-2 are still as intended.
 
 ---
 

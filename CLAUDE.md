@@ -313,29 +313,30 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 better agent is already the 2 newest submissions — only the latest 2 count
 at ladder close (~Aug 16). Do not let an experimental read be final.**
 
-**>>> NEXT STEP (as of 2026-07-15): PIVOT — "learn inside the champion"
-(GitHub issue #3). The 2026-07-12 interrupted jobs are SKIPPED at user
-direction — do NOT relaunch them. Phase A DONE: detector codified
-(`training/nn/regime_detector.py::regime_fires` — `turn>=9 AND
-(line_in_play==0 OR (deck<=6 AND hand>=15))`, game capture 92.9%, FP 0.54%).
-Phase B DONE: ~187k seat-verified in-regime samples. **Phase C ROUND 1
-GATED 2026-07-15: gate 1 FAIL (CI-separably negative, hybrid rescues 5/1500
-held-out continuations vs plain v29d's 28), gate 2 PASS (no anchor
-regression). Root cause found: the round-1 corpus contained ZERO wins —
-eps=0.25 per-decision exploration destroys the ~30-decision clean sequences
-a rescue needs (verified: eps=0 through the same machinery rescues 10.6%).**
-ROUND 2 (the ONE iteration issue #3 allows) pre-registered + chain running
-detached as of 2026-07-15 night: `--deviate-once` collection (one random
-action at a random in-regime decision, pure v29d otherwise — the
-one-step-deviation Q^v29d estimator; smoke: 18.3% wins), contrast
-precondition ≥3% enforced before training, identical recipe →
-`training/regime_qnet_r2.pth`, unchanged gate → results in
-`training/nn/regime_gate_r2.log`. **Gate 1 fails again → issue #3 CLOSES
-per its own rule (closure entry + v29d re-ship path).** Kill date Aug 6.
-Full spec: issue #3. Separately: v-dmc1b (54740723, COMPLETE) is the live
-learned-model read; any future learned-model ship MUST use the
-extracted-tarball clean-room protocol + bundled card_tables.json (see
-report-log 2026-07-15 no-cg-module entry).
+**>>> STATUS (as of 2026-07-16): issue #3 ("learn inside the champion")
+CLOSED per its own pre-registered rule after two full gated rounds — gate 1
+failed both (round 1 −1.53pp with a zero-win corpus; round 2 −1.60pp with
+verified 15.7% win contrast and one-step-deviation Q^v29d labels; hybrid
+rescued 0/1500 held-out continuations in round 2). Per-decision Q override
+of v29d is strictly harmful at any label quality this project can produce —
+the 2026-07-09 action-ranker closure signature, replicated inside the
+failure regime with a regime-specialized net. Full story: report-log
+2026-07-15/16. **Same morning, the first-ever live learned-model read
+landed: v-dmc1b (54740723) publicScore 374.7** vs v29d's 673.5 — offline
+"8.25% vs v29d" is live-catastrophic; read every offline-only learned-model
+number through that lens (Design Principle #1). **v29d safety pair
+re-shipped (54760870 + 54760877)** so both counting slots hold the
+known-good heuristic — Aug-14 backstop executed early; still VERIFY at
+Aug 14 that the latest-2 are as intended. Any future learned-model ship
+MUST use the extracted-tarball clean-room protocol + bundled
+card_tables.json (report-log 2026-07-15 no-cg-module entry).
+**Candidate next directions (user's call):** (a) mine the ~2,330 winning
+rescue continuations now on disk (`training/regime_r2*.pkl.gz` +
+`regime_r2_games.csv` outcome=1) for heuristic-codifiable rescue patterns —
+heuristic fixes are this project's only consistently positive lever, and
+this is the first-ever corpus of SUCCESSFUL play from the board-thinning
+regime; (b) more ladder-loss replay mining; (c) report assembly from the
+report-log; (d) Aug 1 merger criteria / Aug 9 merger call.
 Prior 2026-07-12 next-step block below kept for context — superseded.**
 
 Prior next-step block (superseded 2026-07-13, kept for context): three local

@@ -79,6 +79,71 @@ Arm 2 closes with it, untested.
 
 ---
 
+## 2026-07-18 — Ladder matchup profile by archetype (replay outcome mining) + a corpus correction
+
+**Question (deck-switch discussion follow-up):** does any archetype dominate
+the observed ladder, and where does our agent actually bleed, in outcomes
+rather than shares?
+
+**CORPUS CORRECTION, stated loudly:** every replay on disk involves OUR OWN
+team — the FIELD (non-us) table is empty across all 1,835 parsed files. All
+prior "meta share" numbers have always been *our-opponent* shares
+(matchmaking-band-biased), not field composition, and "which deck do top
+teams win most with" is UNANSWERABLE from this corpus. Any future claim
+needs episodes downloaded for *other* teams' submissions.
+
+**Method:** `tools/archetype_winrates.py` — classifies BOTH seats via
+`meta_survey.py` signatures (each seat from its own records' public
+board+discard zones), outcome from final-step rewards with the
+crash-asymmetry handling copied from `harness.summarize()`. Clean slices
+exclude loss-mined folders (`exploiter_wins`, `v23`, `v25.2`).
+
+**Result — opponent archetype's win rate AGAINST US:**
+
+| archetype | bulk era (v22-v26, n=1608) | recent era (v28-v30, n=206) |
+|---|---|---|
+| grimmsnarl | **73.8%** (n=61) | **75.0%** (n=16) |
+| rockets-mewtwo | 83.3% (n=12) | 100% (n=2) |
+| archaludon | 54.5% (n=99) | **63.0%** (n=27) |
+| starmie | 58.3% (n=163) | 61.5% (n=13) |
+| alakazam (mirror) | **64.2%** (n=148) | 57.1% (n=28) |
+| dragapult | **67.9%** (n=168) | 50.0% (n=16) |
+| crustle | 28.6% (n=133) | 45.8% (n=24) |
+| other/unknown | 43.1% (n=306) | 41.7% (n=24) |
+| lucario | 53.6% (n=348) | **35.4%** (n=48) |
+| abomasnow | 48.8% (n=86) | 20.0% (n=5) |
+
+(Recent-era overall balance is ~50/50 — 102 opponent wins / 101 ours — so
+that slice is a broad pull, not a loss-mine.)
+
+**Reading:**
+1. **Grimmsnarl is the single worst persistent matchup** — ~74-75% against
+   us in BOTH eras (combined n≈93, ~69 losses on disk) and never addressed
+   by any fix arc. New top replay-mining target.
+2. The older era's biggest volume-weighted bleeds — mirror (64.2%,
+   n=148) and dragapult (67.9%, n=168) — improved in the recent era
+   (57.1% / 50.0%), but the mirror is STILL a losing matchup live, which
+   independently corroborates the running W-search's mirror-fitness
+   objective choice.
+3. Lucario flipped from ~coin-flip against us (53.6%) to our best
+   high-volume matchup (35.4% against us, i.e. we win 64.6%, n=48) —
+   plausibly the cumulative v25c→v29d fix arc; a real, live-measured
+   improvement.
+4. **Offline anchors vastly understate live pilots**: same-day offline
+   reads vs the reference bots are 95.3% (lucario) / 97.7% (dragapult) for
+   us, while live same-archetype opponents score 35-50-68% against us
+   depending on era. This is Design Principle #1 quantified per-archetype —
+   and why Gate B treats anchors as regression guards, never as signal.
+5. Archaludon worsened (54.5→63.0% against us) and starmie is stably
+   ~58-62% — secondary conditioning/mining targets after grimmsnarl.
+
+**Report relevance:** the per-archetype offline-vs-live calibration
+(point 4) is a headline figure candidate; the corpus correction is
+documented before September can inherit the error; matchup profile gives
+Arm 2 its live target list.
+
+---
+
 ## 2026-07-18 — v30-exp ladder check #0 (EARLY, non-counting): 659.0 vs v29d copies 708.9/693.5
 
 00:27 read, ~31h post-ship — the revert rule's clock starts at ≥48h

@@ -4,9 +4,92 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-16 (tie-breaker CLOSED: the +12.5pp lucario
-signal evaporated at n=400/anchor — pooled −0.7pp [−4.2, +2.8], exact
-parity with array-order tie-breaking. v30-exp ladder read pending.)
+**Last updated:** 2026-07-18 (pre-registered: W-space CEM policy search at
+the corrected mirror+anchor-guard objective, + contingent belief-gated
+per-archetype conditioning. v30-exp early ladder read 659.0 — non-counting,
+qualifying reads start this evening.)
+
+---
+
+## 2026-07-18 — PRE-REGISTRATION: W-space direct policy search at the corrected objective (mirror fitness + anchor guard) + contingent belief-gated per-archetype conditioning
+
+**Date:** 2026-07-18, registered before any search games run.
+
+**Hypothesis:** direct policy search (CEM) over `main.W`'s 29 play-relevant
+scoring constants, with fitness measured as win rate against a frozen
+snapshot of the current champion and hard anchor non-regression guards, can
+find a `W` that beats the hand-tuned defaults. This is the one method family
+whose improvement operator is *external* (measured win rate vs. opponents,
+i.e. selection on the true objective) rather than a value signal distilled
+from the teacher — structurally exempt from the "can't exceed the teacher"
+closure that killed all fifteen learned-policy arms.
+
+**Why Stage 0b's SPSA null (2026-07-02) does not block this:** that run
+(a) optimized the MIRROR objective only, with no anchor guard — its own
+closure names "mirror-matchup overfit"; (b) selected its ship candidate as
+best-of-344-noisy-evals — its closure names winner's-curse selection. Since
+then, mirror-vs-anchor divergence became this project's most replicated
+phenomenon (v29 search +9pp mirror / −16-29pp anchors; tie-breaker +12.5pp
+lucario evaporating at pooled anchors). This design fixes both named
+failure modes: anchor non-regression is a hard gate, and the adoption
+candidates are the final CEM *mean* (+ top elite of the final generation
+only), never best-of-noisy-evals.
+
+**Method (plain English):**
+- Search space: the 29 play-relevant `W` keys (all except the 3 `prior_T_*`
+  keys, which are consumed only by `training/nn/mcts.py`, not by `main.py`'s
+  own play). CEM in log-space (multiplicative perturbations, σ₀=0.25,
+  σ-floor 0.08), population 16 (candidate 0 = current mean each generation),
+  elite 4, mean/σ EMA 0.7/0.3 — same recipe as `training/nn/cem_tune.py`.
+- Fitness: win rate over 128 seat-alternated mirror games (64/seat) vs. a
+  frozen verbatim snapshot of current `main.py` (v30-exp code; weights are
+  the only variable). Errors count as losses. Ties 0.5.
+- Infra: `training/wsearch/` — `wsearch_agent.py` wrapper (imports `main.py`
+  under a private module name, patches `W` from the JSON at env
+  `WSEARCH_WEIGHTS` at import time; per-candidate env via `harness.py`
+  `extra_envs` job tagging), `wsearch.py` CEM driver (checkpoint + full
+  history every generation, resumable), detached `Start-Process` launch per
+  the 2026-07-12 infra lesson. ~30 generations overnight (~60k games).
+- Phase 0 (before launch): plumbing check — wrapper with defaults-valued
+  JSON vs. frozen base, n=200, expect ~50% and 0 errors; same-session
+  anchor baselines for current `main.py` at n=300/anchor
+  (lucario/abomasnow/starmie; dragapult included iff 0-error at n=20).
+
+**Gate A (mirror, per candidate):** n=600 seat-alternated vs. frozen base —
+adopt requires ≥54.0% AND Wilson 95% CI excluding 50%.
+**Gate B (anchors, per candidate):** n=300/anchor — no anchor more than 4pp
+below its same-session Phase-0 baseline, 0 errors.
+**Adopt rule:** a candidate must pass BOTH gates. Ladder ship additionally
+requires its own entry + the standard packaging/clean-room protocol; no ship
+straight from search output.
+**Kill rule:** if both final candidates (CEM mean, top final-gen elite) fail
+Gate A → W-space is closed under the corrected objective; this upgrades the
+Stage 0b closure from "SPSA at the wrong objective found nothing" to
+"the constants are not the binding constraint, full stop." Report either way.
+
+**Arm 2 (contingent, pre-registered now):** if Gate A passes but Gate B
+fails (mirror-only win — the v29-search signature), do NOT discard: build
+belief-gated conditioning — `main.py` applies `W_mirror` only on a
+confident alakazam-mirror belief read (existing `_belief_posterior`,
+0.97-recalibrated threshold), default `W` otherwise. Verify firing rate
+(~0% vs anchors, high in mirror), then re-run both gates with conditioning
+active. This is the tie-breaker-validated bounded-integration pattern with
+a parameter-level (not action-override) payload. If the search is null,
+Arm 2 closes with it, untested.
+
+---
+
+## 2026-07-18 — v30-exp ladder check #0 (EARLY, non-counting): 659.0 vs v29d copies 708.9/693.5
+
+00:27 read, ~31h post-ship — the revert rule's clock starts at ≥48h
+(2026-07-16 17:27 ship → first qualifying read after 2026-07-18 17:27), so
+this does NOT count as read #1. For the record: v30-exp (54766181)
+publicScore 659.0; v29d copies 708.9 (54760870) / 693.5 (54760877); gap to
+the LOWER copy 34.5 — above the ≥30 revert threshold if it persists into
+two qualifying reads ≥6h apart. Caveat per 2026-07-05: single reads on this
+ladder have swung >100 points; that is exactly why the rule requires two
+spaced reads. Next action: qualifying read #1 this evening (~17:30+),
+read #2 ≥6h later.
 
 ---
 

@@ -343,7 +343,22 @@ pre-registered revert rule (report-log 2026-07-16): after ≥48h, v30-exp
 main.py to `training/baselines/v29d_pre_rescue.py` + re-ship v29d;
 comparable-or-better after ~4-5 days → fix becomes champion v30.
 **>>> NEXT CHECK ~2026-07-18: read v30-exp (54766181) vs 54760870/54760877
-publicScores and apply the rule.** RL track: the learned TIE-BREAKER
+publicScores and apply the rule.** *(Update, 2026-07-18 00:27: EARLY
+non-counting read taken — v30-exp 659.0 vs v29d copies 708.9/693.5, gap to
+the lower copy 34.5, i.e. above the ≥30 revert threshold IF it persists;
+the rule's clock starts ≥48h post-ship, so qualifying read #1 is due after
+2026-07-18 17:27, read #2 ≥6h later.)*
+**>>> ACTIVE (2026-07-18): W-space direct policy search (CEM, log-space,
+29 play-relevant `W` keys) at the corrected mirror+anchor-guard objective —
+pre-registered in report-log 2026-07-18, running detached overnight
+(`training/wsearch/`, log `training/wsearch/run1_detached.log`). Phase 0
+clean: plumbing 47.5% n=200 0 errors; same-session anchor baselines
+lucario 95.3 / abomasnow 94.3 / starmie 97.3 / dragapult 97.7 (all n=300,
+0 errors — dragapult confirmed working locally again). Gates: A = n=600
+mirror ≥54% CI-excluding-50%; B = no anchor >4pp below baseline. Kill rule:
+both final candidates fail A → W-space closed under the corrected
+objective. Contingent Arm 2 (belief-gated W_mirror via `_belief_posterior`)
+pre-registered in the same entry.** RL track: the learned TIE-BREAKER
 (Q-net argmax within exact heuristic score ties, 31.7% of MAIN-phase
 multi-option decisions) CLOSED same day — an n=200 lucario read of
 +12.5pp CI-separable evaporated to pooled −0.7pp [−4.2, +2.8] at

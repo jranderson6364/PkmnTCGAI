@@ -1,0 +1,32 @@
+{
+ "candidate": "training/wsearch/run1_mean_weights.json",
+ "gateA": {
+  "wr": 0.5333333333333333,
+  "n": 600,
+  "errors": 0,
+  "wilson95": [
+   0.4933285624144801,
+   0.5729139753636392
+  ]
+ },
+ "gateB_lucario": {
+  "wr": 0.9466666666666667,
+  "n": 300,
+  "errors": 0
+ },
+ "gateB_abomasnow": {
+  "wr": 0.9466666666666667,
+  "n": 300,
+  "errors": 0
+ },
+ "gateB_starmie": {
+  "wr": 0.98,
+  "n": 300,
+  "errors": 0
+ },
+ "gateB_dragapult": {
+  "wr": 0.9866666666666667,
+  "n": 300,
+  "errors": 0
+ }
+}

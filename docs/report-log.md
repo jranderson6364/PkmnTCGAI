@@ -79,6 +79,56 @@ Arm 2 closes with it, untested.
 
 ---
 
+## 2026-07-18 — W-space search CLOSED: both adoption candidates fail Gate A — the constants are not the binding constraint, now at the corrected objective
+
+**Result (per the pre-registration below, applied verbatim):** 30
+generations, 61,440 search games, 0 errors. Fitness trajectory: evolving
+mean 49.1% (first 10 gens) → 52.6% (last 10) — weak drift. Gates: CEM mean
+53.3% [49.3, 57.3] n=600 (FAIL: <54% and CI includes 50%; anchors clean at
+94.7/94.7/98.0/98.7); top elite 49.5% [45.5, 53.5] (FAIL decisively).
+**Kill rule fires: W-space is closed under the corrected mirror+
+anchor-guard objective.** Stage 0b's closure upgrades from "SPSA at the
+mirror-overfit objective found nothing" to "~116k total tuning games
+across two properly-distinct objectives found nothing separable" — the
+hand-tuned W constants are genuinely near-optimal for this policy class.
+**Arm 2 (belief-gated per-archetype W override) closes with it, untested,
+per its contingency clause** (it required a mirror-positive W to gate).
+Report relevance: the cleanest possible "direct policy search over the
+champion's own parameters" ablation row; the external-selection-operator
+argument was sound but the search space had no headroom to find.
+
+---
+
+## 2026-07-18 — PRE-REGISTRATION: v31 candidate — unreachable-tank Boss support-farming fix
+
+**Registered before the gate runs (fix coded, regression 7/7 green, no gate
+games yet).** Change (2 edits in `main.py`, diff vs v30-exp): new
+state-keyed flag `opp_tank_unreachable` (their active's HP exceeds
+`max_hand_estimate×20`, un-misted) relaxes `boss_target_exists`'s three
+suppression gates (late-phase-only, target-quality, prize-value-vs-active)
+— when the active's prize is unreachable this turn, ANY KO-able bench
+target is a correct Boss+KO. Deliberately state-keyed, not
+grimmsnarl-keyed: generalizes to all unreachable-tank states and
+self-resolves when the hand reaches OHKO range. Basis: the grimmsnarl
+decision-trace diagnosis below (Boss 0-1×/game in losses; the prize-value
+gate compared against a 2-prize active we can never take).
+
+**Gates (n, bars fixed now):**
+- G1 grimmsnarl bot, n=400 seat-alternated: champion baseline is 42.5%
+  [35.6, 49.4] (n=200 same-day); adopt requires ≥50% AND CI lower bound
+  above the baseline point (i.e. lower bound >42.5%).
+- G2 mirror non-regression, n=400 vs pre-fix snapshot: CI must include 50%
+  or favor the fix (lower bound ≥46%).
+- G3 anchor panel n=300 each (lucario/abomasnow/starmie/dragapult): no
+  anchor >4pp below the same-session phase-0 baselines (95.3/94.3/97.3/
+  97.7), 0 errors.
+**Kill rule:** G1 fails → revert both edits (keep the bot + diagnosis as
+report material). G1 passes but G2/G3 regress → retry as
+archetype-flagged (Marnie-ids) variant per the original spec, one retry
+only.
+
+---
+
 ## 2026-07-18 — Grimmsnarl post-mortem: mechanism identified, scripted counter-bot built — beats the champion 63.3% on first draft (the first discriminating offline opponent this project has ever had)
 
 **Why (follow-up to the matchup-profile entry below):** grimmsnarl beats us

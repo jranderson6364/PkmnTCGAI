@@ -1,0 +1,32 @@
+{
+ "candidate": "training/wsearch/run1_top_elite.json",
+ "gateA": {
+  "wr": 0.495,
+  "n": 600,
+  "errors": 0,
+  "wilson95": [
+   0.4551529268390802,
+   0.534910692494202
+  ]
+ },
+ "gateB_lucario": {
+  "wr": 0.96,
+  "n": 300,
+  "errors": 0
+ },
+ "gateB_abomasnow": {
+  "wr": 0.9433333333333334,
+  "n": 300,
+  "errors": 0
+ },
+ "gateB_starmie": {
+  "wr": 0.9766666666666667,
+  "n": 300,
+  "errors": 0
+ },
+ "gateB_dragapult": {
+  "wr": 0.9833333333333333,
+  "n": 300,
+  "errors": 0
+ }
+}

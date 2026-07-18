@@ -348,17 +348,33 @@ non-counting read taken — v30-exp 659.0 vs v29d copies 708.9/693.5, gap to
 the lower copy 34.5, i.e. above the ≥30 revert threshold IF it persists;
 the rule's clock starts ≥48h post-ship, so qualifying read #1 is due after
 2026-07-18 17:27, read #2 ≥6h later.)*
-**>>> ACTIVE (2026-07-18): W-space direct policy search (CEM, log-space,
-29 play-relevant `W` keys) at the corrected mirror+anchor-guard objective —
-pre-registered in report-log 2026-07-18, running detached overnight
-(`training/wsearch/`, log `training/wsearch/run1_detached.log`). Phase 0
-clean: plumbing 47.5% n=200 0 errors; same-session anchor baselines
-lucario 95.3 / abomasnow 94.3 / starmie 97.3 / dragapult 97.7 (all n=300,
-0 errors — dragapult confirmed working locally again). Gates: A = n=600
-mirror ≥54% CI-excluding-50%; B = no anchor >4pp below baseline. Kill rule:
-both final candidates fail A → W-space closed under the corrected
-objective. Contingent Arm 2 (belief-gated W_mirror via `_belief_posterior`)
-pre-registered in the same entry.** RL track: the learned TIE-BREAKER
+**>>> 2026-07-18 session results (full detail: report-log 2026-07-18
+entries, newest-first):**
+- **W-space CEM search CLOSED** per its pre-registered kill rule: 30 gens /
+  61,440 games / 0 errors; gates — CEM mean 53.3% [49.3,57.3] n=600 (FAIL),
+  top elite 49.5% (FAIL); anchors clean. The W constants are near-optimal
+  for this policy class even at the corrected mirror+anchor-guard
+  objective. **Arm 2 (belief-gated per-archetype W) closed with it,
+  untested, per its contingency clause.**
+- **Grimmsnarl arc (the session's real positive):** matchup profile mining
+  (`tools/archetype_winrates.py` — plus a corpus correction: ALL replays
+  involve us, no field-vs-field data exists) found grimmsnarl beats us
+  74-75% in both eras. Mechanism identified from card data (Punk Up
+  instant setup + Shadow Bullet 180+30 into our fully Dark-weak line;
+  320 HP outscales Powerful Hand; Xerosic theory tested and REJECTED).
+  **`opponents/grimmsnarl_agent.py` (scripted counter-bot) beats the
+  champion 57.5% n=200 — the first discriminating offline opponent this
+  project has ever had** (all reference anchors ≤6%); use it as a gate
+  opponent and candidate external training signal for future learned arms.
+- **v31 candidate** (state-keyed `opp_tank_unreachable` flag relaxing
+  `boss_target_exists`'s suppression gates — Boss+KO support farming vs
+  unreachable tanks): coded, regression 7/7, pre-registered gates running
+  (`training/wsearch/v31_gates.py`, results land in
+  `training/wsearch/v31_gate_results.json`).
+- **v30-exp ladder:** early NON-counting read 00:27 — 659.0 vs v29d copies
+  708.9/693.5 (gap 34.5 > the 30 revert bar IF it persists). Qualifying
+  read #1 due after 17:27 today, read #2 ≥6h later; apply the 2026-07-16
+  revert rule verbatim. RL track: the learned TIE-BREAKER
 (Q-net argmax within exact heuristic score ties, 31.7% of MAIN-phase
 multi-option decisions) CLOSED same day — an n=200 lucario read of
 +12.5pp CI-separable evaporated to pooled −0.7pp [−4.2, +2.8] at

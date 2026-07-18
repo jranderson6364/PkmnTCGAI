@@ -79,6 +79,62 @@ Arm 2 closes with it, untested.
 
 ---
 
+## 2026-07-18 — Grimmsnarl post-mortem: mechanism identified, scripted counter-bot built — beats the champion 63.3% on first draft (the first discriminating offline opponent this project has ever had)
+
+**Why (follow-up to the matchup-profile entry below):** grimmsnarl beats us
+74-75% in both eras and was never analyzed. Mined all 77 grimmsnarl games
+(57 losses / 20 wins) with a scratch aggregator (end-state + revealed-card
+frequency + hand-reset events).
+
+**Loss anatomy (n=57):** median loss ends turn 12-13 with US at 4 prizes
+remaining vs THEIR 1 — prize-race blowouts, not deck-outs (only 9/57 end
+deck-empty). Our final board: full-ish (5-6 Pokémon in 34/57) but 0-1
+energy (mean 0.9) vs their 5.6 — attacker attrition, energy dying with the
+Pokémon. Our winning finals average an 18-20 card hand; our losing finals
+11.
+
+**Mechanism (verified against card data, not memory):**
+1. **Marnie's Grimmsnarl ex: 320 HP** → needs a 16-card Powerful Hand to
+   OHKO; **Punk Up** (on-evolve: fetch+attach up to 5 Basic {D} from deck)
+   explains their instant 5-6-energy boards; **Shadow Bullet** ({D}{D},
+   180 + 30 bench snipe) OHKOs our ENTIRE line every turn —
+2. **the whole Abra/Kadabra/Alakazam line (and Munkidori) is Dark-WEAK**,
+   so this archetype is a double structural counter: type weakness on our
+   line + a win condition (hand=damage) that 320 HP outscales.
+3. **Munkidori Adrena-Brain** shuttles 3 damage counters/turn back onto us
+   (undoes chip; finishes snipe-damaged bench). Battle Cage DOES block
+   ability-placed counters on our bench (verified text) — partial answer.
+4. **Xerosic hypothesis REJECTED by measurement:** hand-resets-to-≤3 occur
+   mean 0.4/loss (median 0), no loss-vs-win contrast — Xerosic's
+   Machinations is present (30/77 reveals) but NOT the dominant mechanism.
+   Logged as a correction to the initial read of the card list.
+
+**Counter-bot:** `opponents/grimmsnarl_agent.py` — official-sample-agent
+framework (lucario template), hand-tuned 60-card list from the 77-game
+evidence (the 3-game reconstruction in `archetype_decks.json` was too
+crude: 4-of-everything, no Xerosic, 4 energy), expresses the core loop
+(Impidimp→Candy/Morgrem→Grimmsnarl, Punk Up scored via multi-pick select,
+Shadow Bullet with weakness math from local cg card_table, Adrena-Brain,
+Boss-on-KOable, Xerosic-on-big-hand). Uses `training/local_cg` for full
+card data locally (falls back to the Kaggle cg-lib glob when shipped —
+which it never will be; local training use only).
+
+**First validation (n=30, seat-alternated, 0 errors): 63.3% vs the frozen
+champion** — 80% going first / 47% going second (real-feeling race
+asymmetry). Every other offline opponent wins ≤6% vs the champion; the
+live grimmsnarl bots win 74-75%. n=200 confirm running.
+
+**Why this matters beyond the matchup:** every closed learned arm died on
+"no signal source external to the teacher." A scripted opponent that
+BEATS the champion is exactly such a source — usable as (a) the gate
+opponent for grimmsnarl-matchup fixes, (b) a discriminating fitness/eval
+term for optimization arms (the current W-search's mirror objective was
+chosen partly because anchors were all at ceiling — this changes that
+calculus for future rounds), (c) report material: replay mining →
+mechanism → faithful counter-bot in one overnight session.
+
+---
+
 ## 2026-07-18 — Ladder matchup profile by archetype (replay outcome mining) + a corpus correction
 
 **Question (deck-switch discussion follow-up):** does any archetype dominate

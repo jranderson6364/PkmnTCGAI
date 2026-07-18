@@ -124,6 +124,25 @@ champion** — 80% going first / 47% going second (real-feeling race
 asymmetry). Every other offline opponent wins ≤6% vs the champion; the
 live grimmsnarl bots win 74-75%. n=200 confirm running.
 
+**n=200 confirm (same day): 57.5% [50.6, 64.4] vs the champion** (64.0%
+going first / 51.0% going second, 0 errors) — the discriminating-opponent
+result stands at scale.
+
+**Decision-trace diagnosis (12 keep_steps games, champion's MAIN choices
+scanned):** wins attack from t3 nearly every turn (support-KO farming or
+ramp-to-16+ tank swings); losses show 2-3 attacks TOTAL in 16-21 turns
+with up to 6 ENDs, and repeated sub-lethal swings into the 320 tank that
+Adrena-Brain heals back (hand 9-12 → 180-240 dmg → tank observed back at
+320 two turns later), while KO-able support (Impidimp 70 = hand 4,
+Morgrem 100 = 5, Munkidori 110 = 6 — Powerful Hand places counters, no
+weakness/resistance math) sits benched and Boss is played 0-1 times/game.
+**Fix spec (v31 candidate, to be gated vs this bot + mirror/anchor
+non-regression):** on an observed-Marnie-line flag (ids 646/647/648
+revealed — the 5-class belief posterior has NO grimmsnarl class, so key on
+card reveals like the crustle precedent): (a) demote non-KO attacks into
+Grimmsnarl ex, (b) boost Boss+KO on hp≤20×hand support targets, (c) boost
+attack-over-END once armed (the drought is the loss signature).
+
 **Why this matters beyond the matchup:** every closed learned arm died on
 "no signal source external to the teacher." A scripted opponent that
 BEATS the champion is exactly such a source — usable as (a) the gate

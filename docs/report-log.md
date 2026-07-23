@@ -11,6 +11,90 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — P1 DONE: the calibrated offline panel, and the first offline opponents that beat our champion
+
+**Date:** 2026-07-23, same session. Endgame-plan P1 executed.
+
+**Problem this solves.** Design Principle #1 says offline win rates systematically
+overrate and only the ladder is honest. That principle has shaped every decision
+this project has made — but it was never *quantified*, and it left us with no
+usable local evaluator: every reference anchor reads ≤6% against our champion, so
+offline results were simultaneously undiscriminating and uncalibrated.
+
+**Method.** Extracted four public competition agents with published ladder scores
+into `opponents/public/` via `tools/extract_public_agents.py` (Apache-2.0
+notebooks; used ONLY as local sparring partners and diff targets — never
+submitted, attribution written into every file). Handled two embedding styles
+(`%%writefile main.py` cells; base64+zlib payload blobs). Measured every agent
+head-to-head against a common reference (v29d, publicScore 673.5), n=100, seats
+alternated, 0 errors; converted win rate to Elo; regressed publicScore on it
+(`training/calibrate_panel.py`).
+
+**Result 1 — we finally have discriminating offline opponents.** All four run
+locally with zero errors, and every one beats or ties our champion:
+
+| agent | publicScore | wr vs v29d (n=100) | 95% CI |
+|---|---|---|---|
+| probability_v2 | 933.8 | 61.0% | [0.51, 0.70] |
+| advanced_heuristic | 796.8 | 64.0% | [0.54, 0.73] |
+| alakazam_v9 | 778.2 | 55.0% | [0.45, 0.64] |
+| alakazam_v8 | 739.7 | 37.0% | [0.28, 0.47] |
+| v29d (reference) | 673.5 | 50% | — |
+| v30-exp | 637.8 | 51.7% (n=60) | [0.39, 0.64] |
+| lucario sample | 600.0 | 4.0% | [0.02, 0.10] |
+| abomasnow sample | 509.6 | 10.0% | [0.06, 0.17] |
+
+This is the first time in the project's history that an offline opponent beats
+our champion. The ladder diagnosis is now reproducible on this machine.
+
+**Result 2 — the calibration.**
+
+```
+publicScore = 749.4 + 0.407 x offlineElo      n=8, R^2 = 0.537, residual SD = 97.0
+100 offline Elo                     ~  41 publicScore points
++10pp win rate vs v29d (near 50%)   ~  29 publicScore points
+```
+
+**Result 3 — the residual scale is the ladder's own noise floor.** Residual SD is
+**97.0**. The identical-code A/A test found two byte-identical submissions
+scoring **88.4 apart**. Those are the same order of magnitude. A large share of
+the 46% unexplained variance is therefore plausibly *evaluator noise, not model
+error* — offline Elo may be close to as good a predictor as anything can be
+against a target this noisy. **Stated with care: the A/A figure is a single
+paired observation, so it bounds the noise floor only roughly** (one pair
+differing by 88.4 implies a per-submission SD near 60, not 88). The claim is an
+order-of-magnitude match, not an identity.
+
+**Result 4 — a pre-registered gate threshold, at last.** Inverting the fit: a
+**+50 publicScore** improvement needs roughly **+123 offline Elo ≈ +17pp win rate
+vs v29d**. Any candidate that cannot clear ~+17pp offline should not be expected
+to move the ladder at all, because the change would sit inside the noise floor.
+This is the concrete bar every future candidate is gated against.
+
+**Notable residuals.** `probability_v2` is offline-UNDERRATED by 153 points: it
+scores 933.8 live but only 61% against our v29d. The natural reading is matchup
+composition — it is a Mega Lucario deck and our Psychic Alakazam is its worst
+matchup, so a v29d-anchored panel understates it against the real field. This is
+a live warning that a single-reference star topology is not a full round-robin.
+`v30-exp` is offline-OVERRATED by 116.
+
+**Prediction for the new Lucario pilot:** offline Elo −330 → predicted
+publicScore **615** (±~194 at 2 residual SD), versus v29d's actual 673.5.
+Independently consistent with the panel gate that declined to adopt it.
+
+**Report relevance.** Very high. This converts Design Principle #1 from a
+qualitative warning into a measured transfer function with an error bar, gives
+every future gate a pre-registered threshold in ladder points, and supplies the
+measurement-integrity chapter its centrepiece alongside the A/A test.
+
+**Limitations, stated.** Star topology against one reference, not a round-robin
+(the `probability_v2` residual shows this bites). n=8 fit points. Ladder scores
+were read at a single time each and are themselves noisy — the y-axis has error
+bars we are not modelling. `battlecore` (846.8) did not extract; its payload
+regex needs work, and it would add a ninth point.
+
+---
+
 ## 2026-07-23 — Mega Lucario ex deck switch: pilot built from scratch, gated, NOT yet adoptable
 
 **Date:** 2026-07-23, same session as the notebook survey below.

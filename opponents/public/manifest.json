@@ -1,0 +1,26 @@
+[
+  {
+    "ref": "aristophanivan/probablity-v2",
+    "file": "probability_v2.py",
+    "publicScore": 933.8,
+    "label": "Mega Lucario ex heuristic"
+  },
+  {
+    "ref": "raunakdey07/pok-mon-tcg-advanced-heuristic-agent",
+    "file": "advanced_heuristic.py",
+    "publicScore": 796.8,
+    "label": "Expectimax+UCB1 heuristic"
+  },
+  {
+    "ref": "prvsiyan/ptcg-ai-battle-search-audited-alakazam-v9",
+    "file": "alakazam_v9.py",
+    "publicScore": 778.2,
+    "label": "Search-audited Alakazam"
+  },
+  {
+    "ref": "prvsiyan/ptcg-ai-battle-field-audited-alakazam-v8",
+    "file": "alakazam_v8.py",
+    "publicScore": 739.7,
+    "label": "Field-audited Alakazam"
+  }
+]

@@ -199,6 +199,27 @@ retroactively reinterprets a prior ship decision (the v29d revert). It also
 corrects an over-confident conclusion THIS project made six entries earlier — the
 process working in public.
 
+**SHIPPED for a live ladder read (2026-07-23).** Since local eval is invalid for
+search agents and the isolated arena did not land, the ladder is the only valid
+test — and alakazam_v9 proves the recipe works there (778.2). Packaged the 2-ply
+agent SELF-CONTAINED (`training/nn/package_twoply_submission.py`: main.py wrapper
++ heuristic.py = frozen v30 + deck.csv; PLACEHOLDER determinization inlined
+instead of the heavy BeliefDeterminizer tree — alakazam_v9's own fallback path;
+hand-size leaf eval baked in). Guards: `__file__`-safe (borrows heuristic's), cg-
+optional (globs cg-lib, falls back to pure heuristic if absent), 0.8s hard budget
++ pure-heuristic fallback on any failure. **Clean-room validated from the
+extracted tarball via Kaggle's `get_last_callable`** (raw-string exec, no
+`__file__`): cg-unavailable path falls back cleanly (60-card deck, 0 crash); cg-
+available path fires the search (13.2s/game whole-game wall, safe under the 600s
+match clock), 0 errors over 6 games. Shipped v29d backstop first (54937108) then
+twoply (54937110) so the **counting pair = twoply + v29d**; both validated
+`SubmissionStatus.COMPLETE`, both at the 600.0 fresh floor. **NEXT: read
+twoply's publicScore over the next several days vs the v29d backstop and the
+v30-exp/known-Alakazam band (~636). If twoply clears the band, search is a real
+ladder lever and the recipe is validated; if it tanks (like v-dmc1b's 374.7),
+either Kaggle shares the search-RNG contamination too or the placeholder
+determinization is too weak — revert to the v29d pair before Aug 16.**
+
 **Report relevance.** Potentially very high — the first method to exceed our own
 heuristic, obtained by replicating a live-ladder-proven recipe on a
 placebo-validated instrument, with a clear mechanistic reason (veto vs replace)

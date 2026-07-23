@@ -11,6 +11,86 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — Mega Lucario ex deck switch: pilot built from scratch, gated, NOT yet adoptable
+
+**Date:** 2026-07-23, same session as the notebook survey below.
+
+**Directive.** User called the deck switch to Mega Lucario ex explicitly, with the
+survey's concern (freeze closed on a pre-registered rule; 24 days out) in view.
+Reaffirmed decision → executed in full.
+
+**Hypothesis.** The deck is not the constraint, the pilot is. Mega Lucario ex
+reads 76.4% archetype win rate; the two strongest public agents (933.8 and LB
+1091) both pilot it; the OFFICIAL sample pilot for the same 60 cards beats our
+v29d only **7.5%** (3W-37L, n=40). If the gap is pilot quality, a competent
+pilot should close most of it.
+
+**Method.** Built `main_lucario.py` from the card mechanics — not from any
+competitor's source; the 60-card list is the organizers' published sample list (a
+game fact), every scoring decision is ours. Reused v22-v30's deck-agnostic
+crash-safety and stall-resolution scaffolding. Also built
+`training/lucario_diag.py`, decision-level instrumentation that wraps the agent
+and records every choice it makes (the harness observation carries no `logs`, so
+replay parsing is not available — this is ground truth about the policy).
+
+**Five real bugs found and fixed, each by diagnostic not by guessing:**
+
+| # | Bug | Evidence | Fix |
+|---|---|---|---|
+| 1 | Attacked on only ~5 of 11 turns; never declined an available attack (0 cases) → attacks simply were not legal | fuelled Mega Lucario sat on the BENCH behind an empty active | energy priority gets +1400 when the ACTIVE is below its attack threshold |
+| 2 | Fired Cosmic Beam 8× in 12 games | card text: "If you don't have Lunatone on your Bench, this attack does nothing" | skip it unless Lunatone is benched |
+| 3 | Lunar Cycle starved → discard empty → Aura Jab had nothing to fetch; Mega Lucario averaged **1.57** energy vs a Mega Brave threshold of 2 | over-conservative "keep 2 spare" gate | fire freely once a Lucario line is out — the pitched energy comes straight back via Aura Jab |
+| 4 | Aura Jab scored on damage only, so the accelerator lost every tie | engine never spun up | score its real payload: `min(3, F_in_discard, bench_demand) × 900` |
+| 5 | After Aura Jab loads the bench, never promoted the loaded attacker → Mega Brave usage fell 11→5 per 14 games | loop left open | `upgrade_available`: switch when a benched Mega Lucario is paid up and the active is not |
+
+**Two techs added from card math, not tuning:** multi-copy Premium Power Pro
+(items are not once-per-turn, so 270 + 3×30 = **360** is the only way this deck
+one-shots a 350 HP Mega Abomasnow ex), and **pre-evolution sniping** — a Basic
+that evolves into an ex is worth far more dead than its 1 prize implies
+(`_evolves_into_big`, +2600). The latter independently reproduces a public
+writeup's confirmed H6 result ("Snover-first prevents Mega evolution").
+
+**Result — 5-anchor panel, n=100 each, seats alternated, 0 errors:**
+
+| Opponent | Lucario pilot | v29d Alakazam | Δ |
+|---|---|---|---|
+| abomasnow | 55.0% ±9.8 | 90.0% ±5.9 | −35pp |
+| dragapult | 78.0% ±8.1 | 99.0% ±2.0 | −21pp |
+| lucario (official sample) | 62.0% ±9.5 | 96.0% ±3.8 | −34pp |
+| starmie | 98.0% ±2.7 | 96.0% ±3.8 | +2pp |
+| grimmsnarl | 36.0% ±9.4 | 31.0% ±9.1 | +5pp |
+| **mean** | **65.8%** | **82.4%** | **−16.6pp** |
+
+Trajectory within the session: vs v29d, official sample **7.5%** → our first
+draft **20.0%**; vs abomasnow, **42.0% → 55.0%** (+13pp, CI-separable) on the
+pre-evolution-sniping + multi-PPP round.
+
+**Decision: NOT adopted.** The pilot is ~17pp behind v29d on the panel. The
+deck's ceiling is real (933.8 / 1091 publicly) but one session of pilot work does
+not reach it, and `main.py` stays Alakazam. `main_lucario.py` is kept as a live
+candidate, not shipped.
+
+**Honest caveat on the panel.** It is NOT field-weighted: abomasnow is 7.8% of
+the real field and carries the worst archetype delta in the meta (−393), yet it
+drives the largest single gap here. Field-weighted, the picture is much closer to
+a wash — but most of the real field (crustle, archaludon, the 25.9% unknown tail,
+the Alakazam mirror) has no anchor at all. **This panel cannot decide a deck
+switch**, which is a direct argument for endgame-plan P1 (the calibrated panel
+built from public agents of known ladder score).
+
+**Method note worth keeping.** Two tuning rounds were steered on n=14 samples
+(±26pp CI) before this was caught — the project's own documented failure mode.
+The n=100 panel reversed the apparent read. Logged as a process failure, not
+hidden.
+
+**Report relevance.** Strong. A same-session deck-switch attempt with five
+diagnostic-driven bug fixes, a clean negative gate, and an explicit statement of
+why the evaluator was too narrow to decide is exactly the 70%-axis material the
+Strategy track asks for. Also a second, independent instance of the project's
+"tuned on noise" failure mode, caught and corrected in-session.
+
+---
+
 ## 2026-07-23 — Public notebook survey: leaderboard diagnosis, a contaminated-measurement warning, and an accidental A/A test
 
 **Date:** 2026-07-23. Not an experiment — a literature/competitor survey run at

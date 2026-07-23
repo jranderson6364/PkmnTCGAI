@@ -10,34 +10,58 @@ kept as-is). Evidence base: `docs/competitor-notebook-survey.md`.*
 
 ## The calendar we are running against
 
+**VERIFIED 2026-07-23 against the official competition timeline page.**
+
 | Date | Days out | Event |
 |---|---|---|
 | 2026-07-23 | 0 | today |
-| **2026-08-09** | 17 | Simulation entry deadline (per organizers' post — **VERIFY**) |
-| **2026-08-16** | 24 | ladder close (Kaggle read "24 days to go" on 07-23) |
-| **2026-09-06** | 45 | Strategy report due (per organizers' post; our docs say ~Sep 13 — **VERIFY**) |
+| **2026-08-09** | 17 | Entry deadline **and** team-merger deadline (rules must be accepted — we already have) |
+| **2026-08-16** | 24 | **Final Submission Deadline** — submissions lock |
+| 2026-08-17 → ~08-31 | 25–39 | games keep running on the locked pair; leaderboard finalises at the end |
+| **2026-09-06** | 45 | Hackathon/Strategy report due (separate competition page) |
+
+Two mechanics confirmed from the rules page that change how we ship:
+
+- **Only the latest 2 submissions are active**, and **the leaderboard shows the
+  best of them**. Our current active pair is v30-exp (637.8) and the *weaker*
+  v29d copy (620.5); the 708.9 copy is third-latest and therefore inactive. That
+  is exactly why the team reads 637.8.
+- **Games continue for ~2 weeks after the Aug 16 lock.** The final pair keeps
+  playing, so σ shrinks after we stop being able to intervene. Whatever is in
+  those two slots on Aug 16 is what the final ranking is built from.
 
 ---
 
 ## Framing: what we are actually optimizing
 
-**Top-8 on the ladder is not reachable.** We are at 637.8; the cutoff is 1114.1;
-we have 24 days and a 5/day submission budget against an 88-point noise floor.
-Any plan that targets ladder rank as the win condition is a plan to fail. Say
-this plainly and move on.
+**CORRECTION (2026-07-23), read this before planning anything.** An earlier draft
+of this plan said the ladder was "instrumental, not the goal" because the money
+sits in the Strategy/Hackathon track. **The official rules say otherwise:**
 
-**The $240k is in the Strategy track**, scored 70% model approach / 20% deck
-concept / 10% report, and judged from the writeup. Simulation participation is a
-prerequisite, not a bar. So:
+> "The Competition track itself does not include monetary prizes. However,
+> participants who submit a report to the Hackathon track will be eligible for
+> prize awards. **Final rankings for Hackathon prizes will be determined based on
+> both the Competition leaderboard performance and the Hackathon evaluation.**"
 
-> **Primary objective:** a Strategy submission whose 70% model-approach axis is
-> unusually well-evidenced.
-> **Secondary objective:** a ladder score that makes that submission credible —
-> call it 800–900, i.e. above the public Alakazam agents rather than 140 below
-> them. Instrumental, not the goal.
+So ladder performance is a **direct input to prize ranking**, not merely a
+credibility signal. The two objectives are coupled, and the earlier framing
+under-weighted the ladder.
 
-Everything below is ordered by contribution to the primary objective, with the
-cheap secondary-objective wins taken early because they are nearly free.
+**What stays true:** top-8 on the ladder is not reachable from 637.8 in 24 days
+against a 1114.1 cutoff and an ~88-point noise floor. A plan that targets ladder
+rank alone is still a plan to fail.
+
+**What changes:** ladder work is no longer the cheap side-quest. Revised
+objectives, both first-class:
+
+> **Objective A — leaderboard performance.** Close as much of the piloting gap as
+> the calendar allows. Realistic target 800–900, i.e. at or above the public
+> Alakazam agents rather than 140 below them.
+> **Objective B — the report.** A Hackathon submission whose model-approach axis
+> is unusually well-evidenced.
+
+The good news is that the work overlaps heavily: the calibrated panel (P1) and
+the disagreement mining (P3) serve both at once.
 
 ---
 

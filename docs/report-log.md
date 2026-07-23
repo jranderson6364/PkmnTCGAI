@@ -11,6 +11,90 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — P3: disagreement mining vs a byte-identical stronger pilot — three candidates, none ship, one real methodology lesson
+
+**Date:** 2026-07-23, same session, endgame-plan P3.
+
+**Setup, and why it is unusually clean.** `opponents/public/alakazam_v9.py`
+(publicScore 778.2) runs a **byte-identical 60-card list** to v29d (673.5) —
+verified by deck diff, 0 differences. So the entire ~105-point ladder gap between
+them is *piloting*, nothing else. Built `training/disagree_mine.py`: play our
+agent, and at every one of our multi-option decisions ask the stronger pilot what
+it would do; rank the disagreement classes by frequency.
+
+**Finding — the gap is large and distributed.** Across 40 games: **37.4% of all
+multi-option decisions disagree; 68.8% of MAIN-phase decisions.** Not a few
+blunders — a systematically different policy on the same deck. Top classes:
+
+| class | count/40g | reading |
+|---|---|---|
+| `Powerful Hand → PLAY:<Basic>` (Dunsparce/Abra/Poffin) | ~68 | they develop the bench *before* attacking; we attack immediately |
+| `EVOLVE/ATTACH → PLAY:<Basic>` | ~40 | same theme: board width first |
+| `IS_FIRST: YES → NO` | 20/20 = **100%** | they always go second; we always go first |
+| `END → ATTACK:1071` (Kadabra's Super Psy Bolt) | ~21 | they chip with Kadabra; we pass |
+
+**Two mechanisms, both real:**
+1. **We had NO IS_FIRST handling.** `main.py`'s context dispatch fell through to
+   a blanket "prefer YES," so we went first every game by accident. Powerful Hand
+   = 20 × hand size, and going second keeps you one card up at every comparable
+   point → hand-size-as-damage prefers second.
+2. **`can_ko` crushed every development play to 1.0** and attacked at once, which
+   is *how the board stays 1-2 wide* — board-thinning, this project's #1
+   documented live failure (18/18 mined exploiter losses; 10/27 fresh v29d losses
+   end with zero line pieces in play). v30-exp already measured
+   develop-before-KO at +19-22% rescue in a narrow late regime; alakazam_v9 does
+   it as a matter of course.
+
+**Three candidates built** (`training/candidates/v31_second.py`,
+`v31_develop.py`, `v31_combo.py`), each keeping lethality (only develop while the
+KO stays reachable). Regression 7/7. Gated:
+
+| candidate | mirror vs v29d (n=200) |
+|---|---|
+| v31_second (go second) | 52.5% ±6.9 |
+| v31_develop (develop-before-KO) | 52.5% ±6.9 |
+| v31_combo (both) | 48.5% ±6.9 — worse than either alone |
+
+All ~+2.5pp, CI includes 50%. By the P1 calibration (+17pp needed for +50 ladder
+points) a 2.5pp effect ≈ 7 ladder points — **sub-threshold. None ship.**
+
+**The panel test, and the honest lesson.** v31_develop against the panel, n=120-150:
+
+| opponent | v29d | v31_develop | Δ | in-sample? |
+|---|---|---|---|---|
+| alakazam_v9 | 33.3% | 44.7% | **+11.4** | **YES — mined from this agent** |
+| probability_v2 | 37.5% | 39.2% | +1.7 | no |
+| advanced_heuristic | 51.7% | 38.3% | −13.4 | no |
+| alakazam_v8 | 50.8% | 53.3% | +2.5 | no |
+| mirror | 50.0% | 52.5% | +2.5 | no |
+
+The +11.4 vs alakazam_v9 is **the least trustworthy cell, not the headline**:
+the candidate was built by imitating alakazam_v9, so pulling that specific
+matchup toward 50% is mechanically expected (in-sample) whether or not we got
+stronger in general. The out-of-sample cells are flat-to-mixed (and at n=120 the
+difference CIs are ±12pp, so the −13.4 is only ~2 SE from zero — unreadable).
+**Honest verdict: converged the matchup we imitated; no demonstrated transfer to
+the field.**
+
+**Why this matters more than three dead candidates (the methodology point).** A
+~+105-point piloting edge provably exists on the identical deck, but it is
+*distributed* across many decision classes at ~+2.5pp each — and a ±7pp mirror
+A/B rejects each one individually as noise. Single-class gating therefore
+guarantees rejecting all of them even if the aggregate is large. The next
+experiment is not another single class: it is the **top ~5 non-circular MAIN
+classes as one bundle, gated on the panel with alakazam_v9 HELD OUT, n≥300/cell**
+— a clean train/test split. If the held-out bundle is flat, imitation-of-a-
+stronger-pilot does not transfer to general strength, and that becomes a
+first-class report finding. Expectation set low: 5 classes will not capture +105,
+so this is "does the road go anywhere," not "this ships."
+
+**Report relevance.** High. The disagreement-mining method, the byte-identical
+controlled comparison, the in-sample/out-of-sample discipline, and the
+"distributed edge is invisible to per-class gating" insight are all strong
+70%-axis content — regardless of whether the bundle eventually lands.
+
+---
+
 ## 2026-07-23 — P1 DONE: the calibrated offline panel, and the first offline opponents that beat our champion
 
 **Date:** 2026-07-23, same session. Endgame-plan P1 executed.

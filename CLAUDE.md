@@ -293,6 +293,7 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 |------|-------|
 | **Full reference breakdown** | `docs/project-reference.md` |
 | **Public competitor/official notebook survey + leaderboard diagnosis** | `docs/competitor-notebook-survey.md` |
+| **Plan from 2026-07-23 to competition close (phases P0-P6)** | `docs/endgame-plan.md` |
 | Game mechanics/decision-structure rundown (for ML method choice) | `docs/game-nature.md` |
 | Roadmap / writeup strategy | `docs/competition-strategy.md` |
 | Experiment journal + glossary + target figures | `docs/report-log.md` |

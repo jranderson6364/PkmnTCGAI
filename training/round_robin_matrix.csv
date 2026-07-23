@@ -1,0 +1,11 @@
+a,b,a_wins,b_wins,ties,n
+v29d,probability_v2,41,59,0,100
+v29d,advanced_heuristic,39,61,0,100
+v29d,alakazam_v9,44,56,0,100
+v29d,alakazam_v8,57,43,0,100
+probability_v2,advanced_heuristic,47,53,0,100
+probability_v2,alakazam_v9,35,65,0,100
+probability_v2,alakazam_v8,43,57,0,100
+advanced_heuristic,alakazam_v9,34,66,0,100
+advanced_heuristic,alakazam_v8,40,60,0,100
+alakazam_v9,alakazam_v8,61,39,0,100

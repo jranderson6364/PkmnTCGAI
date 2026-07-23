@@ -45,19 +45,34 @@ from harness import run_matches  # noqa: E402
 
 PANEL_AGENT = os.path.join(_HERE, "panel_agent.py")
 
-# Fitness opponents: the discriminating public panel (known ladder scores).
+
+def _opp(*parts):
+    return os.path.join(_REPO, "opponents", *parts)
+
+
+# FIELD-REPRESENTATIVE fitness (redesigned 2026-07-23 after the round-robin found
+# raw-panel win rate is R^2=0.004 with ladder score because the scored panel is
+# Alakazam-heavy). Opponents are weighted by REAL meta share (survey / belief
+# model: lucario 16.3, starmie 12.1, dragapult 10.9, alakazam 10.4, abomasnow
+# 7.8, grimmsnarl ~8), so fitness approximates the actual ladder field instead of
+# an archetype-skewed subset. The Alakazam slice uses the strongest public pilot
+# (alakazam_v9) as the mirror opponent. Weights are normalized over the
+# archetypes we have agents for (the ~26% unknown tail has no agent).
 FITNESS = {
-    "probability_v2":     os.path.join(_REPO, "opponents", "public", "probability_v2.py"),
-    "advanced_heuristic": os.path.join(_REPO, "opponents", "public", "advanced_heuristic.py"),
-    "alakazam_v9":        os.path.join(_REPO, "opponents", "public", "alakazam_v9.py"),
-    "alakazam_v8":        os.path.join(_REPO, "opponents", "public", "alakazam_v8.py"),
+    "lucario":    (_opp("public", "probability_v2.py"), 0.16),   # strongest Lucario pilot
+    "starmie":    (_opp("starmie_agent.py"),            0.12),
+    "dragapult":  (_opp("dragapult_agent.py"),          0.11),
+    "alakazam":   (_opp("public", "alakazam_v9.py"),    0.10),   # mirror slice, strong pilot
+    "abomasnow":  (_opp("abomasnow_agent.py"),          0.08),
+    "grimmsnarl": (_opp("grimmsnarl_agent.py"),         0.08),
 }
-# Held-out generalization gate: the field anchors the search never optimizes on.
+# Held-out generalization gate: DIFFERENT strong pilots of the same archetypes,
+# never optimized on. If the winner overfits to the specific fitness opponents,
+# it regresses here.
 HELDOUT = {
-    "abomasnow":  os.path.join(_REPO, "opponents", "abomasnow_agent.py"),
-    "dragapult":  os.path.join(_REPO, "opponents", "dragapult_agent.py"),
-    "grimmsnarl": os.path.join(_REPO, "opponents", "grimmsnarl_agent.py"),
-    "starmie":    os.path.join(_REPO, "opponents", "starmie_agent.py"),
+    "advanced_heuristic": (_opp("public", "advanced_heuristic.py"), 1.0),
+    "alakazam_v8":        (_opp("public", "alakazam_v8.py"),        1.0),
+    "lucario_sample":     (_opp("lucario_agent.py"),                1.0),
 }
 
 STATE = os.path.join(_HERE, "panel_search_state.json")
@@ -74,34 +89,37 @@ def _stock_W():
 
 
 def eval_weights(w_json_path, opponents, games_per_opp, workers):
-    """Mean win rate of the candidate (panel_agent + injected W) across opponents,
-    seat-alternated. Errors count as losses."""
-    total_w = total_n = 0
+    """META-WEIGHTED mean win rate of the candidate across opponents,
+    seat-alternated. `opponents` maps name -> (path, meta_weight). Errors count
+    as losses. Returns (weighted_fitness, per-opponent WR)."""
     per = {}
-    for name, opp_path in opponents.items():
+    wr_sum = wt_sum = 0.0
+    for name, (opp_path, wt) in opponents.items():
         half = games_per_opp // 2
-        # candidate as P0
         envs = [{"PANEL_WEIGHTS": w_json_path}] * half
         r0 = run_matches(PANEL_AGENT, opp_path, half, workers=workers, progress=False, extra_envs=envs)
-        # candidate as P1
         envs = [{"PANEL_WEIGHTS": w_json_path}] * (games_per_opp - half)
         r1 = run_matches(opp_path, PANEL_AGENT, games_per_opp - half, workers=workers, progress=False, extra_envs=envs)
         w = n = 0
         for r in r0:
+            n += 1
             if "error" in r:
-                n += 1; continue
-            rew = r["rewards"]; n += 1
+                continue
+            rew = r["rewards"]
             if rew[0] is not None and rew[1] is not None and rew[0] > rew[1]:
                 w += 1
         for r in r1:
+            n += 1
             if "error" in r:
-                n += 1; continue
-            rew = r["rewards"]; n += 1
+                continue
+            rew = r["rewards"]
             if rew[0] is not None and rew[1] is not None and rew[1] > rew[0]:
                 w += 1
-        per[name] = w / max(1, n)
-        total_w += w; total_n += n
-    return total_w / max(1, total_n), per
+        wr = w / max(1, n)
+        per[name] = round(wr, 3)
+        wr_sum += wt * wr
+        wt_sum += wt
+    return wr_sum / max(1e-9, wt_sum), per
 
 
 def main():

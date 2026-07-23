@@ -11,6 +11,64 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — Round-robin recalibration: offline panel win rate is NEARLY UNCORRELATED with ladder score (R²=0.004)
+
+**Date:** 2026-07-23. Endgame-plan follow-up to P1, to fix the star-topology bias
+(everything measured vs one reference, v29d). Full round-robin among the 5 scored
+agents, n=100/pair, seats alternated, 0 errors (`training/round_robin.py`,
+matrix in `training/round_robin_matrix.csv`).
+
+**Result — the calibration collapses.**
+
+| agent | round-robin gElo | overall WR | publicScore |
+|---|---|---|---|
+| alakazam_v9 | **+68.1** | 62.0% | 778.2 |
+| alakazam_v8 | −1.6 | 49.8% | 739.7 |
+| advanced_heuristic | −17.0 | 47.0% | 796.8 |
+| probability_v2 | −22.6 | 46.0% | **933.8** |
+| v29d | −26.9 | 45.2% | 673.5 |
+
+Fit: `publicScore = 784.4 − 0.157·gElo`, **R² = 0.004** (was 0.537 in P1's
+star-topology fit). Offline panel strength does **not** predict ladder score.
+
+**Why.** The scored panel is archetype-skewed — 3 of 5 are Alakazam (v29d,
+alakazam_v9, alakazam_v8), 1 Lucario (probability_v2), 1 other
+(advanced_heuristic). So:
+- `alakazam_v9` tops the offline panel by beating the other Alakazam pilots on
+  mirror skill AND beating the lone Lucario (65-35).
+- `probability_v2` (**highest ladder score, 933.8**) sinks to 4th because it faces
+  a mostly-Alakazam panel; it beats v29d 59% but loses to the stronger Alakazam
+  pilots (alakazam_v9 35-65, alakazam_v8 43-57). On the REAL ladder it faces a
+  diverse field where its Lucario deck is strong — hence 933.8.
+
+**Why P1's star fit looked OK (R²=0.537) and this doesn't.** P1 happened to
+anchor everything on v29d (Alakazam), and its own residual already flagged
+probability_v2 as mis-ranked by −153. The round-robin gives every agent equal
+weight against the skewed field, which turns that one mis-ranking into a
+correlation-destroying one.
+
+**Consequences — this changes the weight-search plan.**
+1. **Design Principle #1 is vindicated hard, with a number:** offline win rate vs
+   a small non-representative panel is nearly orthogonal to ladder strength.
+2. The pre-registered **raw-panel** weight search (entry below) would optimize
+   "beat an Alakazam-heavy panel" = **Alakazam-mirror overfit**, the exact failure
+   that closed the 2026-07-18 search. **Do not run it as written.** Redesign the
+   fitness to be **meta-share-weighted across the real archetype field** (the
+   field anchors weighted by real meta share, with the public Alakazam pilots as
+   the mirror slice) before optimizing. That is the honest ladder objective; raw
+   panel win rate is not.
+3. A calibration panel must be **archetype-representative of the real field**, or
+   it ranks agents by matchup composition rather than skill. Adding scored agents
+   of diverse archetypes (or weighting by meta share) is required before any
+   offline number is trusted as a ladder proxy again.
+
+**Report relevance.** Very high — this is a clean, quantified statement of why
+offline evaluation fails on this competition, with a concrete mechanism (panel
+archetype composition) and a fix (meta-weighting). It is the empirical backbone
+of the measurement-integrity chapter, alongside the A/A noise floor.
+
+---
+
 ## 2026-07-23 — PRE-REGISTRATION: panel-fitness CEM weight search (the untested objective)
 
 **Registered before any search games run.**

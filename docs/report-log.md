@@ -11,6 +11,53 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — PRE-REGISTRATION: panel-fitness CEM weight search (the untested objective)
+
+**Registered before any search games run.**
+
+**Hypothesis.** Our 29 tunable `W` constants can be improved by CEM optimization
+**against the discriminating public panel** (probability_v2 933.8,
+advanced_heuristic 796.8, alakazam_v9 778.2, alakazam_v8 739.7 — all beat/tie
+v29d), where the 2026-07-18 W-space CEM search — which CLOSED negative — could
+not, because that run's fitness was **mirror win rate vs a frozen copy of our own
+policy** plus weak-anchor guards. Its own closure named the cause: mirror-matchup
+overfit + winner's curse against opponents that cannot discriminate real
+weaknesses (anchors read ≤6% against us; the mirror only rewards mirror-overfit).
+
+**Why this is genuinely new, not a re-run of the closed search:**
+1. **Discriminating fitness.** The panel did not exist during the 2026-07-18
+   search. These are strong opponents that punish real weaknesses — the same kind
+   of opposition that produced alakazam_v9's evolutionarily-tuned weights (its
+   source shows a `wm4 evo` genome). Optimizing our weights against real strength
+   is the one axis the closure explicitly left untested.
+2. **Winner's-curse guards, per the prior closure's post-mortem.** CEM averages
+   over an elite set; the updated mean is RE-EVALUATED at 2× games before it is
+   trusted; the accepted winner is gated on a **held-out** opponent set (the field
+   anchors abomasnow/dragapult/grimmsnarl/starmie) it never optimized against.
+
+**Method.** `training/wsearch/panel_search.py` (+ `panel_agent.py`, injecting
+candidate W over the refreshed `frozen_main_v30.py` = current shipped policy).
+CEM: pop 20, elite 6, ~12 games/opponent/candidate (48/candidate across the
+4-agent panel), relative-σ init 0.25, ≤12 generations. Fitness = mean
+seat-alternated win rate vs the panel, errors = losses.
+
+**Pre-registered decision rule.** ADOPT only if BOTH: (a) the re-evaluated best
+mean beats stock panel fitness by a margin whose bootstrap CI excludes 0, AND
+(b) held-out anchors do not regress (best ≥ stock − 3pp on the held-out mean).
+Then convert to a real ladder-point estimate via the P1 calibration and gate
+on the full panel at n≥300 before any ship. If the best mean does not clear
+stock on the panel, or clears the panel but regresses held-out, the line
+CLOSES negative — a second, cleaner confirmation (real opponents this time)
+that this policy class's hand-set weights are near-optimal.
+
+**Report relevance.** High either way. A positive result is the first offline
+weight improvement this project has produced and a direct answer to "how does a
+778.2 pilot beat our 673.5 on the identical deck." A negative result, obtained
+against genuinely strong opposition rather than a mirror, is a much stronger
+version of the 2026-07-18 closure.
+
+---
+
 ## 2026-07-23 — Held-out bundle test on the Lucario pilot: imitation of a stronger pilot does NOT transfer (clean negative + a mechanism)
 
 **Date:** 2026-07-23, same session. User reaffirmed "keep pushing Lucario" after

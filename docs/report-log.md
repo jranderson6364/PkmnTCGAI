@@ -11,6 +11,67 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — Held-out bundle test on the Lucario pilot: imitation of a stronger pilot does NOT transfer (clean negative + a mechanism)
+
+**Date:** 2026-07-23, same session. User reaffirmed "keep pushing Lucario" after
+seeing the panel's regression prediction (~615 vs v29d 673.5); this is that push,
+run as the advisor-designed go/no-go on whether imitating a stronger pilot buys
+general strength.
+
+**Setup.** `probability_v2` (publicScore **933.8**, the strongest public agent
+overall) is a Mega Lucario pilot whose deck is **55/60 identical** to our
+`main_lucario` (differs only by +1 Riolu, +1 Boss, +1 F-energy, −2 Poké Pad, −1
+Gravity Mountain). Mined `main_lucario` vs `probability_v2`: **40.2% of decisions
+disagree**, and our pilot loses **27/30**. Two dominant, mechanistic classes:
+1. `ATTACH:Energy → PLAY:<search item>` — the 933.8 pilot develops (Dusk Ball /
+   Poké Pad / Gong) before attaching; we attach immediately.
+2. `ATTACH_FROM: Lunatone → Makuhita/Hariyama` (74.2%, the highest-rate context)
+   — Aura Jab routes discard energy, and we were putting it on **Lunatone (a
+   non-attacker)**; a genuine bug.
+
+**Bundle built** (`training/candidates/lucario_bundle.py`): (a) fix the Aura Jab
+routing to score by attacker need however the target is addressed, and (b) defer
+the manual energy attach below search/draw (`W['attach_defer']=3600`).
+
+**Result — clean negative, both instruments:**
+
+| opponent | baseline main_lucario | bundle | note |
+|---|---|---|---|
+| probability_v2 (IN-SAMPLE) | 10.0% | **5.8%** | worse against the very teacher it was mined from |
+| abomasnow | 55.0% | 56.7% | flat |
+| dragapult | 78.0% | 76.7% | flat |
+| grimmsnarl | 36.0% | 40.0% | flat (within noise) |
+| advanced_heuristic | (baseline pending) | 7.5% | — |
+
+**The mechanism, and why this is a good negative.** The in-sample regression has
+a concrete cause: the deck's draw supporters **destroy un-attached energy** —
+Lillie's Determination shuffles the hand into the deck, Carmine discards it.
+Scoring the manual attach *below* draw supporters means we play Lillie/Carmine
+first and **shuffle our own energy away before attaching it**. The diagnostic
+showed energy-on-Lucario falling 1.93 → 1.29. The 933.8 pilot develops before
+attaching only with **non-destructive searches** (Dusk Ball / Poké Pad / Gong),
+never before hand-wrecking draw supporters — a distinction naive action-imitation
+cannot see.
+
+**Lesson (the real output).** Imitating a stronger pilot's *surface actions*,
+without the underlying model that makes those actions correct, is not just
+neutral — it can be actively harmful, because a copied action ordering violates a
+deck-specific interaction the source pilot was implicitly respecting. This is the
+sharpest possible answer to the go/no-go: **per-class imitation of a stronger
+same-deck pilot does not transfer to strength on this deck.** It also concretely
+explains WHY the +105-point piloting edge is real yet uncapturable by mining:
+the edge lives in the model, not in the action distribution.
+
+**Follow-up in flight:** isolating the Aura Jab routing fix (an unambiguous bug)
+from the harmful attach-defer, to keep the former if it stands on its own.
+
+**Report relevance.** Very high — this is a rigorous, mechanistically-explained
+negative with a clean in-sample/out-of-sample split, and it directly informs the
+learned-agent chapters: it is independent evidence for why behavioural cloning
+plateaus (surface-action imitation misses the model), from the heuristic side.
+
+---
+
 ## 2026-07-23 — P3: disagreement mining vs a byte-identical stronger pilot — three candidates, none ship, one real methodology lesson
 
 **Date:** 2026-07-23, same session, endgame-plan P3.

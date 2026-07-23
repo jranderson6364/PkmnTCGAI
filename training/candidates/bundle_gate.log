@@ -1,0 +1,10 @@
+=== HELD-OUT BUNDLE TEST: lucario_bundle vs baseline main_lucario ===
+--- IN-SAMPLE (teacher, held out of the transfer claim) ---
+baseline vs probability_v2  A win rate: 0.100 ± 0.054 (95% CI)
+bundle   vs probability_v2  A win rate: 0.058 ± 0.042 (95% CI)
+--- OUT-OF-SAMPLE (field anchors) ---
+bundle   vs abomasnow   A win rate: 0.567 ± 0.089 (95% CI)
+bundle   vs dragapult   A win rate: 0.767 ± 0.076 (95% CI)
+bundle   vs grimmsnarl  A win rate: 0.400 ± 0.088 (95% CI)
+bundle   vs advanced_heuristic  A win rate: 0.075 ± 0.047 (95% CI)
+=== DONE ===

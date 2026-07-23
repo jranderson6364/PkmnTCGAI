@@ -1,0 +1,4 @@
+=== does the 2-ply override help over the base heuristic? twoply vs frozen v30, n=60 ===
+TOTAL: A 43W 17L 0T (errors=0)
+A win rate: 0.717 ± 0.114 (95% CI)
+=== DONE ===

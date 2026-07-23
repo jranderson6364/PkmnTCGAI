@@ -11,6 +11,54 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — 2-ply belief-determinized override search: BUILT, and it beats the base heuristic +22pp (first positive search result in the project)
+
+**Date:** 2026-07-23. User chose to build the search spike after the placebo
+validated the harness and confirmed alakazam_v9's +15pp edge is real search value.
+
+**What was built.** `training/nn/twoply_agent.py` — a conservative 2-ply minimax
+OVERRIDE on top of our v30 heuristic, replicating alakazam_v9's *mechanism* (not
+its code) with our own heuristic, our belief determinizer (92.3% classifier), and
+our leaf eval. On each MAIN decision (3..24 options, turn ≥ 2): take the
+heuristic's top-K non-terminal candidates; for each of N_DET=3 belief
+determinizations, greedy-complete our turn (ply 1), min over the opponent's top-K
+greedy replies (ply 2), leaf-eval; average over dets; **override the heuristic's
+own pick ONLY on a ≥500 (half-prize) margin, else defer.** 0.8s hard budget,
+pure-heuristic fallback on any failure.
+
+**Why it is not a re-run of the 5 closed search attempts.** All five REPLACED the
+policy (endgame-gated rollout, full PIMC, leaf-value ISMCTS) and lost plan
+coherence — the Φv4 Gate 2 closure pinned the failure on the search wrapper. This
+one is a *veto layer*: the heuristic drives every turn, and search only overrides
+on a clear tactical margin. The heuristic's plan coherence is preserved by
+construction.
+
+**First result — vs the base heuristic it is built on (`frozen_main_v30`),
+n=60, seats alternated, 0 errors: 71.7% ± 11.4% (43W-17L).** The override adds
+**+22pp** over the pure heuristic. The placebo control caps any RNG-contamination
+component of a searcher-vs-non-searcher gap at ~3pp (non-significant), so ~18pp is
+real search value. **This is the first positive search result in the project's
+history** — after DAgger, AWR, PIMC, ISMCTS, endgame-search, and Φv4-leaf-search
+all closed negative. The difference that made it work: conservative override +
+fixed shallow 2-ply + greedy-completed turns + a preserved heuristic plan.
+
+**Timing.** ~24s whole-game wall locally (≈30 our-decisions × 0.8s), far under the
+600s per-match Kaggle budget; the 0.8s/decision cap is a hard wall with graceful
+fallback, so it is timeout-safe.
+
+**In flight (this is the real test):** gates vs alakazam_v9 (778.2 — can our
+search now match the recipe's originator, vs v29d's 44%?), grimmsnarl (our worst
+matchup, 31% — does search help?), and abomasnow/dragapult (must-not-regress
+matchups we already win 90/99%). Beating the base heuristic is necessary but
+in-sample-ish; the field gates decide whether this ships.
+
+**Report relevance.** Potentially very high — the first method to exceed our own
+heuristic, obtained by replicating a live-ladder-proven recipe on a
+placebo-validated instrument, with a clear mechanistic reason (veto vs replace)
+for why it works where five prior search configs failed.
+
+---
+
 ## 2026-07-23 — Isolation: alakazam_v9's edge is SEARCH, not its heuristic — which makes the placebo control decisive
 
 **Date:** 2026-07-23. Goal: before launching a weight search motivated by "the

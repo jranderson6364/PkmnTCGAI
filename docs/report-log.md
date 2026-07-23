@@ -123,6 +123,60 @@ If instead placebo-vs-dragapult stays ~99%, the regression is from the overrides
 after all and the matchup-gated-override path is still open. Either outcome is a
 major, clean measurement finding.
 
+**CONFIRMED — the search CALLS perturb the engine RNG, large for asymmetric
+matchups.** Placebo (searches every MAIN turn, NEVER overrides — decision is
+byte-identical to the pure heuristic by construction):
+
+| opponent | pure heuristic | placebo (search, no override) | Δ from search calls alone |
+|---|---|---|---|
+| dragapult | 99% | 60.0% | **−39** |
+| grimmsnarl | 31% | 40.0% | **+9** |
+| abomasnow | 90% | 81.7% | −8 |
+
+The decision path is identical; only the throwaway `search_begin`/`search_step`/
+`search_end` calls differ. So the entire swing is the search API advancing/
+perturbing the live engine's shared RNG. It pulls matchups toward 50% (hurts what
+we win, helps what we lose) — exactly the twoply pattern, now proven to be the
+CALLS not the OVERRIDES.
+
+**Confirmed consequences:**
+1. **CORRECTION to the 2026-07-23 "harness is essentially clean (53.2%)" P2
+   conclusion:** clean for MIRROR matchups only (symmetric → the perturbation
+   cancels). For ASYMMETRIC matchups the local harness is heavily contaminated
+   (−39pp vs dragapult). The mirror placebo was necessary but not sufficient.
+2. **Local evaluation of any search-API agent vs a non-mirror opponent is
+   invalid.** The twoply "+22pp vs base heuristic" (mirror, so ~valid) and
+   "beats alakazam_v9 52.5%" / "grimmsnarl +14" (asymmetric, INVALID) cannot be
+   trusted. The apparent grimmsnarl gain is ~all RNG (placebo alone gives +9).
+3. **This is almost certainly a LOCAL `training/local_cg` artifact, not a Kaggle
+   effect.** alakazam_v9 runs this exact search every turn and scores 778.2 on
+   the real ladder — impossible if the search wrecked its asymmetric matchups the
+   way it does locally. So Kaggle's engine almost certainly isolates the search
+   RNG (the intended design of a search API); our vendored local lib does not.
+4. **Partial VINDICATION of the search graveyard's local measurements.** Any past
+   closure that gated a search agent vs ASYMMETRIC anchors locally is suspect —
+   most importantly the **v29d gauntlet revert** (endgame search scored 73/75% vs
+   lucario/abomasnow vs an 88% bar, 2026-07-08), which may have been this
+   contamination, not real weakness. NOT affected: mirror-measured results (v29
+   +59% vs the plain heuristic) and the 0W-50L sweeps (a −39pp artifact cannot
+   manufacture 0-of-50; those were structural).
+5. **Our SHIPPED agents are unaffected** — v29d/v30-exp are pure heuristics that
+   never call the search API.
+
+**Implication for how to proceed.** A search-API agent CANNOT be validly measured
+in the current local harness against the real (asymmetric) field. The only valid
+tests are (a) the live Kaggle ladder, or (b) a battlecore-style process-isolated
+local arena (one OS process per agent+engine per game). This is a genuine fork for
+the user; see the day's summary.
+
+**Report relevance.** Very high — this is the measurement-integrity chapter's
+capstone: a pre-registered placebo control that, extended from the mirror to
+asymmetric matchups, exposes a large hidden confound in local search evaluation,
+quantifies it (−39pp), localizes it (vendored engine, not Kaggle), and
+retroactively reinterprets a prior ship decision (the v29d revert). It also
+corrects an over-confident conclusion THIS project made six entries earlier — the
+process working in public.
+
 **Report relevance.** Potentially very high — the first method to exceed our own
 heuristic, obtained by replicating a live-ladder-proven recipe on a
 placebo-validated instrument, with a clear mechanistic reason (veto vs replace)

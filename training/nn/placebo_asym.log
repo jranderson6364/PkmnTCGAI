@@ -1,0 +1,6 @@
+=== DECISIVE: does running searches (no overrides) perturb ASYMMETRIC matchups? ===
+placebo = our heuristic + throwaway searches, NEVER overrides. Base heuristic: dragapult 99, grimmsnarl 31, abomasnow 90
+placebo vs dragapult   A win rate: 0.600 ± 0.124 (95% CI)
+placebo vs grimmsnarl  A win rate: 0.400 ± 0.124 (95% CI)
+placebo vs abomasnow   A win rate: 0.817 ± 0.098 (95% CI)
+=== DONE ===

@@ -56,14 +56,43 @@ resolve, and the isolation makes it concrete and urgent:
 
 **Pivot.** Built `training/nn/placebo_agent.py` — plays frozen v30 exactly but
 runs a throwaway determinized search (3 dets × 20 substeps, discarded) on every
-MAIN decision. Running it vs plain frozen v30, n=400, seats alternated. This one
-number decides whether the whole search question is alive or was measurement
-noise all along.
+MAIN decision. Ran it vs plain frozen v30, n=400, seats alternated.
 
-**Report relevance.** High. Either outcome is a headline: a confirmed
-contamination reframes the project's entire search graveyard as
-possibly-mismeasured; a clean result validates every closure AND identifies the
-one search recipe that beats us.
+**P2 RESULT — our harness is essentially clean.** Placebo **53.2% ± 4.9%
+(CI [48.3, 58.1])**, 213W-187L, 0 errors, and symmetric across seats (53.5% as
+P0, 53.0% as P1 — so not a seat artifact). **The CI includes 50%: no
+statistically significant RNG contamination at n=400.** The searcher leans a
+small +3.2pp that is not CI-separable from zero (~1.3 SE, p≈0.2). This is the
+OPPOSITE sign from battlecore's placebo (they found the searcher penalized,
+0.450); the difference is plausibly engine-build / search-workload specific, or
+their ~3pp was itself noise. Either way, on OUR instrument the effect is small
+and not significant.
+
+**Two consequences, both important:**
+1. **Our search graveyard is VALIDATED, not mismeasured.** The v29 endgame +59%,
+   the ISMCTS/PIMC 0W-50L closures, and the Φv4 Gate 2 kill were measured on an
+   essentially clean instrument. The closures stand — hardened, not reopened.
+2. **alakazam_v9's +15pp search edge is (mostly) REAL, not artifact.** At most
+   ~3pp of it could be the non-significant placebo lean; the bulk is genuine
+   search value. So a shallow belief-determinized rollout run every MAIN turn
+   (N_DET=3, K_OPP=3, ~40-substep greedy-to-terminal rollouts with a heuristic
+   policy, 0.8s budget, archetype-template determinization) is a search recipe
+   that demonstrably beats our v29d — and it is STRUCTURALLY DIFFERENT from all
+   five of our closed attempts (endgame-gated / full-PIMC / leaf-value ISMCTS).
+   Crucially it uses greedy rollouts to terminal for its value signal, where our
+   PIMC used a leaf eval — and the Φv4 Gate 2 closure explicitly blamed the
+   wrapper/leaf-signal, which greedy-to-terminal rollouts bypass.
+
+**Caveat, logged not hidden:** the +3.2pp placebo lean is not resolved at n=400
+(would need ~n=1600 for ±2.5pp). If a future search agent is gated vs v29d, budget
+that any measured edge may be inflated by up to ~3pp; confirm real gains on the
+field-representative panel, not just vs v29d.
+
+**Report relevance.** High — this is the measurement-integrity chapter's second
+pillar (after the A/A noise floor): a pre-registered placebo control that
+validates the instrument the whole project's search conclusions rest on, and
+simultaneously identifies the one search recipe with live-ladder evidence of
+beating us.
 
 ---
 

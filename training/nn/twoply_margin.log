@@ -1,0 +1,7 @@
+=== MARGIN sweep: only override on decisive tactical wins (keeps grimmsnarl, cuts dragapult noise?) ===
+margin=500+hand: dragapult 61.7, grimmsnarl 45.0 | v29d 99/31
+margin=2000 vs dragapult   A win rate: 0.583 ± 0.125 (95% CI)
+margin=2000 vs grimmsnarl  A win rate: 0.433 ± 0.125 (95% CI)
+margin=4000 vs dragapult   A win rate: 0.500 ± 0.139 (95% CI)
+margin=4000 vs grimmsnarl  A win rate: 0.500 ± 0.139 (95% CI)
+=== DONE ===

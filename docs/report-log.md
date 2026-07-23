@@ -83,17 +83,45 @@ Grimmsnarl gain held (+14), dragapult partially recovered (50→62) — but stil
 losses outweigh grimmsnarl/mirror gains). The hand term helped but did not close
 it: the search still degrades matchups the heuristic already dominates.
 
-**Fix 2 — margin sweep (in flight).** Diagnosis: grimmsnarl gains come from real
-tactical wins the heuristic missed (high search margin); dragapult losses come
-from marginal positional overrides (lower margin). So raising the override margin
-should keep the former and cut the latter. Sweeping TWOPLY_MARGIN ∈ {2000, 4000}
-vs dragapult (must recover toward 99) and grimmsnarl (must keep >40). If a margin
-keeps grimmsnarl's gain while restoring dragapult, that config ships; if the two
-move together (no separating margin), the override cannot be made universally
-safe and the honest conclusion is that this search helps only a targeted subset
-of matchups — still shippable as a matchup-gated override (fire only vs
-recognized hard archetypes via the belief model), and still the project's first
-positive search result regardless.
+**Fix 2 — margin sweep — overturned the whole interpretation.**
+
+| TWOPLY_MARGIN | dragapult | grimmsnarl |
+|---|---|---|
+| 500 (+hand) | 61.7% | 45.0% |
+| 2000 | 58.3% | 43.3% |
+| 4000 | 50.0% | 50.0% |
+
+**Raising the margin does NOT restore dragapult toward the pure-heuristic 99% —
+both matchups converge to ~50%.** Fewer overrides should approach pure-heuristic
+behavior (dragapult 99, grimmsnarl 31). Instead everything moves toward a coin
+flip. Collecting all the twoply numbers, EVERY matchup moved toward 50%:
+grimmsnarl 31→45, alakazam_v9 44→52.5, dragapult 99→50, abomasnow 90→75. That is
+the signature of the search **injecting noise**, not making better decisions —
+helping matchups we lose, hurting matchups we win, pulling all toward 50%.
+
+**Revised hypothesis (under test): the search CALLS perturb the engine RNG, and
+the effect is severe for ASYMMETRIC matchups — which the n=400 placebo never
+tested.** That placebo was a MIRROR test (placebo vs our own heuristic, symmetric)
+and read a benign 53.2%. But vs an asymmetric, coin-flip-dependent opponent like
+dragapult, the same RNG perturbation could be large. If so, the "gains" vs
+grimmsnarl/alakazam_v9 are not better play — they are the search randomizing
+outcomes in matchups we were losing. Decisive test in flight:
+`placebo_agent` (searches every turn, NEVER overrides) vs dragapult / grimmsnarl /
+abomasnow. If placebo-vs-dragapult ≈ 50% (from the heuristic's 99%), the search
+calls alone wreck the matchup → confirmed, and:
+  1. **The earlier "harness is essentially clean (53.2%)" conclusion needs
+     refinement:** clean for MIRROR matchups, contaminated for asymmetric ones.
+  2. **The whole local search-agent evaluation is invalid** — search agents can
+     only be validly measured on Kaggle or in a battlecore-style process-isolated
+     arena. The +22pp mirror result and the "we beat alakazam_v9" result are both
+     suspect.
+  3. This would REOPEN the interpretation of past closures that gated search
+     agents vs ASYMMETRIC anchors (notably the v29d gauntlet revert vs
+     lucario/abomasnow) — though NOT the mirror-measured ones.
+
+If instead placebo-vs-dragapult stays ~99%, the regression is from the overrides
+after all and the matchup-gated-override path is still open. Either outcome is a
+major, clean measurement finding.
 
 **Report relevance.** Potentially very high — the first method to exceed our own
 heuristic, obtained by replicating a live-ladder-proven recipe on a

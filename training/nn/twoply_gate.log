@@ -1,0 +1,7 @@
+=== 2-PLY SEARCH GATE (twoply vs key opponents) ===
+reference v29d numbers: alakazam_v9 44-45%, grimmsnarl 31%, abomasnow 90%, dragapult 99%
+twoply vs alakazam_v9   A win rate: 0.525 ± 0.109 (95% CI)
+twoply vs grimmsnarl    A win rate: 0.450 ± 0.109 (95% CI)
+twoply vs abomasnow     A win rate: 0.717 ± 0.114 (95% CI)
+twoply vs dragapult     A win rate: 0.500 ± 0.127 (95% CI)
+=== DONE ===

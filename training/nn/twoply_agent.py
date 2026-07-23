@@ -92,6 +92,9 @@ def _obs_dict(observation):
     return dataclasses.asdict(observation)
 
 
+HAND_W = float(os.environ.get("TWOPLY_HANDW", "20"))
+
+
 def _leaf_eval(cs, me_i):
     if cs is None:
         return 0.0
@@ -111,9 +114,18 @@ def _leaf_eval(cs, me_i):
     my_en = sum(len(p.energies) for p in my_field)
     op_en = sum(len(p.energies) for p in op_field)
     no_active = 0 if (me.active and me.active[0]) else 1
+    # Hand size IS our damage stat: Powerful Hand deals 20 x hand size. The
+    # generic prize/hp/energy eval (from alakazam_v9) ignores this, so the search
+    # overrode the heuristic's correct tempo/racing lines with board-development
+    # plays it wrongly scored as better -- catastrophic vs fast attackers
+    # (dragapult 99% -> 50%, 2026-07-23). Value our hand at its damage potential.
+    my_hand = getattr(me, "handCount", None)
+    if my_hand is None:
+        my_hand = len(me.hand) if getattr(me, "hand", None) else 0
     return (1000.0 * (len(op.prize) - len(me.prize))
             + my_hp - op_hp + 5.0 * (my_en - op_en)
-            - 4000.0 * no_active)
+            - 4000.0 * no_active
+            + HAND_W * my_hand)
 
 
 def _greedy_choice(observation):

@@ -46,11 +46,36 @@ fixed shallow 2-ply + greedy-completed turns + a preserved heuristic plan.
 600s per-match Kaggle budget; the 0.8s/decision cap is a hard wall with graceful
 fallback, so it is timeout-safe.
 
-**In flight (this is the real test):** gates vs alakazam_v9 (778.2 — can our
-search now match the recipe's originator, vs v29d's 44%?), grimmsnarl (our worst
-matchup, 31% — does search help?), and abomasnow/dragapult (must-not-regress
-matchups we already win 90/99%). Beating the base heuristic is necessary but
-in-sample-ish; the field gates decide whether this ships.
+**Field gate result — MIXED, and diagnostic:**
+
+| opponent | v29d | twoply (generic eval) | Δ |
+|---|---|---|---|
+| alakazam_v9 (778.2) | 44% | **52.5%** | **+8.5** |
+| grimmsnarl (worst matchup) | 31% | **45.0%** | **+14.0** |
+| abomasnow | 90% | 71.7% | **−18** |
+| dragapult | 99% | 50.0% | **−49** |
+
+**Search helps the hard matchups and wrecks the easy ones.** It closes exactly
+the two gaps that matter (grimmsnarl, our documented worst; alakazam_v9, the
+recipe's originator — we now BEAT it) but breaks matchups we normally dominate.
+Net field-weighted, the dragapult −49 sinks it.
+
+**Diagnosis (override rate + mechanism).** TWOPLY_STATS shows the override is
+SURGICAL, not over-firing — only **1-3 overrides per game** (~2-5% of decisions).
+So vs dragapult a *single* wrong override flips a 99%-win to a loss. The
+mechanism: the leaf eval (copied generic from alakazam_v9: prize/hp/energy)
+**ignores hand size** — but Powerful Hand deals **20 × hand size**, so hand size
+IS our damage stat. The search scores a board-development play as "better" by HP
+terms, overrides the heuristic's correct tempo/racing line, and a fast attacker
+punishes the lost tempo. alakazam_v9 uses the same eval but is a different
+Alakazam build; for OUR deck the omission is load-bearing.
+
+**Fix in flight:** added a `+20 × hand_size` term to the leaf eval (each hand card
+valued at its Powerful-Hand damage). Re-gating dragapult (the catastrophe),
+grimmsnarl (the win), and abomasnow. If the hand term recovers dragapult toward
+99% while keeping the grimmsnarl/mirror gains, this ships; if it trades the gains
+away, the next lever is gating the override to fire only when the heuristic is NOT
+already in a winning position (search helps when behind, hurts when dominant).
 
 **Report relevance.** Potentially very high — the first method to exceed our own
 heuristic, obtained by replicating a live-ladder-proven recipe on a

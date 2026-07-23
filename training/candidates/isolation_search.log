@@ -1,0 +1,4 @@
+=== ISOLATION: is alakazam_v9's edge heuristic or search? ===
+alakazam_v9 (search ON)  vs v29d  A win rate: 0.610 ± 0.096 (95% CI)
+alakazam_v9 (search OFF) vs v29d  A win rate: 0.460 ± 0.098 (95% CI)
+=== DONE ===

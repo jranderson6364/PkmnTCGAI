@@ -11,6 +11,62 @@ showing an 88.4-point ladder noise floor.)
 
 ---
 
+## 2026-07-23 — Isolation: alakazam_v9's edge is SEARCH, not its heuristic — which makes the placebo control decisive
+
+**Date:** 2026-07-23. Goal: before launching a weight search motivated by "the
+778.2 agent's tuned weights beat us," confirm the edge is actually in its
+heuristic. It is not.
+
+**Method.** `alakazam_v9` has a `USE_SEARCH` switch. A/B its full agent (search
+ON) and a `USE_SEARCH=False` copy (`training/candidates/alakazam_v9_nosearch.py`)
+against our v29d, n=100 each, seats alternated.
+
+**Result:**
+
+| alakazam_v9 vs v29d | win rate |
+|---|---|
+| search ON | 61.0% ±9.6 |
+| search OFF | **46.0%** ±9.8 |
+
+**Its bare heuristic ties/slightly loses to ours (46%).** The entire ~15pp edge
+is search-associated. This **inverts the weight-search hypothesis**: our heuristic
+is already competitive at the heuristic level, so tuning our 29 W constants to
+match its heuristic cannot close the 778−673 ladder gap. Combined with the
+round-robin R²=0.004, the pre-registered panel weight search is now doubly
+weakly-motivated (our heuristic ≈ theirs, and offline gains don't predict ladder)
+— **not launched.** `panel_search.py` is kept, redesigned and pre-registered, as
+available infra if a future field-representative objective is wanted.
+
+**But the +15pp is ambiguous, and that is the important part.** alakazam_v9's
+search runs IN-PROCESS during the A/B, and battlecore showed in-process
+`search_begin`/`search_step` calls perturb the shared engine RNG. So the +15pp is
+**either real search value or an RNG-contamination artifact** — indistinguishable
+from this A/B. This is the exact confound P2 (sham-search placebo) was designed to
+resolve, and the isolation makes it concrete and urgent:
+
+- If the placebo (our heuristic + throwaway searches, discarded) reads ≠50% vs the
+  plain heuristic, then in-process search calls alone move outcomes → the +15pp is
+  contaminated, alakazam_v9's "search edge" is partly artifact, AND every
+  in-process search result this project measured (v29 endgame +59%, the 0W-50L
+  closures, Φv4 Gate 2) was measured on a biased instrument.
+- If the placebo reads ~50%, the +15pp is REAL search value → alakazam_v9 makes a
+  shallow belief-determinized rollout (N_DET=3, K_OPP=3, 40 substeps, 0.8s,
+  archetype templates, run every MAIN turn) work where our five closed search
+  configs failed, and that specific recipe becomes worth trying.
+
+**Pivot.** Built `training/nn/placebo_agent.py` — plays frozen v30 exactly but
+runs a throwaway determinized search (3 dets × 20 substeps, discarded) on every
+MAIN decision. Running it vs plain frozen v30, n=400, seats alternated. This one
+number decides whether the whole search question is alive or was measurement
+noise all along.
+
+**Report relevance.** High. Either outcome is a headline: a confirmed
+contamination reframes the project's entire search graveyard as
+possibly-mismeasured; a clean result validates every closure AND identifies the
+one search recipe that beats us.
+
+---
+
 ## 2026-07-23 — Round-robin recalibration: offline panel win rate is NEARLY UNCORRELATED with ladder score (R²=0.004)
 
 **Date:** 2026-07-23. Endgame-plan follow-up to P1, to fix the star-topology bias

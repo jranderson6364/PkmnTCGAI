@@ -310,6 +310,32 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 
 ## Outstanding Items (Priority Order)
 
+**>>> 2026-07-23 SESSION 2 STATE (deck decision + calibrated panel). Deadlines
+VERIFIED: entry/merger Aug 9, FINAL SUBMISSION Aug 16 (games run ~2 wks more,
+then final), Hackathon report Sep 6. The rules say Hackathon prize ranking
+uses BOTH ladder performance AND the report — the ladder is a direct prize
+input, not just credibility. (1) DECK: Lucario switch attempted per user call,
+then REVERTED to Alakazam — the calibrated panel predicts Lucario ~615 vs
+v29d's actual 673.5 (regression), pilot 65.8% panel-mean vs v29d 82.4%, and a
+held-out bundle test of piloting fixes mined from the 933.8 Lucario pilot came
+back NEGATIVE (attach-defer actively harmful via the Lillie/Carmine
+un-attached-energy interaction; Aura Jab routing fix neutral). `main.py` stays
+Alakazam; `main_lucario.py` shelved as report material. (2) P1 CALIBRATED PANEL
+BUILT — `opponents/public/` holds 4 public agents with KNOWN ladder scores
+(739.7-933.8), extracted by `tools/extract_public_agents.py`, all run locally
+0 errors and every one beats/ties v29d — the project's FIRST discriminating
+offline opponents. Fit: publicScore = 749.4 + 0.407·offlineElo (R²=0.537,
+resid SD 97.0 ≈ the 88.4 A/A noise floor). Gate threshold: +50 publicScore
+needs ~+17pp vs v29d. (3) P3 disagreement mining vs byte-identical alakazam_v9
+(778.2, same deck, beats us 55%): 37% of decisions disagree but per-class
+imitation is invisible to a ±7pp mirror A/B — three candidates all
+sub-threshold, none ship. Found `main.py` had NO IS_FIRST handling (went first
+by accident; strong pilots go second). (4) IN PROGRESS: full round-robin among
+the 5 scored agents to fix P1's star-topology bias (probability_v2 offline-
+underrated by 153 — it's Lucario, our worst matchup). Full detail: report-log
+2026-07-23 entries (newest-first), `docs/endgame-plan.md`,
+`docs/competitor-notebook-survey.md`.**
+
 **>>> 2026-07-23 PUBLIC-NOTEBOOK SURVEY — read
 `docs/competitor-notebook-survey.md` before choosing any next arm.** Six
 findings that change the picture: **(1) We are rank 2902/5578 at 637.8; the

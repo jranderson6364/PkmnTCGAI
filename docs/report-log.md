@@ -169,6 +169,28 @@ tests are (a) the live Kaggle ladder, or (b) a battlecore-style process-isolated
 local arena (one OS process per agent+engine per game). This is a genuine fork for
 the user; see the day's summary.
 
+**Process-isolated arena attempt (partial, honest status).** User chose to build
+the isolated arena before deciding. Built `training/iso_arena.py` (faithful cabt
+battle in the main process + each agent in its own subprocess via
+`training/iso_worker.py`, so an agent's search calls hit only its own process's
+cg.dll RNG) — the right design in principle. **Four real bugs found and fixed:**
+(1) the IPC channel (stdout) was corrupted by agent/cg prints; (2) C-level printf
+from cg.dll bypassed the Python redirect — fixed with an OS-level `dup2(2,1)`; (3)
+JSON obs marshaling was LOSSY for the kaggle_environments `Struct` (int-keys→str,
+tuples→lists) and changed the agent's decisions — verified 2 divergences/game,
+fixed by switching to length-framed **pickle** (verified faithful: 0/16
+divergences); (4) missing `--games` in a couple invocations. **Still unresolved:**
+even after all four fixes, the arena does not reproduce the in-process baseline
+for a NON-searching, faithful-obs matchup — frozen vs abomasnow reads 70% isolated
+vs 95% in-process; frozen vs dragapult 50% vs 93%. Since neither agent searches
+and the obs is now pickle-faithful, the residual ~25pp gap is the subprocess
+execution itself diverging from in-process for a reason not isolated (not
+timeouts: `actTimeout=0`). **Verdict: a faithful local isolated arena is a larger
+engineering task than one session cleanly delivers.** The infra is committed for
+future work, but it is NOT yet trustworthy, so it must not be used to gate the
+search agent. The definitive test remains the live Kaggle ladder (itself
+process-isolated). Decision returned to the user.
+
 **Report relevance.** Very high — this is the measurement-integrity chapter's
 capstone: a pre-registered placebo control that, extended from the mirror to
 asymmetric matchups, exposes a large hidden confound in local search evaluation,

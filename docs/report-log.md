@@ -62,8 +62,21 @@ same-deck pilot does not transfer to strength on this deck.** It also concretely
 explains WHY the +105-point piloting edge is real yet uncapturable by mining:
 the edge lives in the model, not in the action distribution.
 
-**Follow-up in flight:** isolating the Aura Jab routing fix (an unambiguous bug)
-from the harmful attach-defer, to keep the former if it stands on its own.
+**Isolation (resolved).** Split the two changes:
+
+| opponent | baseline | routing-fix ONLY | full bundle |
+|---|---|---|---|
+| probability_v2 | 10.0% | **10.0%** | 5.8% |
+| abomasnow | 55.0% | 54.2% | 56.7% |
+| grimmsnarl | 36.0% | 36.2% | 40.0% |
+| advanced_heuristic | 14.2% | — | 7.5% |
+
+The Aura Jab routing fix is **neutral** — byte-for-byte baseline performance
+everywhere, so the "bug" fires too rarely (or is washed out by later re-routing)
+to matter. The attach-defer is **confirmed harmful**: it halved our win rate vs
+the tempo deck advanced_heuristic (14.2% → 7.5%) and cut the in-sample cell nearly
+in half. **Neither piloting change earns a place.** The held-out bundle test is a
+definitive negative on all cells.
 
 **Report relevance.** Very high — this is a rigorous, mechanistically-explained
 negative with a clean in-sample/out-of-sample split, and it directly informs the

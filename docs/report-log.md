@@ -4,10 +4,137 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-18 (pre-registered: W-space CEM policy search at
-the corrected mirror+anchor-guard objective, + contingent belief-gated
-per-archetype conditioning. v30-exp early ladder read 659.0 — non-counting,
-qualifying reads start this evening.)
+**Last updated:** 2026-07-23 (public-notebook survey: leaderboard diagnosis
+— rank 2902/5578, 476 below top-8; the sham-search placebo finding that may
+invalidate our search A/Bs; our own accidental identical-agent A/A test
+showing an 88.4-point ladder noise floor.)
+
+---
+
+## 2026-07-23 — Public notebook survey: leaderboard diagnosis, a contaminated-measurement warning, and an accidental A/A test
+
+**Date:** 2026-07-23. Not an experiment — a literature/competitor survey run at
+the user's direction after reporting the project felt stagnant, weighted toward
+model training rather than heuristic tuning. Full detail:
+`docs/competitor-notebook-survey.md`. Summary here for the report thread.
+
+**Method.** Pulled 12 public competition notebooks via `kaggle kernels pull -m`
+(the whole hot list plus the pinned official sample), read them in full, and
+pulled the live leaderboard and our own submission history.
+
+**Finding 1 — where we actually are.** Top-8 cutoff is **1114.1**; #1 is 1169.3;
+we are **637.8, rank 2902 of 5578 (52nd percentile)**, ~476 points short. Several
+*public, forkable* notebooks outscore our champion by 100–450 points, and **two of
+them pilot our own Alakazam deck 100–140 points better than we do**
+(`search-audited-alakazam-v9` 778.2, `field-audited-alakazam-v8` 739.7). The deck
+is not the problem; the pilot is.
+
+**Against the right yardstick:** this leaderboard is the *Simulation* category
+(points, medals, and a participation prerequisite). The $240k sits entirely in
+the *Strategy* track, judged 70/20/10 from the writeup. "476 short" is 476 short
+of a Simulation placing, not of the prize bar. Two-part honest state: stagnant
+and far behind **on the ladder**; genuinely productive **on the judged axis** —
+this survey alone yielded three methodology-grade findings plus the one
+architecture never tried.
+
+**Finding 2 — the ladder ceiling is currently non-learned.** Every public agent
+above ~730 that publishes a score is rule-based or rule-based-plus-bounded-search.
+The two serious learned entries (`fishcat37` v8/v9, attention BC on top-20 team
+replays) publish **no ladder score**. `nursrijan` (LB **1091**, top public) reports
+BC+PPO self-play peaking at **25% vs their own heuristic** and MCTS dying to the
+time budget — the same wall we hit at 12–17% (BC/DAgger) and 8.25% (DMC), reached
+by a different team with a different algorithm on a different deck. **Strong
+external validation of our negative results**, and a clear statement that the
+learned track is report material, not ladder material.
+
+**Finding 3 — our search A/Bs may be measurement artifacts.**
+`lucifer19/battlecore-compact-agent` (846.8) ran a **sham-search placebo**: an arm
+that performs every `search_begin`/`search_step` call and *discards the result*,
+behaviorally identical to baseline by construction. It should have read its
+baseline's 0.48. It read **0.450**. Their conclusion: in a shared process,
+agent-side searches perturb the live engine's RNG stream, so any
+oracle-vs-baseline comparison in that arena is invalid *in either direction*.
+They rebuilt with one OS process per agent.
+
+`training/harness.py:119` parallelizes across *games*; inside a game `_worker`
+runs **both agents and the engine in one process** — exactly the invalid
+configuration.
+
+**Scope the claim honestly:** the observed artifact was ~3pp, which cannot
+manufacture a 0-of-50 sweep or a 15pp anchor gap. The ISMCTS and PIMC 0W-50L
+closures and the Φ v4 Gate 2 kill (20–34pp margins) are structural and **stand**.
+The one result close enough to the decision boundary for a few-pp artifact to
+matter is **v29's +59.0% ±4.8% endgame-search edge**. Note also the sign:
+battlecore's placebo scored *lower* than baseline — the searching side paid the
+penalty — so if that holds for us, contamination would have *understated* v29's
+edge and *overstated* the v29d gauntlet failure. Does not affect
+BC/DAgger/AWR/DMC/sequence-policy, which never call the Search API. **Cheap to
+test** — a sham-search variant of `endgame_agent.py` run at n=400 under the same
+protocol that produced the +59.0%, so it controls that specific measurement.
+Correct framing: we have identified and bounded a measurement risk, not
+invalidated our closures.
+
+**Finding 4 — we accidentally ran a perfect A/A test on the live ladder.**
+Submissions `54760870` and `54760877` are **byte-identical v29d tarballs** —
+verified 2026-07-23 by provenance, not by the submission description: exactly one
+local artifact `training/v29d_reship.tar.gz` (24,857 B, SHA-256 `acef3750…`,
+mtime 07-16 08:51) uploaded twice, 13 s apart. They scored **708.9 and 620.5** —
+an **88.4-point spread on identical code**.
+Consequences: the 2026-07-16 v30-exp revert rule's ≥30-point threshold is a third
+of the identical-code spread and therefore meaningless (v30-exp's 637.8 sits
+*between* the two copies, i.e. indistinguishable from v29d); and every historical
+`publicScore` comparison in this log — the 818.3→726.2→695.1 "monotone decline,"
+the 861.8 v25b read, the 116-point v28 swing — is inside or near this band. Our
+repeated CORRECTION entries about ladder reads were all circling this one number.
+Independently consistent with battlecore's noise model. **This should be a figure
+in the report**: an unintentional identical-agent A/A test quantifying a live
+evaluator's noise floor.
+
+**Finding 5 — the architecture axis was never varied.** The official pinned
+sample (`kiyotah`, 862 votes) and both `fishcat37` nets use an
+**action-conditioned** design: each candidate action is embedded (option type,
+card played, target hit, attack id) and cross-attends over the board
+representation, emitting one scalar per action. `grep -rl
+"MultiheadAttention\|option_encoder" training/` returns nothing — every net this
+project has trained scores a fixed-size action-slot vector. This is precisely the
+never-varied axis a prior `advisor` consult named ("nine algorithm variations,
+four other axes never varied"). Also newly noted: `cg.game.battle_start` (a direct
+engine driver, present in our vendored lib, unused — we go through
+`kaggle_environments`), the live `obs_dict["search_begin_input"]` determinization
+seed, and a training-target recipe we never swept (value label = mean of a
+λ=0.9 return and the MCTS root value; policy target = per-child advantage
+`Q(child)−V(root)` clipped to [−1,1] under HuberLoss, not a visit-count softmax).
+
+**Finding 6 — deck intelligence.** `nursrijan`'s 25,000-replay analysis: the two
+highest winner-correlated cards in the format are **Night Stretcher (+1556)** and
+**Sacred Ash (+924)**, with Boss's Orders at +1526. We run none of the recovery
+cards. Night Stretcher returns a Pokémon from discard **to hand** — which for our
+deck simultaneously fixes board-thinning (our #1 documented live failure mode:
+10/27 fresh v29d losses end with zero Alakazam-line pieces in play), and
+*increases hand size*, which is literally our damage stat. Alakazam's aggregate
+delta is −238 but one team reads 74.5% with it: "high-skill, low-floor."
+
+**Finding 7 — the top public agent's search is dead code.**
+`aristophanivan/probablity-v2` (933.8, highest public score) defines
+`evaluate_state(obs, original_yourIndex)` and calls it as
+`evaluate_state(ar.state.observation)` at all three sites. Every call raises
+`TypeError`, swallowed by the bare `except Exception: return None` around
+`SEARCH_ALGO`, falling through to the plain heuristic. The highest-scoring public
+agent in this competition is a pure heuristic whose author likely does not know
+the beam search never runs. Cleanest available statement that search is not what
+separates the top of this ladder.
+
+**Decision.** No training arm launched off this survey. Ranked lever list in
+`docs/competitor-notebook-survey.md` §7; the two cheap independent ones are the
+sham-search placebo and the Night Stretcher / Sacred Ash deck slots. Competition
+fact conflicts (Strategy deadline Sep 6 vs our ~Sep 13; Simulation entry Aug 9 vs
+our "team merger Aug 9") flagged for verification in §8.
+
+**Report relevance.** High, on several axes at once: the external replication of
+our learned-method plateau, the placebo-control methodology, and the A/A noise
+floor are all first-class Strategy-track content. The $240k prize pool is entirely
+in the Strategy track, judged on "reasoning, methodologies, and design decisions"
+— negative results with pre-registered gates are the asset, not a consolation.
 
 ---
 

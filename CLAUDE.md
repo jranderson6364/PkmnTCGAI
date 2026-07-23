@@ -292,6 +292,7 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 | Need | Go to |
 |------|-------|
 | **Full reference breakdown** | `docs/project-reference.md` |
+| **Public competitor/official notebook survey + leaderboard diagnosis** | `docs/competitor-notebook-survey.md` |
 | Game mechanics/decision-structure rundown (for ML method choice) | `docs/game-nature.md` |
 | Roadmap / writeup strategy | `docs/competition-strategy.md` |
 | Experiment journal + glossary + target figures | `docs/report-log.md` |
@@ -307,6 +308,48 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 ---
 
 ## Outstanding Items (Priority Order)
+
+**>>> 2026-07-23 PUBLIC-NOTEBOOK SURVEY — read
+`docs/competitor-notebook-survey.md` before choosing any next arm.** Six
+findings that change the picture: **(1) We are rank 2902/5578 at 637.8; the
+top-8 cutoff is 1114.1** — ~476 points short, and two *public forkable*
+notebooks pilot our own Alakazam deck 100-140 points better than we do
+(778.2 / 739.7). The deck is fine; the pilot is the gap. But read it against
+the right yardstick: **this ladder is the Simulation category (medals +
+entry prerequisite); the $240k is entirely in Strategy, judged 70/20/10 from
+the writeup.** "476 short" is short of a Simulation placing, not of the prize
+bar. **(2) The ladder
+ceiling is currently non-learned** — every public agent above ~730 with a
+published score is rule-based; the two serious learned entries publish no
+score; `nursrijan` (LB 1091, top public) hit **25% BC+PPO vs their own
+heuristic**, independently replicating our 12-17% / 8.25% plateau on a
+different deck with a different algorithm. Learned work is *report* material,
+not ladder material — stop conflating the two. **(3) Our search A/Bs may be
+invalid:** battlecore's sham-search placebo (an arm that searches then
+discards the result — behaviorally identical to baseline) read 0.450 vs an
+expected 0.48, because in-process agent-side searches perturb the shared
+engine RNG. `training/harness.py:119` runs both agents + engine in one
+process — the exact invalid config. **Scope it honestly: ~3pp cannot flip a
+0-of-50 sweep, so the ISMCTS/PIMC/Φv4 closures STAND** — the one result near
+enough the boundary to matter is **v29's +59.0% ±4.8%**. Cheap to test (sham
+placebo at n=400) before any further search work. **(4) We accidentally ran
+an A/A test:** submissions `54760870`/`54760877` are byte-identical v29d
+tarballs (verified: one local file, SHA-256 `acef3750…`, uploaded twice 13 s
+apart) that scored **708.9 vs 620.5 — an 88.4-point spread on identical
+code.** The v30-exp ≥30-point
+revert rule is therefore meaningless (637.8 sits *between* the copies), and
+every historical publicScore comparison in this project is inside this noise
+band. **(5) The architecture axis was never varied** — the official pinned
+sample and both `fishcat37` nets are *action-conditioned* (each candidate
+action embedded, cross-attending the board, one scalar per action); every net
+we ever trained scores a fixed action-slot vector. Also unused: `cg.game.
+battle_start` (direct engine driver, in our vendored lib), the live
+`obs_dict["search_begin_input"]`, and a λ-return⊕MCTS-root value target.
+**(6) Night Stretcher (+1556) and Sacred Ash (+924) are the top winner-
+correlated cards in the format** and we run neither — Night Stretcher fixes
+board-thinning AND raises hand size (= our damage stat). Ranked lever list:
+survey §7. **Also: v30-exp is still our live submission and the 2026-07-18
+revert check never ran.**
 
 **>>> HARD DEADLINE Aug 14: re-ship v29d (submission `54481189` packaging,
 `training/nn/package_endgame_submission.py`-era known-good) unless a gated

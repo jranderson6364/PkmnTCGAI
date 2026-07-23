@@ -1,0 +1,6 @@
+=== hand-size eval fix: re-gate the decisive matchups ===
+before (generic eval): dragapult 50.0, grimmsnarl 45.0, abomasnow 71.7 | v29d: 99/31/90
+twoply+hand vs dragapult   A win rate: 0.617 ± 0.123 (95% CI)
+twoply+hand vs grimmsnarl  A win rate: 0.450 ± 0.126 (95% CI)
+twoply+hand vs abomasnow   A win rate: 0.750 ± 0.110 (95% CI)
+=== DONE ===

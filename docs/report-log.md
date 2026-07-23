@@ -70,12 +70,30 @@ terms, overrides the heuristic's correct tempo/racing line, and a fast attacker
 punishes the lost tempo. alakazam_v9 uses the same eval but is a different
 Alakazam build; for OUR deck the omission is load-bearing.
 
-**Fix in flight:** added a `+20 × hand_size` term to the leaf eval (each hand card
-valued at its Powerful-Hand damage). Re-gating dragapult (the catastrophe),
-grimmsnarl (the win), and abomasnow. If the hand term recovers dragapult toward
-99% while keeping the grimmsnarl/mirror gains, this ships; if it trades the gains
-away, the next lever is gating the override to fire only when the heuristic is NOT
-already in a winning position (search helps when behind, hurts when dominant).
+**Fix 1 — hand-size leaf eval (`+20 × hand_size`).** Result:
+
+| opponent | v29d | generic eval | +hand eval |
+|---|---|---|---|
+| dragapult | 99% | 50.0% | 61.7% |
+| grimmsnarl | 31% | 45.0% | 45.0% |
+| abomasnow | 90% | 71.7% | 75.0% |
+
+Grimmsnarl gain held (+14), dragapult partially recovered (50→62) — but still a
+−37pp regression there. Net field-weighted still negative (dragapult/abomasnow
+losses outweigh grimmsnarl/mirror gains). The hand term helped but did not close
+it: the search still degrades matchups the heuristic already dominates.
+
+**Fix 2 — margin sweep (in flight).** Diagnosis: grimmsnarl gains come from real
+tactical wins the heuristic missed (high search margin); dragapult losses come
+from marginal positional overrides (lower margin). So raising the override margin
+should keep the former and cut the latter. Sweeping TWOPLY_MARGIN ∈ {2000, 4000}
+vs dragapult (must recover toward 99) and grimmsnarl (must keep >40). If a margin
+keeps grimmsnarl's gain while restoring dragapult, that config ships; if the two
+move together (no separating margin), the override cannot be made universally
+safe and the honest conclusion is that this search helps only a targeted subset
+of matchups — still shippable as a matchup-gated override (fire only vs
+recognized hard archetypes via the belief model), and still the project's first
+positive search result regardless.
 
 **Report relevance.** Potentially very high — the first method to exceed our own
 heuristic, obtained by replicating a live-ladder-proven recipe on a

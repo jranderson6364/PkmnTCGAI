@@ -97,7 +97,36 @@ Kill rule: if gate 1 cannot beat the never-override baseline meaningfully after 
 full corpus + a trained-to-convergence net + the loss ablation below, ACAN closes
 and the finding is reported as such — no A/B games get spent.
 
-**Two real design findings already, both caught by the gate before any A/B:**
+**Three real design findings already, all caught before any A/B games were spent:**
+
+0. **The action representation was the binding constraint — measured, not guessed.**
+   The first descriptor, `[option_type, card_id, attackId]`, *collapses distinct
+   candidates*: measured over 10,478 collected decisions, **84% of decisions
+   contained duplicate descriptors, 77% of all candidates were byte-identical to
+   another candidate in the same decision, and 1,294 duplicate groups had search
+   values differing by MORE than the entire override margin.** Candidates routinely
+   differ *only in their target* — attach this energy to the ACTIVE vs bench slot k,
+   evolve which Abra — which is exactly the energy-routing/bench-targeting axis this
+   project's heuristic bugs have historically turned on (see the v29c retreat-target
+   and `_score_bench_target` fixes), and the descriptor discarded it. The net was
+   being asked to distinguish inputs that were literally identical. **This explains
+   the observed chance-level action selection far better than undertraining did:
+   conditional on both overriding, the net picked the search's action only 25% of
+   the time, i.e. chance among ~4-7 candidates.** Fixed to `[type, src_card,
+   attackId, inPlayArea, inPlayIndex, target_card]`, built with `main.py`'s own
+   helpers (`_opt_card_id`, `_attach_target`, `_pk_id`) so the net reads the board
+   exactly as the heuristic does. Re-measured before spending collection time:
+   duplicate decisions 84%→**56%**, duplicate candidates 77%→**31%**, conflicting
+   groups per decision 0.124→**0.052**; residual duplicates are genuinely
+   *interchangeable* actions (two copies of one energy card), where identical
+   features are correct. Early effect on the gate, on *less* data (4.4k vs 14k
+   records): exact-action precision 0.082→**0.119**, and action accuracy given both
+   override 25%→**56%**. **Report relevance: a concrete, quantified instance of
+   representation — not algorithm, not scale — being the binding constraint on a
+   learned agent, which is the single most transferable lesson in this project's
+   entire learned-methods arc.**
+
+The other two, both caught by the gate:
 1. **The zero-point gap.** First trained net *never overrode at any threshold* — it
    collapsed to predicting ≈0. Cause: the target is the advantage relative to
    `heur_top`, but `heur_top` was not in the input, so the same (state, action) pair

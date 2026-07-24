@@ -52,6 +52,9 @@ def main():
     ap.add_argument("--out", default=os.path.join(_HERE, "search_corpus"))
     ap.add_argument("--opponent", default=os.path.join(_HERE, "twoply_agent.py"),
                     help="search opponent (no logging)")
+    ap.add_argument("--tag", default="",
+                    help="prefix for game ids; MUST be unique per parallel worker "
+                         "so merged corpora keep game/outcome correlation exact")
     args = ap.parse_args()
 
     jsonl = args.out + ".jsonl"
@@ -68,7 +71,7 @@ def main():
 
     outcomes = {}
     for g in range(args.games):
-        gid = f"g{g}"
+        gid = f"{args.tag}g{g}"
         collector._GAME_ID = gid          # per-game id read at record-write time
         me = g % 2                          # alternate seats
         if me == 0:

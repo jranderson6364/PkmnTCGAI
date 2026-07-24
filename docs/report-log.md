@@ -4,10 +4,121 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-23 (public-notebook survey: leaderboard diagnosis
-— rank 2902/5578, 476 below top-8; the sham-search placebo finding that may
-invalidate our search A/Bs; our own accidental identical-agent A/A test
-showing an 88.4-point ladder noise floor.)
+**Last updated:** 2026-07-24 (S1 sweep CLOSED the value-at-leaf branch on its
+pre-registered rule; pivoted to the Action-Conditioned Advantage Net — the
+architecture axis this project never varied.)
+
+---
+
+## 2026-07-24 — S1 sweep: depth and a learned leaf value are BOTH null (pre-registered rule fires → pivot to the architecture axis)
+
+**Hypothesis.** The shipped 776 agent is a 2-ply belief-determinized *conservative-
+override* search with a crude hand-written leaf formula. Two obvious levers: search
+*deeper*, or replace the leaf formula with our best *learned* state value (Φ v4).
+Pre-registered rule (2026-07-23): if Φ-v4-at-depth-3 beats formula-at-depth-3
+CI-separably → a learned value is justified and we know the target depth → build the
+value net. If not, and more determinizations don't rescue it → the value-at-leaf
+premise is falsified even at depth → pivot to the policy/architecture axis.
+
+**Method.** `TWOPLY_DEPTH` knob added to the search (a recursive minimax; our plies
+greedy-complete the turn, opponent plies branch top-K and take the MIN, leaf =
+`_leaf_eval`; DEPTH=2 reproduces the shipped agent exactly). Three mirror A/Bs at
+n=200 each, seats alternated (`training/nn/run_s1_sweep.sh`).
+
+| A/B | question | result | verdict |
+|---|---|---|---|
+| 1 | does DEPTH help? d3-formula vs d2-formula | 49.0% ±6.9 | **null** |
+| 2 | does a learned VALUE help at depth-3? d3-phi4 vs d3-formula | 49.0% ±6.9 | **null** |
+| 3 | does more determinization rescue it? d3-phi4-n6 vs d3-formula-n6 | 53.5% ±6.9 | **null** (CI [46.6, 60.4] spans 50) |
+
+**Decision: the pre-registered rule fires — value-at-leaf is CLOSED.** Note this
+*replicates* the 2026-07-09 Φ-v4 Gate-2 finding (a verified-better eval transfers
+zero improvement through a search wrapper) at a second depth, with a second search
+family. Two independent confirmations that **the leaf evaluator is not the
+bottleneck for a shallow override search** — the win is the *structure* (conservative
+override) and the *opponent model* (belief determinization), not the evaluator.
+
+**Report relevance.** Strong negative for §3.2: it isolates *which* component of the
+search carries the 776-vs-673 gap, and kills the most obvious "add a learned
+component here" instinct with a pre-registered trial rather than an opinion.
+
+---
+
+## 2026-07-24 — PRE-REGISTRATION: Action-Conditioned Advantage Net (ACAN) — distil the search, not the heuristic
+
+**Why this is not a tenth entry in the graveyard.** All eight closed learned methods
+(BC, DAgger, AWR, DMC, sequence-policy, oracle-critic, IQL, AlphaZero-style) built
+their signal from **the heuristic** or from self-play against the same checkpoint,
+and are therefore capped at-or-below the heuristic by construction. ACAN distils the
+**search**, which is measurably *above* the heuristic on the live ladder (776 vs
+673). That is a different, and strictly higher, ceiling.
+
+**Architecture — the axis we never varied.** Every net this project has trained
+scores either a fixed action-slot vector or the board alone. ACAN embeds each
+*candidate action* (`[option_type, card_id, attackId]`) and scores it against the
+state, one scalar per (state, action) — the pattern used by the official pinned
+sample and the strongest public nets (survey finding #5).
+
+**Target.** Per candidate, the advantage over the heuristic's own pick as measured by
+the shipped search: `A(s,aᵢ) = cand_val[i] − cand_val[heur_top]`.
+
+**Runtime use.** The *same conservative-override structure* that made the search
+work, with the search replaced by one forward pass: heuristic drives; override only
+when the net's best candidate clears a margin. **No search at runtime.**
+
+**Honest ceiling, stated in advance.** v1 is expected to *match* the search (~776)
+without runtime search, not exceed it. That is still worth doing: it is a genuinely
+learned artifact that is not capped below our own agent, it removes the Kaggle
+search-RNG/timeout exposure, and — uniquely in this project's search family — an
+ACAN-vs-heuristic A/B makes **zero search calls**, so it is *cleanly evaluable
+offline* (immune to the −39pp placebo contamination). Outcome-grounding /
+bootstrapping is explicitly a **separate later experiment**, not v1: folding game
+outcome into the target is exactly the path that already closed (AlphaZero push, DMC,
+AWR).
+
+**Corpus.** 1200 self-play games from the shipped d2/formula config, collected
+against a **diverse** opponent mix (mirror ×4, lucario ×4, abomasnow ×3, grimmsnarl
+×3, starmie ×2) as 16 detached parallel workers (`training/nn/acan_collect.ps1`).
+Rationale: labels stay valid under the search-RNG contamination (it perturbs which
+states are *reached*, not the search's assessment *at* a reached state) while state
+coverage matches the diverse field the net deploys against. ~36 decisions/game,
+~5 candidates/decision → ~210k (state, action, advantage) pairs.
+
+**Gates (pre-registered, in order — cheap first).**
+1. **Override fidelity on held-out GAMES** (not records — same-game records are
+   correlated and a record-level split leaks). Scored on the search's *margin-cleared*
+   overrides specifically, vs the trivial never-override baseline (recall 0 by
+   definition). **A raw-accuracy gate would be worthless here: a net that never
+   overrides plays the pure heuristic and still scores ~90%.**
+2. Mirror A/B vs the plain heuristic, n≥200 — must beat it.
+3. A/B vs the shipped search agent, n≥200 — **parity = success** (matches 776 with
+   no runtime search).
+Kill rule: if gate 1 cannot beat the never-override baseline meaningfully after the
+full corpus + a trained-to-convergence net + the loss ablation below, ACAN closes
+and the finding is reported as such — no A/B games get spent.
+
+**Two real design findings already, both caught by the gate before any A/B:**
+1. **The zero-point gap.** First trained net *never overrode at any threshold* — it
+   collapsed to predicting ≈0. Cause: the target is the advantage relative to
+   `heur_top`, but `heur_top` was not in the input, so the same (state, action) pair
+   had different labels depending on which candidate the heuristic happened to pick —
+   the net could not know where "advantage 0" was. Fixed by adding two per-action
+   features available at runtime anyway: `is_heur_top` and the heuristic's own
+   relative score `base[i] − base[heur_top]`. The net then overrode, and identified
+   *when* to override **3.4× better than chance** (loose precision 0.330 vs a 9.8%
+   base rate) on a quarter of the corpus at 6 epochs.
+2. **Rate-matched thresholding.** MSE compresses predictions toward the conditional
+   mean, so the search's raw MARGIN=500 under-fires against the net's outputs. What
+   transfers is the *ranking*, so the deploy threshold is chosen to reproduce the
+   search's override *rate* on held-out games rather than copying its absolute number.
+
+**Open, running:** a controlled ablation of a listwise ranking loss (`--rank-weight
+0` vs `1`) on identical data/seed. An uncontrolled first look suggested ranking
+*hurts* (loose precision 0.330→0.140, and training MSE *rising*), with a plausible
+mechanism — the listwise target is the search's overall argmax, which **is** the
+heuristic's pick ~45% of the time, so ranking largely teaches conformity, the
+opposite of override discrimination. Not yet a result: the two runs saw different
+corpus sizes. The controlled version runs on the full corpus.
 
 ---
 

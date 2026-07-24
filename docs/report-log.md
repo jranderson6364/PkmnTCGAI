@@ -199,6 +199,49 @@ retroactively reinterprets a prior ship decision (the v29d revert). It also
 corrects an over-confident conclusion THIS project made six entries earlier — the
 process working in public.
 
+---
+
+## 2026-07-23 (cont.) — Iterating on the shipped search: arena is a dead end; belief determinization built
+
+**Assuming twoply is doing well on the ladder** (user report: 750+ after 2h, well
+above the ~636 Alakazam band and the 88pt noise floor), continued iterating.
+
+**Isolated arena — ABANDONED, definitively.** The decisive diagnostic: even
+IN-PROCESS (no subprocess), pickle-round-tripping the obs before the agent sees it
+drops frozen vs abomasnow from 95% to 63%. So the blocker is not the subprocess —
+it is that the kaggle_environments `Struct` observation does not survive
+serialization faithfully enough to preserve play (subtle field-level losses that
+accumulate over a game). Since ANY process isolation REQUIRES serializing the obs
+across the boundary, process isolation for this engine is not tractable. The
+isolated-arena line is closed. Iteration reverts to the live ladder (the valid
+evaluator, how twoply itself was validated), with one usable offline signal: a
+MIRROR A/B of two SEARCH variants perturbs the RNG ~symmetrically, so
+`variant-A vs variant-B` reflects decision quality (unlike searcher-vs-heuristic).
+
+**Belief determinization built (the #1 quality lever).** The shipped twoply v1
+uses PLACEHOLDER determinization — it fills the opponent's hidden cards with
+random cards from OUR own deck, so the simulated opponent "plays" an Alakazam
+deck. The heuristic already embeds the Phase A archetype classifier
+(`_belief_posterior`), so belief determinization needs only an archetype→decklist
+map (inlined for package robustness — 5 real decklists + our own for the mirror).
+The search now classifies the opponent and fills its hidden zones from that
+archetype's real deck (≥0.6 confidence, else generic). This matters even at 2-ply:
+the opponent's single modelled reply draws from a realistic hand, not random junk.
+Two bugs found and fixed building it: JSON-keyed card ids came through as strings
+(search_begin needs ints) and a scope miss on `me`. Packaged self-contained
+(`package_twoply_belief_submission.py`), clean-room validated via get_last_callable
+(cg-less fallback + cg-available search fires, 11.9s/game, 0 errors).
+
+**In flight:** the roughly-clean mirror gate — belief-determinization
+(`twoply_agent.py`) vs placeholder-determinization (`twoply_placeholder.py`), both
+search. >50% ⇒ the better opponent model improves the search's decisions ⇒ ship
+belief as the next ladder candidate over the placeholder v1.
+
+**Note on prior gates:** the earlier twoply field gates (grimmsnarl 45, dragapult
+50, etc.) were run with BELIEF determinization (twoply_agent.py) but are now known
+to be contamination-invalid; the SHIPPED v1 is placeholder. So neither has a valid
+offline field read — the ladder decides.
+
 **SHIPPED for a live ladder read (2026-07-23).** Since local eval is invalid for
 search agents and the isolated arena did not land, the ladder is the only valid
 test — and alakazam_v9 proves the recipe works there (778.2). Packaged the 2-ply

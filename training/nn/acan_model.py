@@ -24,7 +24,9 @@ import torch
 import torch.nn as nn
 
 N_TYPE = 32          # option type ids are small ints; +1 shift for the -1 sentinel
-D_TYPE, D_CARD, D_ATK = 16, 32, 16
+N_AREA = 16          # inPlayArea: ACTIVE=4, BENCH=5, ... (+1 shift)
+N_IDX = 12           # inPlayIndex: bench slot (+1 shift)
+D_TYPE, D_CARD, D_ATK, D_AREA, D_IDX = 16, 32, 16, 8, 8
 D_ACT = 64
 # Continuous per-action features. These carry the target's ZERO POINT: the label
 # is the advantage over the HEURISTIC's pick, so without knowing which candidate
@@ -35,12 +37,20 @@ N_ACT_FLOAT = 2      # [is_heur_top, (base[i] - base[heur_top]) / base_scale]
 
 
 def act_index(desc, card_vocab, atk_vocab):
-    """[type, card_id, attackId] -> embedding indices (0 = unknown/absent)."""
-    t, c, a = desc
-    ti = int(t) + 1
-    if ti < 0 or ti >= N_TYPE:
-        ti = 0
-    return [ti, card_vocab.get(int(c), 0), atk_vocab.get(int(a), 0)]
+    """[type, src_card, attackId, inPlayArea, inPlayIndex, target_card]
+    -> embedding indices (0 = unknown/absent).
+
+    The last three are what make candidates distinguishable: two options that
+    play the same card to different targets share the first three fields.
+    """
+    t, c, a, ar, ix, tg = desc
+
+    def _clamp(v, n):
+        v = int(v) + 1
+        return v if 0 <= v < n else 0
+
+    return [_clamp(t, N_TYPE), card_vocab.get(int(c), 0), atk_vocab.get(int(a), 0),
+            _clamp(ar, N_AREA), _clamp(ix, N_IDX), card_vocab.get(int(tg), 0)]
 
 
 class ACAN(nn.Module):
@@ -51,10 +61,15 @@ class ACAN(nn.Module):
             nn.Linear(hidden, hidden), nn.ReLU(),
         )
         self.type_emb = nn.Embedding(N_TYPE, D_TYPE)
+        # one card table shared by the SOURCE card and the TARGET Pokemon --
+        # same vocabulary, and sharing is more sample-efficient
         self.card_emb = nn.Embedding(n_card, D_CARD)
         self.atk_emb = nn.Embedding(n_atk, D_ATK)
+        self.area_emb = nn.Embedding(N_AREA, D_AREA)
+        self.idx_emb = nn.Embedding(N_IDX, D_IDX)
         self.act = nn.Sequential(
-            nn.Linear(D_TYPE + D_CARD + D_ATK + N_ACT_FLOAT, D_ACT), nn.ReLU(),
+            nn.Linear(D_TYPE + 2 * D_CARD + D_ATK + D_AREA + D_IDX + N_ACT_FLOAT,
+                      D_ACT), nn.ReLU(),
         )
         # multiplicative state x action interaction -- lets the net say "this card
         # is good HERE", which a concat-only net can only express weakly
@@ -66,11 +81,14 @@ class ACAN(nn.Module):
         )
 
     def forward(self, s, a, af):
-        """s: [B, n_state], a: [B, 3] long, af: [B, 2] -> [B] advantage in [-1, 1]."""
+        """s: [B, n_state], a: [B, 6] long, af: [B, 2] -> [B] advantage in [-1, 1]."""
         hs = self.state(s)
         ha = self.act(torch.cat([self.type_emb(a[:, 0]),
                                  self.card_emb(a[:, 1]),
-                                 self.atk_emb(a[:, 2]), af], dim=-1))
+                                 self.atk_emb(a[:, 2]),
+                                 self.area_emb(a[:, 3]),
+                                 self.idx_emb(a[:, 4]),
+                                 self.card_emb(a[:, 5]), af], dim=-1))
         inter = self.s_proj(hs) * ha
         out = self.head(torch.cat([hs, ha, inter], dim=-1)).squeeze(-1)
         return torch.tanh(out)

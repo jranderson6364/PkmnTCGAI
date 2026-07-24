@@ -85,9 +85,10 @@ def build_vocabs(decisions):
     cards, atks = {0: 0}, {0: 0}
     for d in decisions:
         for desc in d["acts"].values():
-            c, a = int(desc[1]), int(desc[2])
-            if c not in cards:
-                cards[c] = len(cards)
+            for c in (int(desc[1]), int(desc[5])):   # source card AND target
+                if c not in cards:
+                    cards[c] = len(cards)
+            a = int(desc[2])
             if a not in atks:
                 atks[a] = len(atks)
     return cards, atks
@@ -108,7 +109,7 @@ def to_arrays(decisions, cards, atks, clip, base_scale):
     C = max(len(d["cands"]) for d in decisions)
     D = len(decisions)
     S = np.zeros((D, NUM_FEATS), dtype=np.float32)
-    A = np.zeros((D, C, 3), dtype=np.int64)
+    A = np.zeros((D, C, 6), dtype=np.int64)
     F = np.zeros((D, C, 2), dtype=np.float32)
     Y = np.zeros((D, C), dtype=np.float32)
     M = np.zeros((D, C), dtype=np.float32)
@@ -243,7 +244,7 @@ def main():
         """-> [b, C] predicted advantages for a batch of decisions."""
         b = len(j)
         s = Xt[j].unsqueeze(1).expand(b, C, NUM_FEATS).reshape(b * C, NUM_FEATS)
-        return model(s, At[j].reshape(b * C, 3),
+        return model(s, At[j].reshape(b * C, 6),
                      Ft[j].reshape(b * C, 2)).view(b, C)
 
     for ep in range(args.epochs):

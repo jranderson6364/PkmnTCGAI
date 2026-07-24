@@ -66,17 +66,24 @@ except Exception:
 _STATS = {"scored": 0, "overrides": 0}
 
 
-def _act_desc(opts, cur, me_i, i):
+def _board(cur, me_i):
+    pl = cur.get("players") or [{}]
+    my = pl[me_i] if len(pl) > me_i else {}
+    return H._hand_list(my), H._active(my), (my.get("bench") or [])
+
+
+def _act_desc(opts, board, i):
+    """MUST stay identical to twoply_collect's `_act_desc` -- the target fields
+    are what make candidates distinguishable at all."""
+    hand, act, bench = board
     o = opts[i]
     t = o.get("type")
-    cardid = -1
-    if t in (7, 8, 9) and o.get("area") == 2:
-        hnd = cur.get("players", [{}])[me_i].get("hand") or []
-        ix = o.get("index")
-        if ix is not None and 0 <= ix < len(hnd):
-            cardid = (hnd[ix] or {}).get("id", -1)
-    return [int(t) if t is not None else -1, int(cardid),
-            int(o.get("attackId") or -1)]
+    return [int(t) if t is not None else -1,
+            int(H._opt_card_id(o, hand, act, bench)),
+            int(o.get("attackId") or -1),
+            int(o.get("inPlayArea", -1)),
+            int(o.get("inPlayIndex", -1)),
+            int(H._pk_id(H._attach_target(o, act, bench)))]
 
 
 def _acan_decide(obs_dict):
@@ -119,7 +126,8 @@ def _acan_decide(obs_dict):
     hb = float(base[heur_top])
     s = np.tile(np.asarray(list(feats), dtype=np.float32), (len(cand), 1))
     s = torch.from_numpy(((s - _MU) / _SD).astype(np.float32))
-    a = torch.tensor([act_index(_act_desc(opts, cur, me_i, i), _CARDS, _ATKS)
+    board = _board(cur, me_i)
+    a = torch.tensor([act_index(_act_desc(opts, board, i), _CARDS, _ATKS)
                       for i in cand], dtype=torch.long)
     f = torch.tensor([[1.0 if i == heur_top else 0.0,
                        (float(base[i]) - hb) / _BASE_SCALE] for i in cand],

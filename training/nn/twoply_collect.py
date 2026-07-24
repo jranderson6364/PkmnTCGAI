@@ -349,16 +349,31 @@ def _search_decide(obs_dict):
     best = max(evaluated, key=lambda i: avg[i])
     if _COLLECT_PATH and heur_top in avg:
         try:
+            # Action descriptor. The TARGET fields are load-bearing: 84% of
+            # decisions contain candidates that differ ONLY in where the card
+            # goes (attach this energy to the ACTIVE vs bench slot k), and
+            # 1294 such groups had search values differing by more than the
+            # whole override margin. Without them the net sees identical
+            # inputs for candidates the search values very differently and
+            # cannot learn WHAT to override to -- measured, then fixed.
+            # Uses main.py's own helpers so the net reads the board exactly
+            # as the heuristic does.
+            _pl = (cur.get("players") or [{}])
+            _my = _pl[me_i] if len(_pl) > me_i else {}
+            _hand = H._hand_list(_my)
+            _act = H._active(_my)
+            _bench = _my.get("bench") or []
+
             def _act_desc(i):
                 o = opts[i]
-                t = o.get("type"); cardid = -1
-                if t in (7, 8, 9) and o.get("area") == 2:  # PLAY/ATTACH/EVOLVE from hand
-                    hnd = cur.get("players", [{}])[me_i].get("hand") or []
-                    ix = o.get("index")
-                    if ix is not None and 0 <= ix < len(hnd):
-                        cardid = (hnd[ix] or {}).get("id", -1)
-                return [int(t) if t is not None else -1, int(cardid),
-                        int(o.get("attackId") or -1)]
+                t = o.get("type")
+                src = H._opt_card_id(o, _hand, _act, _bench)
+                tgt = H._pk_id(H._attach_target(o, _act, _bench))
+                return [int(t) if t is not None else -1, int(src),
+                        int(o.get("attackId") or -1),
+                        int(o.get("inPlayArea", -1)),
+                        int(o.get("inPlayIndex", -1)),
+                        int(tgt)]
             rec = {"game": _GAME_ID, "seat": me_i, "turn": cur.get("turn"),
                    "current": cur,  # state for feature extraction
                    "acts": {int(i): _act_desc(i) for i in evaluated},  # action feats

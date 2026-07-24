@@ -349,8 +349,19 @@ def _search_decide(obs_dict):
     best = max(evaluated, key=lambda i: avg[i])
     if _COLLECT_PATH and heur_top in avg:
         try:
+            def _act_desc(i):
+                o = opts[i]
+                t = o.get("type"); cardid = -1
+                if t in (7, 8, 9) and o.get("area") == 2:  # PLAY/ATTACH/EVOLVE from hand
+                    hnd = cur.get("players", [{}])[me_i].get("hand") or []
+                    ix = o.get("index")
+                    if ix is not None and 0 <= ix < len(hnd):
+                        cardid = (hnd[ix] or {}).get("id", -1)
+                return [int(t) if t is not None else -1, int(cardid),
+                        int(o.get("attackId") or -1)]
             rec = {"game": _GAME_ID, "seat": me_i, "turn": cur.get("turn"),
                    "current": cur,  # state for feature extraction
+                   "acts": {int(i): _act_desc(i) for i in evaluated},  # action feats
                    "cand": [int(i) for i in evaluated],
                    "cand_val": {int(i): float(avg[i]) for i in evaluated},
                    "base": {int(i): float(base[i]) for i in evaluated},

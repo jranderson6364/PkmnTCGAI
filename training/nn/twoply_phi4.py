@@ -82,7 +82,7 @@ MAIN = 0
 # Its output scale is ~[-7,7] (normalized features), so the override MARGIN is
 # rescaled per mode: half a prize is 1000 in formula units, but weights[0]/6*0.5
 # in phi4 units.
-LEAF_MODE = os.environ.get("TWOPLY_LEAF", "formula")
+LEAF_MODE = "phi4"  # baked for the mirror gate
 _PHI4_W = None
 _eval_v4 = None
 if LEAF_MODE == "phi4":

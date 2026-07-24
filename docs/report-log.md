@@ -259,6 +259,35 @@ exceed 750.7. v29d remains the safe slot.
 remaining knob for a shallow search AND the natural home for a LEARNED value net —
 the bridge back to the RL goal. Prototype in parallel with the belief ladder read.
 
+---
+
+## 2026-07-23 (cont.) — Learned leaf eval: Φ v4 as the search's value function (the RL bridge)
+
+**The idea.** The 2-ply search's leaf eval is currently a hand-crafted formula
+(prizes + HP + energy + hand + no-active). That slot is exactly where a LEARNED
+value function belongs — and the project's best fitted state-value is Φ v4
+(`training/nn/eval_v4.py`, 11 antisymmetric features, `eval_v4_weights.npy`,
+0.675 sign-acc). Wiring it as the leaf eval turns twoply into a learned-value-
+guided search — the first concrete reconnection of the search success with the
+learned-model track. Crucially Φ v4 includes a `hand_diff` feature (weight 0.555),
+so it captures our win condition — it will not repeat the generic-eval failure
+that wrecked dragapult.
+
+**Wired** (`TWOPLY_LEAF=phi4`, `twoply_phi4.py` bakes it in): terminal states still
+dominate (±1e7); non-terminal leaves use `eval_v4`. The override MARGIN is
+rescaled per mode — a half-prize is 1000 in formula units but
+`weights[0]/6·0.5 = 0.086` in Φ v4 units. 0 errors, 21.6s/game (slower — asdict +
+threat/ko-speed features per leaf — but the 0.8s hard budget protects Kaggle
+timing). **Notable: Φ v4 overrides ~11×/game vs the formula's 1-3** — a much
+larger search footprint, which the mirror gate will judge as sharper decisions or
+over-aggression.
+
+**In flight:** mirror gate — `twoply_phi4` (Φ v4 leaf) vs `twoply_agent` (formula
+leaf), both belief determinization, both search (RNG ~cancels). >50% ⇒ the learned
+value function sharpens the search ⇒ pursue a trained value NET next (the full RL
+bridge); ≤50% ⇒ the crude formula is already sufficient for a 2-ply leaf and the
+ceiling is elsewhere (depth, or the ladder read on belief).
+
 **Note on prior gates:** the earlier twoply field gates (grimmsnarl 45, dragapult
 50, etc.) were run with BELIEF determinization (twoply_agent.py) but are now known
 to be contamination-invalid; the SHIPPED v1 is placeholder. So neither has a valid

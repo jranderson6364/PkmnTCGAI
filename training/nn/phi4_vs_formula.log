@@ -1,0 +1,5 @@
+=== MIRROR GATE: phi4-leaf vs formula-leaf (both belief determinization, both search) ===
+>50% => the learned Phi v4 value function sharpens the search's overrides
+TOTAL: A 41W 39L 0T (errors=0)
+A win rate: 0.512 ± 0.110 (95% CI)
+=== DONE ===

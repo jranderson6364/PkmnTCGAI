@@ -282,11 +282,30 @@ timing). **Notable: Φ v4 overrides ~11×/game vs the formula's 1-3** — a much
 larger search footprint, which the mirror gate will judge as sharper decisions or
 over-aggression.
 
-**In flight:** mirror gate — `twoply_phi4` (Φ v4 leaf) vs `twoply_agent` (formula
-leaf), both belief determinization, both search (RNG ~cancels). >50% ⇒ the learned
-value function sharpens the search ⇒ pursue a trained value NET next (the full RL
-bridge); ≤50% ⇒ the crude formula is already sufficient for a 2-ply leaf and the
-ceiling is elsewhere (depth, or the ladder read on belief).
+**RESULT — NULL. Φ v4 leaf 51.2% (41W-39L, n=80) vs the formula.** CI [40.2, 62.2],
+dead-centered on 50%. The learned value function neither sharpens nor hurts the
+2-ply search, despite overriding 3-4× more often (its extra overrides net out to a
+wash). This **replicates the 2026-07-09 Φ v4 Gate 2 closure** (Φ v4 as a leaf eval
+in the PIMC search transferred zero improvement) — now confirmed in the
+conservative-override wrapper too. Robust conclusion: **the leaf eval is NOT the
+bottleneck for a shallow 2-ply search.** The crude formula (prize/hp/energy/hand)
+already captures enough; Φ v4's richer threat/ko-speed features add nothing at this
+depth.
+
+**Consequence for the RL bridge.** The simple version — a learned value function as
+the 2-ply leaf eval — does not pay off, and a trained value NET is unlikely to beat
+Φ v4 here (Φ v4 is already a strong fitted eval and it's null). A learned value
+only earns its keep when the search is DEEP enough that the leaf eval dominates the
+outcome — i.e. the real RL bridge is **deep search + value net (AlphaZero-style)**,
+not a value net bolted onto a 2-ply leaf. That is a much larger build (train a
+net, deepen the search, manage the 0.8s budget / variance). Decision for the user;
+the search win (750.7 + the belief +10pp upgrade, shipped) stands regardless.
+
+**Also possible (not pursued now):** the null is at the principled half-prize
+margin where Φ v4 over-fires (11 overrides/game). A higher margin might extract net
+value from only its confident overrides — but the mirror's ±11pp noise at n=80
+makes tuning-scale effects hard to resolve, and this is low-signal relative to the
+depth question.
 
 **Note on prior gates:** the earlier twoply field gates (grimmsnarl 45, dragapult
 50, etc.) were run with BELIEF determinization (twoply_agent.py) but are now known

@@ -76,7 +76,7 @@ def main():
             ht = str(rec["heur_top"])
             base_v = float(cv.get(ht, 0.0))
             adv_records.append({
-                "feats": feats.tolist(),
+                "feats": list(feats),
                 "cand": rec["cand"],
                 "advantage": {int(i): float(cv.get(str(i), base_v)) - base_v
                               for i in rec["cand"]},

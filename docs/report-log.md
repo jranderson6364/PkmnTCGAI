@@ -232,10 +232,13 @@ Two bugs found and fixed building it: JSON-keyed card ids came through as string
 (`package_twoply_belief_submission.py`), clean-room validated via get_last_callable
 (cg-less fallback + cg-available search fires, 11.9s/game, 0 errors).
 
-**In flight:** the roughly-clean mirror gate — belief-determinization
-(`twoply_agent.py`) vs placeholder-determinization (`twoply_placeholder.py`), both
-search. >50% ⇒ the better opponent model improves the search's decisions ⇒ ship
-belief as the next ladder candidate over the placeholder v1.
+**Mirror gate RESULT: belief > placeholder, 60.0% (48W-32L, n=80).** The
+better opponent model improves the search's decisions by **~+10pp** head-to-head
+(both agents search, so the RNG perturbation ~cancels — the one clean offline
+signal available for search agents). CI [49.3, 70.7] grazes 50% at the floor, so
+directional-not-airtight, but the sign matches the mechanism (a realistic
+opponent hand → better modelled reply → better overrides). Belief is the better
+agent and is ship-ready (`twoply_belief_submission.tar.gz`, clean-room validated).
 
 **Note on prior gates:** the earlier twoply field gates (grimmsnarl 45, dragapult
 50, etc.) were run with BELIEF determinization (twoply_agent.py) but are now known

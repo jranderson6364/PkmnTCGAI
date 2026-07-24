@@ -1,0 +1,6 @@
+=== MIRROR GATE: belief-determinization vs placeholder-determinization (both search, ~symmetric RNG) ===
+belief = twoply_agent.py (BeliefDeterminizer), placeholder = twoply_placeholder.py (random fills)
+>50% => belief's better opponent model improves the search's decisions
+TOTAL: A 48W 32L 0T (errors=0)
+A win rate: 0.600 ± 0.107 (95% CI)
+=== DONE ===

@@ -9258,3 +9258,42 @@ v28 remains shipped (harmless, reasoned basis at the time); no further
 ships today without either much longer ladder observation or a properly
 powered offline test that specifically includes non-mirror wall/unknown-
 archetype opponents (which none of today's offline gates did).
+
+---
+
+## 2026-07-23 (cont.) — Night Stretcher deck lever: clean NEGATIVE (the bounded squeeze)
+
+**Hypothesis (from the notebook survey):** Night Stretcher (#1097, "put a Pokémon
+or Basic Energy from discard into hand") is the meta's top winner-correlated card
+(+1556 delta) and mechanistically fixes our #1 documented live failure
+(board-thinning) while raising hand size (= Powerful Hand damage). Add it to the
+deck.
+
+**Method.** Two variants, each with full heuristic support (PLAY scoring mirroring
+LANA/Sacred Ash; a `_pick_discard_return` picker that prefers Abra>Kadabra>
+Alakazam>Psychic-energy). Gated in the **pure-heuristic mirror** (no search → the
+one CLEAN measurement, unaffected by the search-RNG contamination) vs the current
+deck, n=120 each:
+
+| variant | change | win rate vs current deck |
+|---|---|---|
+| main_ns | +2 Night Stretcher, −2 Poké Pad | 30.8% (37-83) |
+| main_ns1 | +1 Night Stretcher, −1 Battle Cage | 37.5% |
+
+**Both clearly regress.** Even the minimal 1-for-1 (cutting the least load-bearing
+card) loses −12.5pp. Night Stretcher is a near-dead card early, and the deck
+already carries adequate recovery (Sacred Ash, Lana); its slot cost outweighs its
+late-game payoff. Verified live during the smoke: it IS played (7/8 games) and the
+return-select IS handled (0 errors) — this is a real strategic negative, not a
+plumbing failure.
+
+**Decision: CLOSED, negative.** The Night Stretcher survey signal was
+archetype-confounded (flagged when the survey was written) and does not transfer
+to our well-tuned list. Combined with the earlier leaf-eval null, the two "cheap
+squeeze" levers are both exhausted — consistent with sitting ~2 points under the
+public ceiling (778), i.e. the deck+pilot headroom is essentially gone at 776.
+
+**Report relevance.** A clean, mechanistically-honest negative: the format's
+single highest winner-correlated card does not improve a deck already tuned to the
+public ceiling — a concrete caution against acting on confounded correlational
+"meta insights," measured on the one uncontaminated instrument we have.

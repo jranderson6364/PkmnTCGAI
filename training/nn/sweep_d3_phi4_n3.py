@@ -69,14 +69,14 @@ except Exception:
     _DET = None
 
 BUDGET_S = float(os.environ.get("TWOPLY_BUDGET_S", "0.80"))
-N_DET    = int(os.environ.get("TWOPLY_NDET", "3"))
+N_DET    = 3  # baked
 K_OPP    = int(os.environ.get("TWOPLY_KOPP", "3"))
 MAX_OPTS = int(os.environ.get("TWOPLY_MAXOPTS", "24"))
 # DEPTH = number of turn-plies looked ahead including the candidate's own turn.
 # 2 = our turn + opp reply + leaf (the shipped 776 behavior). 3 = + our turn.
 # Our plies are single greedy lines; only opponent plies branch (top-K), so
 # cost is ~linear in our plies and K^(opp plies). (S1, pre-registered 2026-07-23.)
-DEPTH    = int(os.environ.get("TWOPLY_DEPTH", "2"))
+DEPTH    = 3  # baked
 MAX_SUBSTEPS = 40
 MAIN = 0
 
@@ -87,7 +87,7 @@ MAIN = 0
 # Its output scale is ~[-7,7] (normalized features), so the override MARGIN is
 # rescaled per mode: half a prize is 1000 in formula units, but weights[0]/6*0.5
 # in phi4 units.
-LEAF_MODE = os.environ.get("TWOPLY_LEAF", "formula")
+LEAF_MODE = "phi4"  # baked
 _PHI4_W = None
 _eval_v4 = None
 if LEAF_MODE == "phi4":

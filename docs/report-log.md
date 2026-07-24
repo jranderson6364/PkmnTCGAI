@@ -9297,3 +9297,56 @@ public ceiling (778), i.e. the deck+pilot headroom is essentially gone at 776.
 single highest winner-correlated card does not improve a deck already tuned to the
 public ceiling — a concrete caution against acting on confounded correlational
 "meta insights," measured on the one uncontaminated instrument we have.
+
+---
+
+## 2026-07-23 — PRE-REGISTRATION: AlphaZero-style RL program bootstrapped on the working search
+
+**Directive (user, 2026-07-23):** pursue a serious RL/ML method thoroughly — "each
+idea must be thoroughly explored and critically examined," a well-characterized
+result (even a null) is the Strategy-track deliverable, iterate continuously.
+Reaffirmed with the "can't-exceed-teacher" history and the AlphaZero-push precedent
+in full view. This is the decision.
+
+**Thesis.** The conservative-override search (776 live, vs the heuristic's ~670) is
+the project's FIRST signal that exceeds the teacher. Every prior learned arm died
+on "a signal distilled from the teacher can't exceed it." The search is a teacher
+that *does* exceed the old one. So the RL program bootstraps on it, AlphaZero-style.
+
+**The genuinely-new questions (per an advisor stress-test), NOT re-runs of closed
+negatives:**
+1. Does a learned value function earn its keep at DEPTH (where the leaf dominates),
+   given it is null at 2-ply (the Φ v4 leaf-eval null, 2026-07-23)?
+2. Does an ACTION-CONDITIONED net (the one axis never varied across 9 prior arms)
+   trained on the search's per-candidate ADVANTAGE-over-heuristic signal (the only
+   place the search carries info the heuristic lacks) break the 12-17% BC plateau?
+
+**Stage plan (each stage gates the next; abandon a branch only on an
+adequately-powered, mechanism-level result, not a 5-minute gate):**
+- **S1 — deep search characterization (build first).** Configurable-depth override
+  search (depth-3: our plies are greedy single-lines, only opp plies branch, ~linear;
+  depth-4 = K² later). Sweep {depth 2,3} × {formula, Φ v4 leaf} × {N_DET 3,6} in the
+  MIRROR at **n≥200**, with per-decision timing logged. Decision rule: if
+  Φ-v4-at-depth-3 beats formula-at-depth-3 (CI-separable) → a learned value is
+  justified and we know the target depth → S2. If not, and N_DET=6 doesn't rescue it
+  → the value-at-leaf premise is falsified even at depth → pivot to the policy/
+  architecture axis (Q2) rather than train a net against a dead premise.
+- **S2 — collect search-derived targets** via self-play with the (deep) search:
+  per-state search-backed value, and per-candidate advantage-vs-heuristic.
+- **S3 — train nets, VARYING ARCHITECTURE** (action-conditioned vs fixed-slot for
+  the policy/advantage head; the value head is per-state).
+- **S4 — plug back in:** learned value at the leaf / learned advantage as the
+  override signal; test net-guided vs formula-guided search in the mirror (n≥200),
+  ship to the ladder at milestones (776 reference).
+- **S5 — iterate the bootstrap** (net → better search → better targets → better net).
+
+**Measurement discipline (load-bearing):** only two valid instruments for a search
+agent — the MIRROR (variant-vs-variant, RNG cancels) at n≥200, and the LIVE LADDER.
+NEVER gate a search agent local-vs-heuristic or vs field anchors (the −39pp-
+contaminated numbers). Timing measured every stage (0.8s budget; silent degradation
+to fewer dets = more variance).
+
+**Report relevance.** This is the Strategy-track centerpiece regardless of ladder
+outcome: a principled RL method with a sound bootstrap, pre-registered gates, honest
+power, and — win or lose — a mechanism-level answer to "can a learned model exceed a
+strong heuristic in a POMDP, and via what signal."

@@ -240,6 +240,25 @@ directional-not-airtight, but the sign matches the mechanism (a realistic
 opponent hand → better modelled reply → better overrides). Belief is the better
 agent and is ship-ready (`twoply_belief_submission.tar.gz`, clean-room validated).
 
+**LADDER CONFIRMATION — the search line works.** The placeholder-twoply
+(submission 54937110) **settled at publicScore 750.7** — ~+100 over the Alakazam
+band (~636) and v29d (555–673), well beyond the 88pt noise floor. This is the
+**first ladder result the project has ever produced beyond the plain heuristic**,
+and it confirms both that search is a real ladder lever here AND that Kaggle
+isolates the search RNG (the local −39pp contamination is a vendored-engine
+artifact, exactly as predicted). The five prior search closures were correct
+locally; the winning ingredient was the CONSERVATIVE OVERRIDE structure (veto, not
+policy-replacement) — now validated live.
+
+**Belief shipped (user chose ship-now).** Counting pair is now belief-twoply
+(54939465) + v29d backstop (54939468), both `COMPLETE` at the 600.0 fresh floor.
+Belief gets its own multi-day read; if its +10pp mirror edge translates it should
+exceed 750.7. v29d remains the safe slot.
+
+**Next lever:** the leaf eval (prizes + HP + hand size) is the highest-ceiling
+remaining knob for a shallow search AND the natural home for a LEARNED value net —
+the bridge back to the RL goal. Prototype in parallel with the belief ladder read.
+
 **Note on prior gates:** the earlier twoply field gates (grimmsnarl 45, dragapult
 50, etc.) were run with BELIEF determinization (twoply_agent.py) but are now known
 to be contamination-invalid; the SHIPPED v1 is placeholder. So neither has a valid

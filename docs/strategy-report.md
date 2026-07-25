@@ -18,9 +18,11 @@ We set out to build a competitive agent for a partially-observable, variable-
 action-space card game where the organizers themselves note that "rule-based
 programming alone may not ensure a high ranking." Our central finding is a
 methodological one: **on this problem, the binding constraint is not the learning
-algorithm but the measurement.** We document (1) a graveyard of eight learned-
-agent methods that each fail for one structural reason — a signal distilled from a
-teacher cannot exceed that teacher; (2) three independent, quantified measurement
+algorithm but the measurement.** We document (1) a graveyard of nine learned-
+agent methods that each fail for a structural reason — a signal distilled from a
+teacher cannot exceed it, and in the sharpest case cannot even *reproduce* a teacher
+that conditions on hidden information the student's features do not carry; (2) three
+independent, quantified measurement
 pathologies that explain why offline evaluation systematically misled us and,
 we argue, the field; and (3) the one method that broke the ceiling — a
 *conservative-override* forward search — identified by mining public agents,

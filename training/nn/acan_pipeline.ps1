@@ -31,4 +31,4 @@ Write-Output "`n=== ARM B: MSE + listwise ranking (--rank-weight 1) ==="
 python "$nn\train_acan.py" --epochs 25 --rank-weight 1 `
     --out "$nn\acan_rank.pth" 2>&1 | Tee-Object "$nn\acan_rank.log"
 
-Write-Output "`nDONE — compare the two GATE tables (loose_p and exact precision)."
+Write-Output "`nDONE -- compare the two GATE tables (loose_p and exact precision)."

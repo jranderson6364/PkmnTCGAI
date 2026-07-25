@@ -141,13 +141,60 @@ The other two, both caught by the gate:
    transfers is the *ranking*, so the deploy threshold is chosen to reproduce the
    search's override *rate* on held-out games rather than copying its absolute number.
 
-**Open, running:** a controlled ablation of a listwise ranking loss (`--rank-weight
-0` vs `1`) on identical data/seed. An uncontrolled first look suggested ranking
-*hurts* (loose precision 0.330→0.140, and training MSE *rising*), with a plausible
-mechanism — the listwise target is the search's overall argmax, which **is** the
-heuristic's pick ~45% of the time, so ranking largely teaches conformity, the
-opposite of override discrimination. Not yet a result: the two runs saw different
-corpus sizes. The controlled version runs on the full corpus.
+**Loss ablation — RESOLVED (controlled, full 30k corpus, identical seed).** MSE-only
+vs MSE+listwise-ranking, both 25 epochs on the same data. **Ranking hurts,
+confirmed:** at the rate-matched threshold the where-to-override signal (loose
+precision) is 0.228 for MSE-only vs 0.100 for MSE+ranking — ranking *halves* it.
+Mechanism as predicted: the listwise target is the search's overall argmax, which is
+the heuristic's own pick ~45% of the time, so it teaches conformity, the opposite of
+override discrimination. **MSE-only is the arm** (`acan_mse.pth`).
+
+**Gate 1 result on the full corpus — ambiguous, and the ambiguity is the finding.**
+The search overrides on 10.0% of held-out decisions (429/4311). MSE-only ACAN, at the
+rate-matched threshold:
+- **where to override: loose precision 0.228 = 2.3× the 10% base rate** — a real signal.
+- **which action: exact precision 0.054, i.e. ~24% conditional accuracy** — barely
+  above chance among ~5 candidates.
+
+Two corrections to earlier same-day optimism, both from small-sample noise now
+overturned by the reliable full-corpus read:
+1. The smoke test's "56% conditional action accuracy" was noise (tiny held-out set,
+   few overrides). True value ~24%.
+2. **Exact precision went 0.119 (4k records) → 0.054 (30k records) as data
+   INCREASED.** This is the tell that the WHICH signal is a *ceiling*, not an
+   undertraining problem — more data revealed a worse, truer number.
+
+**The decisive diagnostic: confidence does not track correctness.** In the MSE
+threshold sweep, the top-32 *most-confident* overrides score **0.000** exact
+precision, and precision is flat (~0.05) at every threshold. A useful override net
+has its most-confident calls be its most accurate; ACAN's are if anything worse. So
+(a) no conservative threshold can rescue it — the correlation that would require does
+not exist — and (b) it mechanistically predicts the A/B: at rate-matched firing ~77%
+of ACAN's overrides land where the search would have left the heuristic alone and
+~95% go to an action the search never endorsed, which is exactly the
+policy-replacement mode §3.2 says destroys plan coherence.
+
+**PRE-REGISTERED KILL RULE (written before the A/B number landed).** Two A/Bs at
+n=200, same rig, launched together:
+- **ACAN(mse) vs the plain heuristic** — bar is **WIN** (>50% + CI). A tie means the
+  overrides add nothing. *This is the clean one: ACAN makes zero search calls, so it
+  is immune to the −39pp sham-placebo contamination.*
+- **twoply_agent (776 search) vs the plain heuristic** — the positive control, so a
+  flat ACAN result is interpretable. This IS the contaminated config; subtract the
+  ~53% mirror sham-placebo floor (~3pp) before treating it as the search's true edge.
+  ACAN would have to reproduce (search edge − ~3pp).
+
+**If ACAN does not beat the heuristic, ACAN v1 CLOSES. Do NOT respond by collecting
+more games or adding epochs/capacity** — the 0.119→0.054 data-scaling and the flat
+confidence curve are direct evidence this is not a data or capacity problem. The
+likely mechanism is a genuine ceiling: the search's choice of *which* action encodes
+belief-determinized rollout information (sampled opponent hands, rollout outcomes)
+that is **not a function of the student's state encoding + action descriptor**. When
+the label depends on inputs the net cannot see, no data closes it. **This is the
+sharper form of the project's can't-exceed-teacher thesis:
+can't-*reproduce*-teacher, because the teacher conditions on hidden information the
+student's features do not carry** — a strong, novel §3 finding regardless of the A/B
+direction. The representation finding (#0 above) also stands regardless.
 
 ---
 

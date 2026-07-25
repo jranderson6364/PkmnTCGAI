@@ -4,7 +4,7 @@
 is the delivery channel for the 70% "model approach" score. Draft in progress;
 prose being tightened, figures marked `[FIG-n]`.*
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-25
 **Rubric it targets** (verbatim, `docs/competition-strategy.md`): 70% Model Score
 (articulation + rationale; originality + technical soundness; *consistency under
 repeated matches*; *avoids over-reliance on specific matchups/states*; competition
@@ -86,11 +86,26 @@ We tested eight learned-agent methods, each pre-registered and gated:
 | Sequence-transformer BC | fidelity 83% / win-rate 12% | fidelity and win-rate *decouple* |
 | DMC (round 3→6) | 2.5%→8.25%, then negative slope | more data made it worse |
 | AlphaZero-style self-play + MCTS+value-net | ~20–24% vs heuristic | value net can't beat the teacher it's trained from |
+| Action-conditioned advantage net (ACAN) | 48.5% vs heuristic (search control: 59.5%) | can't *reproduce* the search — its label conditions on hidden rollout info the student can't see |
 
 **These are one result.** Every method builds its signal — a cloned policy, a
 fitted value, a self-play target — from the teacher or from self-play against the
 same checkpoint, and therefore **cannot exceed the teacher by construction or by
-empirical closure.** A second architecture (the sequence transformer) independently
+empirical closure.** ACAN sharpens this: it distilled the *search* (which is
+genuinely above the heuristic — the positive control confirms +9.5pp in the same
+rig), yet still captured none of the gain, because the search's choice of *which*
+action encodes belief-determinized rollout outcomes that are **not a function of the
+student's state+action features.** The wall is not always "can't exceed the teacher";
+here it is **"can't reproduce a teacher that conditions on information you don't
+have."** A first-class negative — the architecture axis (action-conditioned scoring,
+the one the official sample and strongest public nets use) was the last untried
+structural lever, and it closes for a reason specific to imperfect-information games.
+En route, a quantified lesson that outranks the closure itself: the binding
+constraint was **representation, not algorithm or scale** — the first action
+descriptor made 77% of candidates byte-identical to another candidate, and fixing
+that (not more data) was what moved the net off chance; exact-action precision then
+*fell* 0.119→0.054 as data grew 4k→30k, the signature of a representational ceiling
+rather than an undertraining one. A second architecture (the sequence transformer) independently
 reproduced the fidelity/win-rate *decoupling*: past the mid-70s%, higher
 per-decision accuracy stops converting to wins — evidence the ~12–17% ceiling is
 not primarily a per-decision-accuracy problem. `[FIG-graveyard]` the ablation

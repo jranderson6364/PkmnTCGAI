@@ -4,9 +4,13 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-24 (S1 sweep CLOSED the value-at-leaf branch on its
-pre-registered rule; pivoted to the Action-Conditioned Advantage Net — the
-architecture axis this project never varied.)
+**Last updated:** 2026-07-25 (ACAN — the action-conditioned advantage net, the
+architecture axis this project never varied — CLOSED on its pre-registered kill
+rule: 48.5% vs the heuristic against a 59.5% search positive control. New sharper
+thesis: can't-*reproduce*-teacher, because the teacher conditions on hidden
+rollout information the student's features don't carry. Two findings stand
+regardless: representation was the binding constraint; the ambiguous gate was a
+faithful proxy.)
 
 ---
 
@@ -183,6 +187,22 @@ n=200, same rig, launched together:
   flat ACAN result is interpretable. This IS the contaminated config; subtract the
   ~53% mirror sham-placebo floor (~3pp) before treating it as the search's true edge.
   ACAN would have to reproduce (search edge − ~3pp).
+
+**A/B RESULTS (both n=200, same rig, seats alternated) — ACAN v1 CLOSED.**
+- **ACAN(mse) vs heuristic: 48.5% ±6.9 (97W-103L, 0 errors, 0 ties)** — a
+  tie/slight loss. Does **not** clear the WIN bar. Kill rule fires.
+- **twoply_agent (776 search) vs heuristic: 59.5% ±6.8 (119W-81L)** — the positive
+  control. The rig demonstrably shows a **+9.5pp** search edge (~+7pp after the ~3pp
+  mirror sham-placebo floor), so ACAN's 48.5% is **not** a flat-harness artifact: the
+  net reproduced **~none** of the search's advantage. Directionally consistent with
+  the search's +22pp offline / +103 ladder story.
+
+**Verdict: the gate was a faithful proxy.** It predicted parity/regression from the
+flat confidence curve, and the clean A/B delivered exactly that. This is the sharper
+finding, now with the interpretable control number: the search beats the heuristic by
+~+9.5pp in this rig; a net trained to reproduce its per-decision overrides captured
+none of that gain, because the search's *which-action* choice conditions on
+belief-determinized rollout information the student's features do not carry.
 
 **If ACAN does not beat the heuristic, ACAN v1 CLOSES. Do NOT respond by collecting
 more games or adding epochs/capacity** — the 0.119→0.054 data-scaling and the flat

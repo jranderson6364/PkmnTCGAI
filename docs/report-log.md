@@ -53,13 +53,32 @@ proof it was good. The honest statement is that **the two search variants are no
 currently separable, and the one with the weaker evidence is the one occupying a
 counting slot.**
 
+**Finding 3 — the age-matched comparison is sharper than the band, and points the
+same way harder.** The 153-point band pools copies shipped days apart, and this
+project already established (2026-07-05, the v26/v27 "decline") that publicScore is
+**age-confounded** — it climbs and settles over hours. But each search variant was
+shipped within ~15-18 seconds of its own v29d backstop, which gives a genuinely
+age-matched pair:
+
+| pair | search variant | same-minute backstop | Δ |
+|---|---|---|---|
+| 07-23 | v32-placeholder **750.7** | 54937108 **555.9** | **+194.8** |
+| 07-24 | v33-belief **628.0** | 54939468 **645.1** | **−17.1** |
+
+Same code age, same ladder conditions, same tarball on the control side. On this
+comparison v32-placeholder is ~+195 over its own control while v33-belief is
+**−17, i.e. not distinguishable from the plain heuristic shipped beside it.** This is
+stronger evidence than band-overlap because it removes the confound the project
+already knows about.
+
 **Decision: log now, do not ship reflexively.** The counting pair is correctly formed
 (v33-belief + a v29d backstop) and there is no deadline pressure until Aug 16. This is
-a pre-registration for the check, not the action: **take a second read ≥6h later; if
-v33-belief remains ≥50 below v32-placeholder on two consecutive reads, re-ship v32's
-placeholder tarball into the counting slot** (it is a known-good, already-validated
-package, `training/twoply_submission/`). Explicitly reusing the v30-exp revert-rule
-pattern rather than inventing a new one.
+a pre-registration for the check, not the action: **take a second read ≥6h later,
+and evaluate on the age-matched paired gap above, not the pooled band; if
+v33-belief's paired gap stays ≥50 below v32-placeholder's on two consecutive reads,
+re-ship v32's placeholder tarball into the counting slot** (it is a known-good,
+already-validated package, `training/twoply_submission/`). Explicitly reusing the
+v30-exp revert-rule pattern rather than inventing a new one.
 
 **Report relevance.** Direct §5 material on evaluator reliability, and the third time
 this project has had to retract or qualify a publicScore-based claim (v28's "settled
@@ -111,6 +130,16 @@ search adds +X over the heuristic" must either say "over the v30+v31 heuristic" 
 be re-measured against a clean base. The offline positive control from the ACAN
 closure (+9.5pp search vs heuristic, n=200) is unaffected — both arms share the same
 base — but its *baseline* is the v31-carrying heuristic, not v30.
+
+**Second consequence, for anyone writing a future gate: `FROZEN` is now pre-v31.**
+The G2 mirror gate above ran `_wr_pair(MAIN, FROZEN, ...)` and read 47.5% — which
+means `training/wsearch/FROZEN` is the *pre-fix* snapshot, on the other side of the
+v31 edit from current `main.py`. So **"mirror vs FROZEN" and "mirror vs current
+main.py" are no longer the same baseline**, and any gate script reusing
+`_wr_pair(MAIN, FROZEN, …)` is silently folding the v31 delta into whatever it
+believes it is measuring. Re-point the frozen baseline (or state the offset) before
+trusting a mirror number from that helper. Same caution applies to
+`training/baselines/v29d_pre_rescue.py`, the v30-exp revert baseline.
 
 **Report relevance.** §5 process material, and an uncomfortable but genuine one: this
 project's core methodological claim is "no claim without a pre-registered trial," and

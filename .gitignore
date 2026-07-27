@@ -31,7 +31,8 @@ scratch_*.log
 training/nn/acan_corpus/
 training/nn/acan_corpus_v0_coarsefeats/
 training/wsearch/scratch/
-*.err.log
+training/nn/*.err.log
+training/wsearch/*.err.log
 training/nn/r6_collect.log
 training/nn/r6_collect[678]_detached.log
 training/nn/r6_checkpoint2_detached.log

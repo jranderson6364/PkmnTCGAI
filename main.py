@@ -805,6 +805,18 @@ def _main_phase_features(obs,sel):
         opp_bench_empty and opp_active is not None and opp_hp<99999 and
         not opp_mist and max_hand_estimate*PH_DMG_PER_CARD>=opp_hp)
     opp_active_pv=_prize_value_pk(opp_active)
+    # Anti-tank support farming (report-log 2026-07-18 grimmsnarl diagnosis):
+    # when the opponent's active is beyond even the optimistic hand ceiling
+    # (Marnie's Grimmsnarl ex 320 under Adrena-Brain healing was the found
+    # case -- 57 mined losses, Boss played 0-1 times/game while KO-able
+    # 70-110 HP support sat benched), its prize value is unreachable this
+    # turn, so the "don't downgrade prize value" gates on Boss targeting
+    # below compare against a prize we cannot actually take. State-keyed
+    # (not archetype-keyed) on purpose: self-resolves the moment the hand
+    # grows into real range of the active.
+    opp_tank_unreachable=(opp_active is not None and not opp_mist and
+                          opp_hp<99999 and
+                          opp_hp>max_hand_estimate*PH_DMG_PER_CARD)
     boss_in_hand=any(_pk_id(c)==BOSS for c in hand)
     hammer_in_hand=any(_pk_id(c)==ENHANCED_HAMMER for c in hand)
     tool_in_hand=any(_pk_id(c) in TOOL_IDS for c in hand)
@@ -848,10 +860,14 @@ def _main_phase_features(obs,sel):
         # active only. A Mist-walled active makes ANY killable bench target the
         # correct play (it's the only way to make progress at all), not a reason to
         # skip this check in favor of the un-informed opp_mist fallback below.
-        active_can_attack and (opp_mist or opp_hp>my_dmg) and in_late_phase and
+        active_can_attack and (opp_mist or opp_hp>my_dmg) and
+        (in_late_phase or opp_tank_unreachable) and
         any(0<(b or{}).get('hp',99999)<=boss_dmg and
-            (_prize_value_pk(b)>=2 or (b or{}).get('hp',99999)>=150) and
-            _prize_value_pk(b)>=opp_active_pv
+            (_prize_value_pk(b)>=2 or (b or{}).get('hp',99999)>=150 or
+             # unreachable-tank state: ANY bench KO converts a dead turn
+             # into a prize (grimmsnarl support farming, 2026-07-18)
+             opp_tank_unreachable) and
+            (_prize_value_pk(b)>=opp_active_pv or opp_tank_unreachable)
             for b in opp_bench if b))
     active_hp=(my_active or{}).get('hp',99999) or 99999
     active_max_hp=(my_active or{}).get('maxHp',999) or 999

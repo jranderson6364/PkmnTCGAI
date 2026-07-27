@@ -4,13 +4,120 @@
 plain English, result with numbers, decision, report relevance. In September the
 final report is assembled from this file — nothing gets retrofitted. Newest first.*
 
-**Last updated:** 2026-07-25 (ACAN — the action-conditioned advantage net, the
-architecture axis this project never varied — CLOSED on its pre-registered kill
-rule: 48.5% vs the heuristic against a 59.5% search positive control. New sharper
-thesis: can't-*reproduce*-teacher, because the teacher conditions on hidden
-rollout information the student's features don't carry. Two findings stand
-regardless: representation was the binding constraint; the ambiguous gate was a
-faithful proxy.)
+**Last updated:** 2026-07-26 (housekeeping audit before commit: two record
+corrections — the v31 pre-registered kill rule FIRED on 2026-07-18 and its revert
+was never executed, so the failed change has been riding inside every agent since
+including the 776.2 ship; and a fresh ladder read puts v33-belief at 628.0, not the
+776.2 that CLAUDE.md and this log call the project record.)
+
+---
+
+## 2026-07-26 — Fresh ladder read: the 776.2 champion now reads 628.0, and the identical-code noise band is WIDER than we thought
+
+**Why this entry exists.** Routine pre-commit check of the counting slots (Aug 16
+close; only the latest 2 submissions count) turned up numbers that contradict this
+log's own headline claim. Recorded immediately per Design Principle #1, before any
+action is taken on it.
+
+**One read, taken 2026-07-26 (`kaggle competitions submissions`):**
+
+| ref | agent | logged score | 2026-07-26 read | Δ |
+|---|---|---|---|---|
+| 54939465 | **v33-twoply-belief** (counting) | **776.2** (07-23 "CONFIRM") | **628.0** | **−148.2** |
+| 54939468 | v29d backstop (counting) | 600.0 fresh floor | 645.1 | — |
+| 54937110 | v32-twoply placeholder | 750.7 | **750.7** | **0.0** |
+| 54937108 | v29d backstop | 600.0 fresh floor | 555.9 | — |
+| 54766181 | v30-exp | 659.0 (early read) | 636.3 | −22.7 |
+| 54760870 / 54760877 | v29d A/A pair | 708.9 / 621.1 | 708.9 / 621.1 | 0.0 |
+| 54481189 | v29d original | 685.4 / 723.0 (varied) | 673.5 | — |
+
+**Finding 1 — the identical-code noise band is ~153 points, not 88.4.** Five ships
+of the byte-identical v29d tarball (SHA `acef3750`) now read **555.9, 621.1, 645.1,
+673.5, 708.9**. The 2026-07-23 survey called this an 88.4-point spread from the
+two-copy A/A test; with five copies the true spread is **153 points**. Every
+publicScore comparison in this project narrower than ~150 points is inside the noise.
+
+**Finding 2 — the belief-determinization upgrade is no longer supported by the
+ladder.** v33-belief (628.0) sits *inside* the v29d identical-code band
+(555.9–708.9), i.e. currently indistinguishable from the plain heuristic. v32-belief's
+predecessor, the *placeholder*-determinization twoply (750.7), sits **above the entire
+band** and has not moved across two reads spanning three days. The 07-23 claim that
+belief determinization improved on placeholder (750.7 → 776.2, "highest score in
+project history") **rests on a single read that a second read does not reproduce.**
+The +10pp offline mirror A/B (60.0%, n=80) that motivated it is also underpowered by
+this project's own n≥400 standard.
+
+**What is NOT claimed.** This is one read, and publicScore is a live metric on a
+moving ladder — 628.0 is not proof the belief upgrade is bad any more than 776.2 was
+proof it was good. The honest statement is that **the two search variants are not
+currently separable, and the one with the weaker evidence is the one occupying a
+counting slot.**
+
+**Decision: log now, do not ship reflexively.** The counting pair is correctly formed
+(v33-belief + a v29d backstop) and there is no deadline pressure until Aug 16. This is
+a pre-registration for the check, not the action: **take a second read ≥6h later; if
+v33-belief remains ≥50 below v32-placeholder on two consecutive reads, re-ship v32's
+placeholder tarball into the counting slot** (it is a known-good, already-validated
+package, `training/twoply_submission/`). Explicitly reusing the v30-exp revert-rule
+pattern rather than inventing a new one.
+
+**Report relevance.** Direct §5 material on evaluator reliability, and the third time
+this project has had to retract or qualify a publicScore-based claim (v28's "settled
+at 829.8", the age-confounded v26/v27 "decline", now this). The five-copy A/A band is
+the cleanest quantification of the ladder's measurement noise the project has, and it
+was obtained for free.
+
+---
+
+## 2026-07-26 — Record correction: the v31 pre-registered kill rule fired and the revert was never executed
+
+**What happened.** The v31 unreachable-tank Boss support-farming fix
+(`opp_tank_unreachable` in `main.py`, pre-registered 2026-07-18, entry below) ran its
+full gate battery. Results (`training/wsearch/v31_gate_results.json`, written
+Jul 18 12:18, `training/wsearch/v31_gates.py` gating repo `main.py` directly):
+
+| gate | bar | result | verdict |
+|---|---|---|---|
+| G1 grimmsnarl n=400 | ≥50% AND CI lower bound >42.5% | **33.9%** | **FAIL, decisively** |
+| G2 mirror n=400 | CI lower bound ≥46% | 47.5% (lb ≈42.6%) | **FAIL** |
+| G3 anchors n=300 ×4 | no anchor >4pp below baseline, 0 errors | 97.3 / 95.0 / 96.0 / 97.7 | pass, 0 errors |
+
+G1 did not merely miss the ≥50% adopt bar — at 33.9% it landed **8.6pp below the
+42.5% champion baseline** it was built to beat, i.e. the fix made the target matchup
+materially *worse*. The pre-registered kill rule reads: *"G1 fails → revert both
+edits."*
+
+**The revert never ran.** `main.py`'s mtime is Jul 18 03:50, unchanged since *before*
+the gate finished at 12:18. No report-log entry was ever written for the result. The
+change then propagated as the assumed-good base into everything built afterward:
+`training/candidates/v31_*.py`, `main_ns*.py`, the frozen snapshots, the ACAN corpus,
+and — verified by hash — the shipped search agents (`training/twoply_belief_submission/
+heuristic.py` is byte-identical to working-tree `main.py`, git hash `25254ef`).
+
+**Decision: log it, do NOT revert now.** The kill rule was written on 2026-07-18 for a
+world in which `main.py` as a plain heuristic *was* the ladder agent. That world ended
+on 2026-07-23, when the 2-ply override search shipped and scored 750.7. Reverting
+today would mutate the base heuristic underneath the current shipped agent with zero
+gate evidence for the resulting configuration — a strictly larger unvalidated change
+than leaving it in place. A stale offline kill rule does not get to silently override
+a live-ladder configuration. The rule is therefore recorded as **fired, unexecuted,
+and now superseded** rather than quietly dropped.
+
+**The caveat this forces, stated explicitly so it cannot sit implicit.** The
+2-ply search results (750.7 / 776.2 / 628.0) **cannot be cleanly attributed to the
+search alone**: the base heuristic underneath them carries a change that failed its
+own pre-registered gate on the grimmsnarl matchup. Any report claim of the form "the
+search adds +X over the heuristic" must either say "over the v30+v31 heuristic" or
+be re-measured against a clean base. The offline positive control from the ACAN
+closure (+9.5pp search vs heuristic, n=200) is unaffected — both arms share the same
+base — but its *baseline* is the v31-carrying heuristic, not v30.
+
+**Report relevance.** §5 process material, and an uncomfortable but genuine one: this
+project's core methodological claim is "no claim without a pre-registered trial," and
+here a pre-registered trial ran, failed, and was not acted on for eight days because
+the session that launched it ended before the result landed. The lesson is concrete —
+**a kill rule needs an owner and a check-back, not just a threshold** — and it is
+worth reporting alongside the successes rather than hiding.
 
 ---
 

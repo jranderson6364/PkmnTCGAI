@@ -81,9 +81,33 @@ alternatives; **no report claim without a pre-registered trial** in `docs/report
 The Alakazam deck freeze was re-opened 2026-07-03 for the Stage 0c bake-off and
 **re-closed the same day on the pre-registered rule** (tier 1: ≥93% vs all
 challengers; tier 2: pilot floor flattens everything — see report-log).
-**Current agent:** v29d — plain heuristic revert (submission 54481189,
+**Current agent:** **v33-twoply-belief** (submission `54939465`, shipped
+2026-07-24, `COMPLETE`) — a 2-ply belief-determinized minimax **override**
+search wrapping the v30(+v31) heuristic, with a v29d backstop (`54939468`)
+in the other counting slot. **Search is the one confirmed ladder lever this
+project has found:** v32-placeholder twoply reads **750.7**, above the
+entire identical-code v29d noise band (555.9–708.9 across five copies).
+**Two live caveats, both logged 2026-07-26 — read `docs/report-log.md`
+2026-07-26 entries before trusting any number here:** (1) v33-belief's
+"776.2, highest in project history" was a *single read*; a 2026-07-26 read
+puts it at **628.0**, inside the v29d noise band, while v32-placeholder
+holds 750.7 across two reads — a second read ≥6h apart is pre-registered,
+and if v33 stays ≥50 below v32, re-ship v32's package
+(`training/twoply_submission/`). (2) The v31 `opp_tank_unreachable` edit
+in `main.py` **failed its own pre-registered gate** (grimmsnarl 33.9% vs a
+42.5% baseline) on 2026-07-18 and the revert was never executed, so it
+rides inside every agent since — deliberately retained (reverting now
+would mutate the shipped champion's base with no gate evidence), but it
+means search-vs-heuristic deltas are measured against a v31-carrying base.
+Nine learned methods are now closed (BC, DAgger, AWR, DMC,
+sequence-policy, oracle-critic, IQL, AlphaZero-style, ACAN); the sharpened
+thesis is **can't-*reproduce*-teacher** — ACAN captured none of the
+search's +9.5pp because the search conditions on belief-determinized
+rollout information the student's features do not carry.
+
+**Prior agent (v29d, for context)** — plain heuristic revert (submission 54481189,
 shipped 2026-07-08): `main.py` + `deck.csv`, i.e. v29c's two retreat fixes
-WITHOUT the endgame search wrapper. **The search line is CLOSED, negative:**
+WITHOUT the endgame search wrapper. **The endgame-search line is CLOSED, negative:**
 the first diverse-anchor gauntlet since v25c found the shipped v29b/v29c
 search stack loses 16-29pp vs lucario/abomasnow (~90% of ladder opponents
 are non-alakazam) despite its +9pp mirror result. Three real bugs were
@@ -309,6 +333,22 @@ Enriching (13) → Dudunsparce only, never Alakazam.
 ---
 
 ## Outstanding Items (Priority Order)
+
+**>>> 2026-07-26 STATE — NEXT ACTIONS, in order. (1) SECOND LADDER READ of
+v33-belief (`54939465`) vs v32-placeholder (`54937110`), ≥6h after the
+2026-07-26 read; if v33 stays ≥50 below v32 on two consecutive reads,
+re-ship `training/twoply_submission/` into the counting slot (pre-registered
+in report-log 2026-07-26). (2) REPORT ASSEMBLY — the highest-EV remaining
+work and nobody has started it: the $240k is entirely on the Strategy track
+(70/20/10 from the writeup), and the material is done — nine closed methods,
+the ACAN representation finding, the can't-reproduce-teacher thesis, the
+five-copy A/A noise band, the v31 process gap. (3) SEARCH is the confirmed
+lever; two independent closures (Φ-v4 Gate 2, the S1 depth/value sweep) say
+the leaf evaluator is NOT the bottleneck — the wins come from *structure*
+(conservative override) and the *opponent model* (belief determinization),
+so do not add another learned component at the leaf. (4) VERIFY at Aug 14
+that the latest 2 submissions are the intended pair (ladder closes ~Aug 16;
+Aug 9 merger deadline). Full detail: report-log 2026-07-26 entries.**
 
 **>>> 2026-07-23 SESSION 2 STATE (deck decision + calibrated panel). Deadlines
 VERIFIED: entry/merger Aug 9, FINAL SUBMISSION Aug 16 (games run ~2 wks more,

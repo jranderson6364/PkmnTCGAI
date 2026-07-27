@@ -37,6 +37,7 @@ if _HERE not in sys.path:
 
 import main as _heuristic  # noqa: E402
 from threat import net_threat_diff as _net_threat_diff  # noqa: E402
+from tempo_features import tempo_features as _tempo_features, TEMPO_DIM  # noqa: E402
 
 CARD_VOCAB = 2000
 ATTACK_VOCAB = 2000
@@ -58,6 +59,7 @@ _FEATURE_SET_SIZES = {
     "base+census": 16,   # +line_progress, +has_alakazam, +hand_advantage
     "base+belief": 21,   # +5 posterior probs, +wall_revealed, +crustle_seen, +unavailable flag
     "full": 25,
+    "full+tempo": 25 + TEMPO_DIM,  # +prize-race pace, +hand-growth pace, +setup pace (2026-07-12)
 }
 NUM_FEATS = _FEATURE_SET_SIZES[_FEATURE_SET]
 
@@ -162,6 +164,12 @@ def numeric_feats(obs):
     except Exception:
         line_progress, has_alakazam = 0.0, 0.0
 
+    try:
+        opp_cen = _heuristic._census(opp_active, opp.get("bench") or [])
+        opp_line_progress = opp_cen["line_count"] / 2.0
+    except Exception:
+        opp_line_progress = 0.0
+
     if opp_hp:
         cards_needed = math.ceil(opp_hp / _heuristic.PH_DMG_PER_CARD)
         hand_advantage = max(-1.0, min(1.0, (my_hand_n - cards_needed) / 10.0))
@@ -192,6 +200,12 @@ def numeric_feats(obs):
     threat_group = [threat_diff]
     belief_group = _belief_feats(opp, turn)
 
+    try:
+        tempo_group = _tempo_features(my_hand_n, opp_hand_n, my_prizes, opp_prizes,
+                                       line_progress, opp_line_progress, turn).tolist()
+    except Exception:
+        tempo_group = [0.0] * TEMPO_DIM
+
     if _FEATURE_SET == "base":
         return base
     if _FEATURE_SET == "base+threat":
@@ -200,6 +214,8 @@ def numeric_feats(obs):
         return base + census_group
     if _FEATURE_SET == "base+belief":
         return base + belief_group
+    if _FEATURE_SET == "full+tempo":
+        return base + census_group + threat_group + belief_group + tempo_group
     return base + census_group + threat_group + belief_group  # "full"
 
 

@@ -1,0 +1,40 @@
+  100/2000 games, 9673 samples (shard 0)
+zerosumWarning! The implementation of '
+  200/2000 games, 19326 samples (shard 0)
+  300/2000 games, 28394 samples (shard 0)
+  400/2000 games, 37995 samples (shard 0)
+Warning! The implementation of '
+  500/2000 games, 47950 samples (shard 0)
+  600/2000 games, 57871 samples (shard 0)
+zerosum' has known issues. Please see the games list on github or the code for details.
+
+list on github or the code for details.
+' has known issues. Please see the games list on github or the code for details.
+  700/2000 games, 67361 samples (shard 0)
+  800/2000 games, 77061 samples (shard 0)
+
+  900/2000 games, 86533 samples (shard 0)
+
+  1000/2000 games, 96035 samples (shard 0)
+  1100/2000 games, 106010 samples (shard 0)
+  1200/2000 games, 9666 samples (shard 1)
+
+  1300/2000 games, 19068 samples (shard 1)
+  1400/2000 games, 28783 samples (shard 1)
+  1500/2000 games, 38627 samples (shard 1)
+' has known issues. Please see the games list on github or the code for details.
+zerosumlist on github or the code for details.
+
+  1600/2000 games, 48081 samples (shard 1)
+  1700/2000 games, 57017 samples (shard 1)
+
+  1800/2000 games, 66780 samples (shard 1)
+  1900/2000 games, 76133 samples (shard 1)
+
+  2000/2000 games, 85923 samples (shard 1)
+Collecting 2000 games: learner (ckpt=training/ptcg_dmc_gen4_long.pth, eps=0.1) vs 30% real bots['lucario_agent.py', 'dragapult_agent.py', 'abomasnow_agent.py', 'starmie_agent.py'], 20% pool['ptcg_dmc_gen4_long.pth'], 50% frozen main.py
+wrote training/dmc_r6_batch3.pkl.gz (68.4 MB, 106010 samples)
+wrote training/dmc_r6_batch3.part1.pkl.gz (55.0 MB, 85923 samples)
+wrote training/dmc_r6_batch3_games.csv (2000 rows)
+games=2000 learner_winrate_overall=0.190 samples=191933 shards=2
+=== COLLECTION CHUNK 3 COMPLETE ===

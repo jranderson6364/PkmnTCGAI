@@ -1,0 +1,3 @@
+﻿Set-Location 'C:\Users\jande\Downloads\Projects\PkmnTCGAI'
+python training/nn/dmc_collect.py --games 2000 --ckpt training/ptcg_dmc_gen4_long.pth --pool training/ptcg_dmc_gen4_long.pth --pool-frac 0.2 --bots opponents/lucario_agent.py,opponents/dragapult_agent.py,opponents/abomasnow_agent.py,opponents/starmie_agent.py --bots-frac 0.3 --out training/dmc_r6_batch7.pkl.gz *> 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\r6_collect7_detached.log'
+Add-Content -Path 'C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\r6_collect7_detached.log' -Value '=== COLLECTION CHUNK 7 COMPLETE ==='

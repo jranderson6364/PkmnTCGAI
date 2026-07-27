@@ -1,0 +1,53 @@
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+seeds: 13 train, 5 HELD OUT (split_seed=7):
+  heldout: win_003_b1g33.json
+  heldout: win_008_b2g31.json
+  heldout: win_010_b3g8.json
+  heldout: win_015_b4g2.json
+  heldout: win_017_b5g0.json
+wrote training/regime_r2.pkl.gz (6.3 MB, 58043 samples)
+wrote training/regime_r2.part1.pkl.gz (5.2 MB, 52879 samples)
+wrote training/regime_r2.part2.pkl.gz (4.7 MB, 53030 samples)
+seat-flip unit check: 13000 terminals verified OK
+wrote training/regime_r2.part3.pkl.gz (1.3 MB, 15720 samples)
+Loading environment werewolf failed: No module named 'litellm'
+seat-swap harness check: 1865 decisive games, all reward pairs zero-sum with labels keyed to net_seat OK
+wrote training/regime_r2.part4.pkl.gz (11.4 MB, 10652 samples)
+TOTAL games=14865 winrate=15.69% samples=190324 capped=0

@@ -1,0 +1,8 @@
+training/dmc_r6_batch1.pkl.gz 105109
+training/dmc_r6_batch1.part1.pkl.gz 104240
+training/dmc_r6_batch2.pkl.gz 103914
+training/dmc_r6_batch2.part1.pkl.gz 36714
+training/dmc_r6_batch3.pkl.gz 106010
+training/dmc_r6_batch3.part1.pkl.gz 85923
+TOTAL round-6: 541910
+COMBINED with baseline 831643: 1373553

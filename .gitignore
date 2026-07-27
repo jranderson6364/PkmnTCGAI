@@ -23,7 +23,23 @@ replays/**/*.json
 replays/**/analysis/
 training/local_cg/
 training/endgame_submission_stage/
+training/dmc_submission_stage/
 scratch_*.log
+
+# Bulk artifacts from detached training/gate jobs (regenerable; small gate-result
+# logs are still tracked as evidence -- only the multi-MB streams are ignored)
+training/nn/acan_corpus/
+training/nn/acan_corpus_v0_coarsefeats/
+training/wsearch/scratch/
+*.err.log
+training/nn/r6_collect.log
+training/nn/r6_collect[678]_detached.log
+training/nn/r6_checkpoint2_detached.log
+training/nn/regime_gate.log
+training/nn/regime_gate_r2.log
+training/wsearch/run1_detached.log
+training/wsearch/gates_detached.log
+training/wsearch/v31_gates_detached.log
 
 # competition-use-only engine source (do not redistribute per LICENSE)
 training/engine_src/

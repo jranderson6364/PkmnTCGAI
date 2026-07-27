@@ -1,0 +1,27 @@
+
+  25/200
+  50/200
+  75/200
+  100/200
+  125/200
+  150/200
+  175/200
+  200/200
+  25/200
+  50/200
+  75/200
+  100/200
+  125/200
+  150/200
+  175/200
+  200/200
+A=training/nn/dmc_agent.py  B=main.py  n=400 (alternating seats), workers=16
+[1/2] A as P0 vs B as P1: 200 games
+    {'n': 200, 'errors': 0, 'A_wins': 20, 'B_wins': 180, 'ties': 0, 'A_winrate': 0.1, 'avg_game_s': 18.83}
+[2/2] B as P0 vs A as P1: 200 games
+    {'n': 200, 'errors': 0, 'B_wins': 187, 'A_wins': 13, 'ties': 0, 'B_winrate': 0.935, 'avg_game_s': 16.37}
+
+TOTAL: A 33W 367L 0T (errors=0)
+logged to C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\ab_history.csv
+Binary file (standard input) matches
+=== GATE DONE (checkpoint-1, 2-epoch big model) ===

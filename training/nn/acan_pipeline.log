@@ -1,0 +1,103 @@
+collection complete: 29974 records
+
+=== ARM A: MSE-only (--rank-weight 0) ===
+loading corpus ...
+decisions 29974 | games 1162 | skipped 0
+train decisions 25663 | val decisions 4311 (174 held-out games)
+advantage |p95|(non-sentinel) 1032.5 -> clip 2000.0 (MARGIN 500.0 = 0.250 normalised) | base_scale 499.0
+vocab: cards 26 | attacks 3
+train decisions 25663 | pairs 114495 | max cands 8 | target >0 28.3%
+epoch 1/25 | mse 0.0568 | rate-matched th     32.4 | prec 0.072 rec 0.087 (net 429 vs search 429)
+epoch 2/25 | mse 0.0556 | rate-matched th     45.6 | prec 0.056 rec 0.067 (net 429 vs search 429)
+epoch 3/25 | mse 0.0546 | rate-matched th     49.3 | prec 0.044 rec 0.057 (net 429 vs search 429)
+epoch 4/25 | mse 0.0539 | rate-matched th     65.6 | prec 0.028 rec 0.034 (net 429 vs search 429)
+epoch 5/25 | mse 0.0535 | rate-matched th    132.1 | prec 0.042 rec 0.051 (net 429 vs search 429)
+epoch 6/25 | mse 0.0528 | rate-matched th     71.8 | prec 0.068 rec 0.082 (net 429 vs search 429)
+epoch 7/25 | mse 0.0523 | rate-matched th     99.3 | prec 0.049 rec 0.061 (net 429 vs search 429)
+epoch 8/25 | mse 0.0518 | rate-matched th    141.3 | prec 0.063 rec 0.078 (net 429 vs search 429)
+epoch 9/25 | mse 0.0512 | rate-matched th     92.2 | prec 0.051 rec 0.064 (net 429 vs search 429)
+epoch 10/25 | mse 0.0506 | rate-matched th    182.3 | prec 0.047 rec 0.058 (net 429 vs search 429)
+epoch 11/25 | mse 0.0503 | rate-matched th    139.1 | prec 0.033 rec 0.041 (net 429 vs search 429)
+epoch 12/25 | mse 0.0498 | rate-matched th    122.3 | prec 0.040 rec 0.049 (net 429 vs search 429)
+epoch 13/25 | mse 0.0490 | rate-matched th    156.2 | prec 0.056 rec 0.071 (net 429 vs search 429)
+epoch 14/25 | mse 0.0482 | rate-matched th    122.0 | prec 0.061 rec 0.074 (net 429 vs search 429)
+epoch 15/25 | mse 0.0479 | rate-matched th    159.0 | prec 0.051 rec 0.063 (net 429 vs search 429)
+epoch 16/25 | mse 0.0473 | rate-matched th    143.5 | prec 0.061 rec 0.076 (net 429 vs search 429)
+epoch 17/25 | mse 0.0475 | rate-matched th    162.8 | prec 0.054 rec 0.067 (net 429 vs search 429)
+epoch 18/25 | mse 0.0466 | rate-matched th    115.6 | prec 0.054 rec 0.069 (net 429 vs search 429)
+epoch 19/25 | mse 0.0461 | rate-matched th    131.1 | prec 0.056 rec 0.069 (net 429 vs search 429)
+epoch 20/25 | mse 0.0459 | rate-matched th    177.4 | prec 0.051 rec 0.063 (net 429 vs search 429)
+epoch 21/25 | mse 0.0454 | rate-matched th    190.3 | prec 0.056 rec 0.069 (net 429 vs search 429)
+epoch 22/25 | mse 0.0452 | rate-matched th    122.7 | prec 0.056 rec 0.069 (net 429 vs search 429)
+epoch 23/25 | mse 0.0442 | rate-matched th    181.1 | prec 0.044 rec 0.054 (net 429 vs search 429)
+epoch 24/25 | mse 0.0438 | rate-matched th    145.5 | prec 0.061 rec 0.070 (net 429 vs search 429)
+epoch 25/25 | mse 0.0435 | rate-matched th    187.9 | prec 0.054 rec 0.065 (net 429 vs search 429)
+
+=== GATE: override fidelity on held-out games ===
+search made 429 margin-cleared overrides in 4311 held-out decisions (10.0%)
+baseline (never override): recall 0.000 by definition
+
+    thresh  net_ovr    prec  recall  loose_p
+     187.9      429   0.054   0.065    0.228  <-- rate-matched
+     483.1       32   0.000   0.000    0.281
+     282.2      160   0.037   0.015    0.237
+     215.1      319   0.053   0.046    0.238
+     131.9      798   0.058   0.156    0.226
+      67.0     1595   0.058   0.417    0.187
+
+(prec/recall = net picks the SAME action the search overrode to;
+ loose_p = net overrode where the search also overrode, any action)
+
+saved C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\acan_mse.pth (deploy threshold 187.9)
+
+=== ARM B: MSE + listwise ranking (--rank-weight 1) ===
+loading corpus ...
+decisions 29974 | games 1162 | skipped 0
+train decisions 25663 | val decisions 4311 (174 held-out games)
+advantage |p95|(non-sentinel) 1032.5 -> clip 2000.0 (MARGIN 500.0 = 0.250 normalised) | base_scale 499.0
+vocab: cards 26 | attacks 3
+train decisions 25663 | pairs 114495 | max cands 8 | target >0 28.3%
+epoch 1/25 | mse 0.0652 | rate-matched th    254.5 | prec 0.030 rec 0.033 (net 429 vs search 429)
+epoch 2/25 | mse 0.0737 | rate-matched th    466.5 | prec 0.014 rec 0.015 (net 429 vs search 429)
+epoch 3/25 | mse 0.0762 | rate-matched th    342.3 | prec 0.016 rec 0.018 (net 429 vs search 429)
+epoch 4/25 | mse 0.0780 | rate-matched th    445.7 | prec 0.019 rec 0.020 (net 429 vs search 429)
+epoch 5/25 | mse 0.0789 | rate-matched th    416.5 | prec 0.019 rec 0.020 (net 429 vs search 429)
+epoch 6/25 | mse 0.0791 | rate-matched th    351.9 | prec 0.016 rec 0.018 (net 429 vs search 429)
+epoch 7/25 | mse 0.0806 | rate-matched th    519.0 | prec 0.026 rec 0.027 (net 429 vs search 429)
+epoch 8/25 | mse 0.0814 | rate-matched th    709.7 | prec 0.021 rec 0.022 (net 429 vs search 429)
+epoch 9/25 | mse 0.0832 | rate-matched th    562.7 | prec 0.019 rec 0.020 (net 429 vs search 429)
+epoch 10/25 | mse 0.0836 | rate-matched th    491.9 | prec 0.035 rec 0.037 (net 429 vs search 429)
+epoch 11/25 | mse 0.0844 | rate-matched th    622.4 | prec 0.028 rec 0.030 (net 429 vs search 429)
+epoch 12/25 | mse 0.0860 | rate-matched th    532.0 | prec 0.021 rec 0.023 (net 429 vs search 429)
+epoch 13/25 | mse 0.0881 | rate-matched th    471.3 | prec 0.040 rec 0.044 (net 429 vs search 429)
+epoch 14/25 | mse 0.0878 | rate-matched th    459.5 | prec 0.033 rec 0.035 (net 429 vs search 429)
+epoch 15/25 | mse 0.0888 | rate-matched th    488.2 | prec 0.035 rec 0.038 (net 429 vs search 429)
+epoch 16/25 | mse 0.0901 | rate-matched th    604.5 | prec 0.023 rec 0.025 (net 429 vs search 429)
+epoch 17/25 | mse 0.0906 | rate-matched th    720.1 | prec 0.028 rec 0.030 (net 429 vs search 429)
+epoch 18/25 | mse 0.0933 | rate-matched th    560.2 | prec 0.026 rec 0.028 (net 429 vs search 429)
+epoch 19/25 | mse 0.0948 | rate-matched th    823.7 | prec 0.035 rec 0.038 (net 429 vs search 429)
+epoch 20/25 | mse 0.0958 | rate-matched th    604.4 | prec 0.023 rec 0.025 (net 429 vs search 429)
+epoch 21/25 | mse 0.0972 | rate-matched th    682.9 | prec 0.030 rec 0.033 (net 429 vs search 429)
+epoch 22/25 | mse 0.0984 | rate-matched th    833.4 | prec 0.026 rec 0.028 (net 429 vs search 429)
+epoch 23/25 | mse 0.0997 | rate-matched th    586.8 | prec 0.040 rec 0.043 (net 429 vs search 429)
+epoch 24/25 | mse 0.1007 | rate-matched th    784.5 | prec 0.030 rec 0.033 (net 429 vs search 429)
+epoch 25/25 | mse 0.1022 | rate-matched th    788.7 | prec 0.026 rec 0.028 (net 429 vs search 429)
+
+=== GATE: override fidelity on held-out games ===
+search made 429 margin-cleared overrides in 4311 held-out decisions (10.0%)
+baseline (never override): recall 0.000 by definition
+
+    thresh  net_ovr    prec  recall  loose_p
+     788.7      429   0.026   0.028    0.100  <-- rate-matched
+    1722.2       22   0.000   0.000    0.000
+    1336.0      106   0.028   0.007    0.085
+    1090.7      212   0.019   0.010    0.061
+     693.5      530   0.025   0.034    0.111
+     365.9     1059   0.036   0.118    0.136
+
+(prec/recall = net picks the SAME action the search overrode to;
+ loose_p = net overrode where the search also overrode, any action)
+
+saved C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\nn\acan_rank.pth (deploy threshold 788.7)
+
+DONE -- compare the two GATE tables (loose_p and exact precision).

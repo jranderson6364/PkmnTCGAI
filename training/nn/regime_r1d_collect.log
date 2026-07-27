@@ -1,0 +1,15 @@
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+seat-swap harness check: 382 decisive games, all reward pairs zero-sum with labels keyed to net_seat OK
+wrote training/regime_r1d.pkl.gz (0.1 MB, 130 samples)
+TOTAL games=382 winrate=95.81% samples=130 capped=0

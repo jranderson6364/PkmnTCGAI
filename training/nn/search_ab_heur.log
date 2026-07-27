@@ -1,0 +1,17 @@
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+Loading environment werewolf failed: No module named 'litellm'
+A=training/nn/twoply_agent.py  B=main.py  n=200 (alternating seats), workers=12
+[1/2] A as P0 vs B as P1: 100 games
+    {'n': 100, 'errors': 0, 'A_wins': 69, 'B_wins': 31, 'ties': 0, 'A_winrate': 0.69, 'avg_game_s': 22.94}
+[2/2] B as P0 vs A as P1: 100 games
+    {'n': 100, 'errors': 0, 'B_wins': 50, 'A_wins': 50, 'ties': 0, 'B_winrate': 0.5, 'avg_game_s': 24.76}
+
+TOTAL: A 119W 81L 0T (errors=0)
+A win rate: 0.595 ± 0.068 (95% CI)
+logged to C:\Users\jande\Downloads\Projects\PkmnTCGAI\training\ab_history.csv

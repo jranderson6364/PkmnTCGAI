@@ -1,0 +1,37 @@
+
+
+
+list on github or the code for details.
+' has known issues. Please see the games list on github or the code for details.
+
+zerosumWarning! The implementation of '
+  100/1500 games, 9640 samples (shard 0)
+Unknown game 'repeated_poker'. Available games are:
+  200/1500 games, 19019 samples (shard 0)
+  300/1500 games, 28146 samples (shard 0)
+  400/1500 games, 37533 samples (shard 0)
+  500/1500 games, 47311 samples (shard 0)
+' has known issues. Please see the games list on github or the code for details.
+  600/1500 games, 56272 samples (shard 0)
+  700/1500 games, 66345 samples (shard 0)
+  800/1500 games, 75832 samples (shard 0)
+  900/1500 games, 84798 samples (shard 0)
+zerosumUnknown game 'universal_poker'. Available games are:
+
+  1000/1500 games, 94817 samples (shard 0)
+  1100/1500 games, 103914 samples (shard 0)
+  1200/1500 games, 9042 samples (shard 1)
+' has known issues. Please see the games 
+list on github or the code for details.
+Unknown game 'repeated_poker'. Available games are:
+  1300/1500 games, 18261 samples (shard 1)
+  1400/1500 games, 28099 samples (shard 1)
+
+list on github or the code for details.
+  1500/1500 games, 36714 samples (shard 1)
+Collecting 1500 games: learner (ckpt=training/ptcg_dmc_gen4_long.pth, eps=0.1) vs 30% real bots['lucario_agent.py', 'dragapult_agent.py', 'abomasnow_agent.py', 'starmie_agent.py'], 20% pool['ptcg_dmc_gen4_long.pth'], 50% frozen main.py
+wrote training/dmc_r6_batch2.pkl.gz (66.6 MB, 103914 samples)
+wrote training/dmc_r6_batch2.part1.pkl.gz (23.1 MB, 36714 samples)
+wrote training/dmc_r6_batch2_games.csv (1500 rows)
+games=1500 learner_winrate_overall=0.166 samples=140628 shards=2
+=== COLLECTION CHUNK 2 COMPLETE ===

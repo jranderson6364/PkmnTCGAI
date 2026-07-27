@@ -1,0 +1,43 @@
+  100/2000 games, 9306 samples (shard 0)
+zerosumWarning! The implementation of '
+  200/2000 games, 18649 samples (shard 0)
+list on github or the code for details.
+
+
+  300/2000 games, 27677 samples (shard 0)
+  400/2000 games, 36517 samples (shard 0)
+Unknown game 'universal_poker'. Available games are:
+zerosumUnknown game 'repeated_poker'. Available games are:
+
+  500/2000 games, 45651 samples (shard 0)
+
+zerosumlist on github or the code for details.
+
+  600/2000 games, 55417 samples (shard 0)
+zerosumWarning! The implementation of '
+  700/2000 games, 64461 samples (shard 0)
+  800/2000 games, 73795 samples (shard 0)
+  900/2000 games, 83025 samples (shard 0)
+zerosumUnknown game 'universal_poker'. Available games are:
+
+  1000/2000 games, 92341 samples (shard 0)
+  1100/2000 games, 101752 samples (shard 0)
+  1200/2000 games, 8905 samples (shard 1)
+Unknown game 'repeated_poker'. Available games are:
+  1300/2000 games, 18575 samples (shard 1)
+  1400/2000 games, 28316 samples (shard 1)
+  1500/2000 games, 38145 samples (shard 1)
+  1600/2000 games, 47387 samples (shard 1)
+  1700/2000 games, 57701 samples (shard 1)
+  1800/2000 games, 66631 samples (shard 1)
+  1900/2000 games, 76015 samples (shard 1)
+' has known issues. Please see the games list on github or the code for details.
+
+Unknown game 'universal_poker'. Available games are:
+  2000/2000 games, 84900 samples (shard 1)
+Collecting 2000 games: learner (ckpt=training/ptcg_dmc_gen4_long.pth, eps=0.1) vs 30% real bots['lucario_agent.py', 'dragapult_agent.py', 'abomasnow_agent.py', 'starmie_agent.py'], 20% pool['ptcg_dmc_gen4_long.pth'], 50% frozen main.py
+wrote training/dmc_r6_batch5.pkl.gz (64.6 MB, 101752 samples)
+wrote training/dmc_r6_batch5.part1.pkl.gz (54.4 MB, 84900 samples)
+wrote training/dmc_r6_batch5_games.csv (2000 rows)
+games=2000 learner_winrate_overall=0.185 samples=186652 shards=2
+=== COLLECTION CHUNK 5 COMPLETE ===
